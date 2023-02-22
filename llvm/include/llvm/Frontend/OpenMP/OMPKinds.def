@@ -193,6 +193,10 @@ __OMP_RTL(__kmpc_barrier, false, Void, IdentPtr, Int32)
 __OMP_RTL(__kmpc_cancel, false, Int32, IdentPtr, Int32, Int32)
 __OMP_RTL(__kmpc_cancel_barrier, false, Int32, IdentPtr, Int32)
 __OMP_RTL(__kmpc_flush, false, Void, IdentPtr)
+// ifdef DK
+__OMP_RTL(__kmpc_ftvote, false, Void, IdentPtr, IdentPtr, Int32)
+__OMP_RTL(__kmpc_dkflush, false, Void, IdentPtr)
+// endif
 __OMP_RTL(__kmpc_global_thread_num, false, Int32, IdentPtr)
 __OMP_RTL(__kmpc_get_hardware_thread_id_in_block, false, Int32, )
 __OMP_RTL(__kmpc_fork_call, true, Void, IdentPtr, Int32, ParallelTaskPtr)
@@ -616,6 +620,10 @@ __OMP_RTL_ATTRS(__kmpc_cancel_barrier, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_flush, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
+// ifdef DK
+__OMP_RTL_ATTRS(__kmpc_dkflush, BarrierAttrs, AttributeSet(),
+                ParamAttrs(ReadOnlyPtrAttrs))
+// endif
 __OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_fork_call, ForkAttrs, AttributeSet(),

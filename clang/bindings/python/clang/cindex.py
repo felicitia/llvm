@@ -1230,6 +1230,12 @@ CursorKind.OMP_TASKWAIT_DIRECTIVE = CursorKind(245)
 # OpenMP flush directive.
 CursorKind.OMP_FLUSH_DIRECTIVE = CursorKind(246)
 
+# ifdef DK
+# OpenMP flush directive.
+CursorKind.OMP_DKFLUSH_DIRECTIVE = CursorKind(304)
+CursorKind.OMP_DKFLUSH_DIRECTIVE = CursorKind(305)
+# endif
+
 # Windows Structured Exception Handling's leave statement.
 CursorKind.SEH_LEAVE_STMT = CursorKind(247)
 

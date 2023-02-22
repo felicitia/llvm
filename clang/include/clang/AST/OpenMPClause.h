@@ -43,6 +43,8 @@
 #include <iterator>
 #include <utility>
 
+#define __DK
+
 namespace clang {
 
 class ASTContext;
@@ -3028,6 +3030,379 @@ public:
   }
 };
 
+// ifdef __DK
+/// This represents clause 'shared' in the '#pragma omp ...' directives.
+///
+/// \code
+/// #pragma omp parallel var(a,b)
+/// \endcode
+/// In this example directive '#pragma omp parallel' has clause 'var'
+/// with the variables 'a' and 'b'.
+class OMPFTVarClause final
+    : public OMPVarListClause<OMPFTVarClause>,
+      private llvm::TrailingObjects<OMPFTVarClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  unsigned NumSizes;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPFTVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPFTVarClause>(llvm::omp::OMPC_ftvar, StartLoc,
+                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPFTVarClause(unsigned N)
+      : OMPVarListClause<OMPFTVarClause>(llvm::omp::OMPC_ftvar,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+  MutableArrayRef<Expr *> getSizes() {
+    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
+  }
+  ArrayRef<const Expr *> getSizes() const {
+    return llvm::makeArrayRef(varlist_end(), varlist_size());
+  }
+
+  void setSizes(ArrayRef<Expr *> SL);
+
+public:
+  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
+  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
+  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
+  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
+
+  sizelist_range sizelists() {
+    return sizelist_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_const_range sizelists() const {
+    return sizelist_const_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
+  sizelist_iterator sizelist_end() { return getSizes().end(); }
+  
+  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
+  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
+  
+
+  unsigned sizelist_size() const { return NumSizes; }
+  bool sizelist_empty() const { return NumSizes == 0; }
+
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPFTVarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPFTVarClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPFTVarClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_ftvar;
+  }
+};
+
+class OMPVarClause final
+    : public OMPVarListClause<OMPVarClause>,
+      private llvm::TrailingObjects<OMPVarClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  unsigned NumSizes;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_ftvar, StartLoc,
+                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPVarClause(unsigned N)
+      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_ftvar,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+  MutableArrayRef<Expr *> getSizes() {
+    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
+  }
+  ArrayRef<const Expr *> getSizes() const {
+    return llvm::makeArrayRef(varlist_end(), varlist_size());
+  }
+
+  void setSizes(ArrayRef<Expr *> SL);
+
+public:
+  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
+  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
+  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
+  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
+
+  sizelist_range sizelists() {
+    return sizelist_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_const_range sizelists() const {
+    return sizelist_const_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
+  sizelist_iterator sizelist_end() { return getSizes().end(); }
+  
+  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
+  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
+  
+
+  unsigned sizelist_size() const { return NumSizes; }
+  bool sizelist_empty() const { return NumSizes == 0; }
+
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPVarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPVarClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPVarClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_shared;
+  }
+};
+class OMPRvarClause final
+    : public OMPVarListClause<OMPRvarClause>,
+      private llvm::TrailingObjects<OMPRvarClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  unsigned NumSizes;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPRvarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_ftvar, StartLoc,
+                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPRvarClause(unsigned N)
+      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_ftvar,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+  MutableArrayRef<Expr *> getSizes() {
+    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
+  }
+  ArrayRef<const Expr *> getSizes() const {
+    return llvm::makeArrayRef(varlist_end(), varlist_size());
+  }
+
+  void setSizes(ArrayRef<Expr *> SL);
+
+public:
+  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
+  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
+  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
+  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
+
+  sizelist_range sizelists() {
+    return sizelist_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_const_range sizelists() const {
+    return sizelist_const_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
+  sizelist_iterator sizelist_end() { return getSizes().end(); }
+  
+  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
+  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
+  
+
+  unsigned sizelist_size() const { return NumSizes; }
+  bool sizelist_empty() const { return NumSizes == 0; }
+
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPRvarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPRvarClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPRvarClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_shared;
+  }
+};
+
+class OMPDegreeClause: public OMPClause, public OMPClauseWithPreInit {
+  friend class OMPClauseReader;
+
+  /// Location of '('.
+  SourceLocation LParenLoc;
+
+  /// Condition of the 'num_threads' clause.
+  Stmt *Degree = nullptr;
+
+  /// Set condition.
+  void setDegree (Expr *NDegree ) { Degree = NDegree; }
+
+public:
+  /// Build 'degree' clause with condition \a Degree.
+  ///
+  /// \param Degree degrees for the NMR.
+  /// \param HelperDegree Helper thread for the construct.
+  /// \param CaptureRegion Innermost OpenMP region where expressions in this
+  /// clause must be captured.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  OMPDegreeClause(Expr *Degree, Stmt *HelperDegree,
+                      OpenMPDirectiveKind CaptureRegion,
+                      SourceLocation StartLoc, SourceLocation LParenLoc,
+                      SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_degree, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc),
+        Degree(Degree) {
+    setPreInitStmt(HelperDegree, CaptureRegion);
+  }
+
+  /// Build an empty clause.
+  OMPDegreeClause()
+      : OMPClause(llvm::omp::OMPC_degree, SourceLocation(),
+                  SourceLocation()),
+        OMPClauseWithPreInit(this) {}
+
+  /// Sets the location of '('.
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  /// Returns the location of '('.
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+
+  /// Returns number of threads.
+  Expr *getDegree() const { return cast_or_null<Expr>(Degree); }
+
+  child_range children() { return child_range(&Degree , &Degree + 1); }
+
+  const_child_range children() const {
+    return const_child_range(&Degree, &Degree + 1);
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_degree;
+  }
+};
+// endif DK
+
 /// This represents clause 'reduction' in the '#pragma omp ...'
 /// directives.
 ///
@@ -4566,6 +4941,184 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_copyprivate;
   }
 };
+
+#ifdef __DK
+/// This represents implicit clause 'flush' for the '#pragma omp flush'
+/// directive.
+/// This clause does not exist by itself, it can be only as a part of 'omp
+/// flush' directive. This clause is introduced to keep the original structure
+/// of \a OMPExecutableDirective class and its derivatives and to use the
+/// existing infrastructure of clauses with the list of variables.
+///
+/// \code
+/// #pragma omp flush(a,b)
+/// \endcode
+/// In this example directive '#pragma omp flush' has implicit clause 'flush'
+/// with the variables 'a' and 'b'.
+class OMPDKFlushClause final
+    : public OMPVarListClause<OMPDKFlushClause>,
+      private llvm::TrailingObjects<OMPDKFlushClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPDKFlushClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                 SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPDKFlushClause>(llvm::omp::OMPC_dkflush, StartLoc,
+                                         LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPDKFlushClause(unsigned N)
+      : OMPVarListClause<OMPDKFlushClause>(llvm::omp::OMPC_dkflush,
+                                         SourceLocation(), SourceLocation(),
+                                         SourceLocation(), N) {}
+
+public:
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPDKFlushClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                SourceLocation LParenLoc, SourceLocation EndLoc,
+                                ArrayRef<Expr *> VL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPDKFlushClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPDKFlushClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_dkflush;
+  }
+};
+class OMPVoteClause final
+    : public OMPVarListClause<OMPVoteClause>,
+      private llvm::TrailingObjects<OMPVoteClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  unsigned NumSizes;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPVoteClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPVoteClause>(llvm::omp::OMPC_vote, StartLoc,
+                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPVoteClause(unsigned N)
+      : OMPVarListClause<OMPVoteClause>(llvm::omp::OMPC_vote,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+  MutableArrayRef<Expr *> getSizes() {
+    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
+  }
+  ArrayRef<const Expr *> getSizes() const {
+    return llvm::makeArrayRef(varlist_end(), varlist_size());
+  }
+
+  void setSizes(ArrayRef<Expr *> SL);
+
+public:
+  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
+  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
+  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
+  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
+
+  sizelist_range sizelists() {
+    return sizelist_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_const_range sizelists() const {
+    return sizelist_const_range(sizelist_begin(), sizelist_end());
+  }
+  
+  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
+  sizelist_iterator sizelist_end() { return getSizes().end(); }
+  
+  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
+  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
+  
+
+  unsigned sizelist_size() const { return NumSizes; }
+  bool sizelist_empty() const { return NumSizes == 0; }
+
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPVoteClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPVoteClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPVoteClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_vote;
+  }
+};
+#endif
 
 /// This represents implicit clause 'flush' for the '#pragma omp flush'
 /// directive.

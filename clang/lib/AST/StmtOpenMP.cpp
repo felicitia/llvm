@@ -278,6 +278,27 @@ OMPMetaDirective *OMPMetaDirective::CreateEmpty(const ASTContext &C,
                                                 /*NumChildren=*/1);
 }
 
+// ifdef DK
+OMPFTDirective *OMPFTDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *TaskRedRef,
+    bool HasCancel) {
+  auto *Dir = createDirective<OMPFTDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/1, StartLoc, EndLoc);
+  Dir->setTaskReductionRefExpr(TaskRedRef);
+  Dir->setHasCancel(HasCancel);
+  return Dir;
+}
+
+OMPFTDirective *OMPFTDirective::CreateEmpty(const ASTContext &C,
+                                                        unsigned NumClauses,
+                                                        EmptyShell) {
+  return createEmptyDirective<OMPFTDirective>(C, NumClauses,
+                                                    /*HasAssociatedStmt=*/true,
+                                                    /*NumChildren=*/1);
+}
+// endif
+
 OMPParallelDirective *OMPParallelDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *TaskRedRef,
@@ -815,6 +836,38 @@ OMPFlushDirective *OMPFlushDirective::CreateEmpty(const ASTContext &C,
   return createEmptyDirective<OMPFlushDirective>(C, NumClauses);
 }
 
+// ifdef DK
+OMPDKFlushDirective *OMPDKFlushDirective::Create(const ASTContext &C,
+                                             SourceLocation StartLoc,
+                                             SourceLocation EndLoc,
+                                             ArrayRef<OMPClause *> Clauses) {
+  return createDirective<OMPDKFlushDirective>(
+      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
+      EndLoc);
+}
+
+OMPDKFlushDirective *OMPDKFlushDirective::CreateEmpty(const ASTContext &C,
+                                                  unsigned NumClauses,
+                                                  EmptyShell) {
+  return createEmptyDirective<OMPDKFlushDirective>(C, NumClauses);
+}
+
+OMPVoteDirective *OMPVoteDirective::Create(const ASTContext &C,
+                                             SourceLocation StartLoc,
+                                             SourceLocation EndLoc,
+                                             ArrayRef<OMPClause *> Clauses) {
+  return createDirective<OMPVoteDirective>(
+      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
+      EndLoc);
+}
+
+OMPVoteDirective *OMPVoteDirective::CreateEmpty(const ASTContext &C,
+                                                  unsigned NumClauses,
+                                                  EmptyShell) {
+  return createEmptyDirective<OMPVoteDirective>(C, NumClauses);
+}
+
+// endif
 OMPDepobjDirective *OMPDepobjDirective::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
                                                SourceLocation EndLoc,

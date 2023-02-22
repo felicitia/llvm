@@ -34,6 +34,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/AtomicOrdering.h"
+
+#include "clang/ASTMatchers/ASTMatchFinder.h"
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
@@ -301,6 +303,24 @@ LValue CodeGenFunction::EmitOMPSharedLValue(const Expr *E) {
   }
   return EmitLValue(E);
 }
+
+// ifdef DK
+LValue CodeGenFunction::EmitOMPFTVarLValue(const Expr *E) {
+  if (const auto *OrigDRE = dyn_cast<DeclRefExpr>(E)) {
+    if (const auto *OrigVD = dyn_cast<VarDecl>(OrigDRE->getDecl())) {
+      OrigVD = OrigVD->getCanonicalDecl();
+      bool IsCaptured =
+          LambdaCaptureFields.lookup(OrigVD) ||
+          (CapturedStmtInfo && CapturedStmtInfo->lookup(OrigVD)) ||
+          (CurCodeDecl && isa<BlockDecl>(CurCodeDecl));
+      DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD), IsCaptured,
+                      OrigDRE->getType(), VK_LValue, OrigDRE->getExprLoc());
+      return EmitLValue(&DRE);
+    }
+  }
+  return EmitLValue(E);
+}
+// endif
 
 llvm::Value *CodeGenFunction::getTypeSize(QualType Ty) {
   ASTContext &C = getContext();
@@ -1207,6 +1227,9 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
   for (const auto *C : D.getClausesOfKind<OMPReductionClause>()) {
     if (ForInscan != (C->getModifier() == OMPC_REDUCTION_inscan))
       continue;
+    // ifdef DK
+    //FTVars.append(C->varlist_begin(), C->varlist_end());
+    // endif
     Shareds.append(C->varlist_begin(), C->varlist_end());
     Privates.append(C->privates().begin(), C->privates().end());
     ReductionOps.append(C->reduction_ops().begin(), C->reduction_ops().end());
@@ -1301,6 +1324,11 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_parallel:
       TaskRedRef = cast<OMPParallelDirective>(D).getTaskReductionRefExpr();
       break;
+      // ifdef DK
+    case OMPD_ft:
+      TaskRedRef = cast<OMPFTDirective>(D).getTaskReductionRefExpr();
+      break;
+      // endif
     case OMPD_for:
       TaskRedRef = cast<OMPForDirective>(D).getTaskReductionRefExpr();
       break;
@@ -1351,6 +1379,9 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_taskwait:
     case OMPD_taskgroup:
     case OMPD_flush:
+// #ifdef DK
+    case OMPD_dkflush:
+// #endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_ordered:
@@ -1536,6 +1567,51 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
       CGF, S, PrivateDecls);
 }
 
+static void emitVoteStmt(CodeGenFunction &CGF, const OMPFTVarClause * VClause, const Stmt *S) {
+   if (VClause == nullptr) return;
+   int i = -1;
+    // traverse list of var:size
+   for (const Expr *Ref : VClause->varlists()) {
+     i++;
+     Address Varaddr = CGF.EmitLValue(Ref).getAddress(CGF);
+     int j = -1;
+     for (const Expr *RefSize : VClause->sizelists()) {
+       j++;
+       bool generate_code = false;
+       bool generate_code_before = false;
+       bool generate_code_after = false;
+       if (i == j) {
+	 if (S != nullptr) {
+           generate_code = true;
+           // check if the variable is in the statement
+	 } else {
+           if ( 1 /*AST_POLYMORPHIC_MATCHER_P(CurStmt,
+                          AST_POLYMORPHIC_SUPPORTED_TYPES(
+                              BinaryOperator, CXXOperatorCallExpr,
+                              CXXRewrittenBinaryOperator, ArraySubscriptExpr),
+                          Ref, InnerMatcher) */ ) // match!
+               generate_code = true;
+	   else
+               generate_code = false;
+	 }
+	 if (generate_code) {
+           llvm::Value *Varsize;
+           if (RefSize == nullptr) {
+             Varsize = CGF.getTypeSize(Ref->getType());
+           } else {
+             Varsize = CGF.EmitScalarExpr(RefSize, /*IgnoreResultAssign=*/true);
+           }
+	   if (S != nullptr && generate_code_after == true)
+             CGF.EmitStmt(S);
+           CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, Varsize, S->getBeginLoc());
+	   if (S != nullptr && generate_code_before == true)
+             CGF.EmitStmt(S);
+	 }
+      }
+    }
+  }
+}
+
 static void emitCommonOMPParallelDirective(
     CodeGenFunction &CGF, const OMPExecutableDirective &S,
     OpenMPDirectiveKind InnermostKind, const RegionCodeGenTy &CodeGen,
@@ -1557,6 +1633,11 @@ static void emitCommonOMPParallelDirective(
     CGF.CGM.getOpenMPRuntime().emitProcBindClause(
         CGF, ProcBindClause->getProcBindKind(), ProcBindClause->getBeginLoc());
   }
+    // ifdef DK
+  if (auto *FtvarClause = S.getSingleClause<OMPFTVarClause>()) {
+    emitVoteStmt(CGF, FtvarClause, nullptr);
+  }
+    // endif
   const Expr *IfCond = nullptr;
   for (const auto *C : S.getClausesOfKind<OMPIfClause>()) {
     if (C->getNameModifier() == OMPD_unknown ||
@@ -1677,6 +1758,79 @@ std::string CodeGenFunction::OMPBuilderCBHelpers::getNameWithSeparators(
   }
   return OS.str().str();
 }
+
+// ifdef DK
+void CodeGenFunction::EmitOMPFTDirective(const OMPFTDirective &S) {
+	// ft {} == nmr {}
+	// there must be an associated statement
+#if 0
+  if (CGM.getLangOpts().OpenMPIRBuilder) {
+    llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
+    if (const auto *FtvarClause = S.getSingleClause<OMPFTVarClause>()) {
+	    if (FtvarClause == nullptr) return;
+      emitVoteStmt(CGM.CGF, FtvarClause, nullptr);
+    }
+  }
+#endif
+  const auto *FtvarClause = S.getSingleClause<OMPFTVarClause>();
+//  for (auto *CurStmt: S.getAssociatedStmt()) {
+    auto *CurStmt = S.getAssociatedStmt(); 
+ // reference EmitSimpleStmt()
+    EnsureInsertPoint();
+    if (isa<Stmt>(CurStmt) || isa<DeclStmt>(CurStmt)) {
+      emitVoteStmt(*this, FtvarClause, CurStmt);
+    } else
+      EmitStmt(CurStmt);
+//  }
+#if 0
+AST_POLYMORPHIC_MATCHER_P(hasRHS,
+                          AST_POLYMORPHIC_SUPPORTED_TYPES(
+                              BinaryOperator, CXXOperatorCallExpr,
+                              CXXRewrittenBinaryOperator, ArraySubscriptExpr),
+                          Ref, InnerMatcher) ;
+AST_POLYMORPHIC_MATCHER_P(
+    hasEitherOperand,
+    AST_POLYMORPHIC_SUPPORTED_TYPES(BinaryOperator, CXXOperatorCallExpr,
+                                    CXXRewrittenBinaryOperator),
+    internal::Matcher<Expr>, InnerMatcher) ;
+#endif
+}
+
+void CodeGenFunction::EmitOMPVoteDirective(const OMPVoteDirective &S) {
+	// no associated statement
+  if (CGM.getLangOpts().OpenMPIRBuilder) {
+    llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
+    if (const auto *FtvarClause = S.getSingleClause<OMPVoteClause>()) {
+	    if (FtvarClause == nullptr) return;
+      int i = -1;
+      // traverse list of var:size
+      for (const Expr *Ref : FtvarClause->varlists()) {
+        i++;
+	Address Varaddr = EmitLValue(Ref).getAddress(*this);
+	int j = -1;
+        for (const Expr *RefSize : FtvarClause->sizelists()) {
+          j++;
+	  if (i == j) {
+	    llvm::Value *Varsize;
+	    if (RefSize == nullptr) {
+              Varsize = getTypeSize(Ref->getType());
+	    } else {
+              Varsize = EmitScalarExpr(RefSize, /*IgnoreResultAssign=*/true);
+	    }
+	    CGM.getOpenMPRuntime().emitFTVoteClause(*this, Varaddr, Varsize, S.getBeginLoc());
+	  }
+        }
+      }
+    }
+  }
+    // for variables in var_list
+    //    Address Var_addr = 
+    //    llvm::Value *Var_size = CGF.EmitScalarExpr(, /*IgnoreResultAssign=*/true);
+    //    CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Var_addr, Var_size, );
+    // call emitFTVoteClause
+}
+// DK
+
 void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
   if (CGM.getLangOpts().OpenMPIRBuilder) {
     llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
@@ -5048,6 +5202,23 @@ void CodeGenFunction::EmitOMPFlushDirective(const OMPFlushDirective &S) {
       S.getBeginLoc(), AO);
 }
 
+// #ifdef DK
+void CodeGenFunction::EmitOMPDKFlushDirective(const OMPDKFlushDirective &S) {
+  llvm::AtomicOrdering AO = S.getSingleClause<OMPDKFlushClause>()
+                                ? llvm::AtomicOrdering::NotAtomic
+                                : llvm::AtomicOrdering::AcquireRelease;
+  CGM.getOpenMPRuntime().emitDKFlush(
+      *this,
+      [&S]() -> ArrayRef<const Expr *> {
+        if (const auto *DKFlushClause = S.getSingleClause<OMPDKFlushClause>())
+          return llvm::makeArrayRef(DKFlushClause->varlist_begin(),
+                                    DKFlushClause->varlist_end());
+        return llvm::None;
+      }(),
+      S.getBeginLoc(), AO);
+}
+// #endif
+
 void CodeGenFunction::EmitOMPDepobjDirective(const OMPDepobjDirective &S) {
   const auto *DO = S.getSingleClause<OMPDepobjClause>();
   LValue DOLVal = EmitLValue(DO->getDepobj());
@@ -6142,6 +6313,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_copyin:
   case OMPC_copyprivate:
   case OMPC_flush:
+// #ifdef DK
+  case OMPC_dkflush:
+// #endif
   case OMPC_depobj:
   case OMPC_proc_bind:
   case OMPC_schedule:

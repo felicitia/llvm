@@ -3498,6 +3498,9 @@ public:
                                        OMPTargetDataInfo &InputInfo);
 
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
+// ifdef DK
+  void EmitOMPFTDirective(const OMPFTDirective &S);
+//
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
   void EmitOMPTileDirective(const OMPTileDirective &S);
@@ -3520,6 +3523,10 @@ public:
   void EmitOMPTaskwaitDirective(const OMPTaskwaitDirective &S);
   void EmitOMPTaskgroupDirective(const OMPTaskgroupDirective &S);
   void EmitOMPFlushDirective(const OMPFlushDirective &S);
+  // ifdef DK
+  void EmitOMPDKFlushDirective(const OMPDKFlushDirective &S);
+  void EmitOMPVoteDirective(const OMPVoteDirective &S);
+  // endif
   void EmitOMPDepobjDirective(const OMPDepobjDirective &S);
   void EmitOMPScanDirective(const OMPScanDirective &S);
   void EmitOMPOrderedDirective(const OMPOrderedDirective &S);
@@ -3669,7 +3676,10 @@ public:
 
   /// Emits the lvalue for the expression with possibly captured variable.
   LValue EmitOMPSharedLValue(const Expr *E);
-
+  // ifdef DK
+  LValue EmitOMPFTVarLValue(const Expr *E);
+  // endif
+  //
 private:
   /// Helpers for blocks.
   llvm::Value *EmitBlockLiteral(const CGBlockInfo &Info);

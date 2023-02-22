@@ -157,6 +157,12 @@ private:
   LValue emitSharedLValue(CodeGenFunction &CGF, const Expr *E);
   /// Emits upper bound for shared expression (if array section).
   LValue emitSharedLValueUB(CodeGenFunction &CGF, const Expr *E);
+  // ifdef DK
+  /// Emits lvalue for shared expression.
+  LValue emitFTVarLValue(CodeGenFunction &CGF, const Expr *E);
+  /// Emits upper bound for shared expression (if array section).
+  LValue emitFTVarLValueUB(CodeGenFunction &CGF, const Expr *E);
+  // endif
   /// Performs aggregate initialization.
   /// \param N Number of reduction item in the common list.
   /// \param PrivateAddr Address of the corresponding private item.
@@ -1283,6 +1289,15 @@ public:
                                     llvm::Value *NumThreads,
                                     SourceLocation Loc);
 
+  // ifdef DK
+  virtual void emitDegreeClause(CodeGenFunction &CGF,
+                                    llvm::Value *Degree,
+                                    SourceLocation Loc);
+  virtual void emitFTVoteClause(CodeGenFunction &CGF, Address IL, 
+		  	    llvm::Value *VarSize,
+                            SourceLocation Loc);
+  //
+
   /// Emit call to void __kmpc_push_proc_bind(ident_t *loc, kmp_int32
   /// global_tid, int proc_bind) to generate code for 'proc_bind' clause.
   virtual void emitProcBindClause(CodeGenFunction &CGF,
@@ -1338,6 +1353,11 @@ public:
   virtual void emitFlush(CodeGenFunction &CGF, ArrayRef<const Expr *> Vars,
                          SourceLocation Loc, llvm::AtomicOrdering AO);
 
+  /// ifdef DK
+  virtual void emitDKFlush(CodeGenFunction &CGF, ArrayRef<const Expr *> Vars,
+                         SourceLocation Loc, llvm::AtomicOrdering AO);
+  /// endif
+  //
   /// Emit task region for the task directive. The task region is
   /// emitted in several steps:
   /// 1. Emit a call to kmp_task_t *__kmpc_omp_task_alloc(ident_t *, kmp_int32
@@ -2175,6 +2195,13 @@ public:
   /// \param NumThreads An integer value of threads.
   void emitNumThreadsClause(CodeGenFunction &CGF, llvm::Value *NumThreads,
                             SourceLocation Loc) override;
+// ifdef DK
+  void emitDegreeClause(CodeGenFunction &CGF, llvm::Value *Degree,
+                            SourceLocation Loc) override;
+  void emitFTVoteClause(CodeGenFunction &CGF, Address IL, 
+		  	    llvm::Value *VarSize,
+                            SourceLocation Loc) override;
+//
 
   /// Emit call to void __kmpc_push_proc_bind(ident_t *loc, kmp_int32
   /// global_tid, int proc_bind) to generate code for 'proc_bind' clause.

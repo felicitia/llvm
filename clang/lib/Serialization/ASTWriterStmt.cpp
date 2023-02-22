@@ -2214,6 +2214,16 @@ void ASTStmtWriter::VisitOMPParallelDirective(OMPParallelDirective *D) {
   Code = serialization::STMT_OMP_PARALLEL_DIRECTIVE;
 }
 
+//ifdef DK
+void ASTStmtWriter::VisitOMPFTDirective(OMPFTDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Record.writeBool(D->hasCancel());
+  Code = serialization::STMT_OMP_FT_DIRECTIVE;
+}
+
+//
+
 void ASTStmtWriter::VisitOMPSimdDirective(OMPSimdDirective *D) {
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_SIMD_DIRECTIVE;
@@ -2391,6 +2401,18 @@ void ASTStmtWriter::VisitOMPFlushDirective(OMPFlushDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_FLUSH_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPDKFlushDirective(OMPDKFlushDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_DKFLUSH_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPVoteDirective(OMPVoteDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_VOTE_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPDepobjDirective(OMPDepobjDirective *D) {

@@ -163,6 +163,9 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_untied:
   case OMPC_mergeable:
   case OMPC_flush:
+// #ifdef DK
+  case OMPC_dkflush:
+// #endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -430,6 +433,9 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_untied:
   case OMPC_mergeable:
   case OMPC_flush:
+// #ifdef DK
+  case OMPC_dkflush:
+// #endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -648,6 +654,8 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_metadirective:
     CaptureRegions.push_back(OMPD_metadirective);
     break;
+  case OMPD_vote:
+  case OMPD_nmr:
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:
@@ -749,6 +757,9 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_cancellation_point:
   case OMPD_cancel:
   case OMPD_flush:
+// #ifdef DK
+  case OMPD_dkflush:
+// #endif
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_declare_reduction:

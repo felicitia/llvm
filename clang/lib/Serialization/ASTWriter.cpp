@@ -6425,6 +6425,38 @@ void OMPClauseWriter::VisitOMPSharedClause(OMPSharedClause *C) {
     Record.AddStmt(VE);
 }
 
+// ifdef DK
+void OMPClauseWriter::VisitOMPFTVarClause(OMPFTVarClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void OMPClauseWriter::VisitOMPVoteClause(OMPVoteClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void OMPClauseWriter::VisitOMPVarClause(OMPVarClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void OMPClauseWriter::VisitOMPRvarClause(OMPRvarClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void OMPClauseWriter::VisitOMPDegreeClause(OMPDegreeClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getDegree());
+  Record.AddSourceLocation(C->getLParenLoc());
+}
+// endif
+//
 void OMPClauseWriter::VisitOMPReductionClause(OMPReductionClause *C) {
   Record.push_back(C->varlist_size());
   Record.writeEnum(C->getModifier());
@@ -6564,6 +6596,15 @@ void OMPClauseWriter::VisitOMPFlushClause(OMPFlushClause *C) {
     Record.AddStmt(VE);
 }
 
+//ifdef DK
+void OMPClauseWriter::VisitOMPDKFlushClause(OMPDKFlushClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+//endif
+//
 void OMPClauseWriter::VisitOMPDepobjClause(OMPDepobjClause *C) {
   Record.AddStmt(C->getDepobj());
   Record.AddSourceLocation(C->getLParenLoc());

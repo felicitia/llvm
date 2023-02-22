@@ -677,6 +677,13 @@ void StmtPrinter::VisitOMPParallelDirective(OMPParallelDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+//ifdef DK
+void StmtPrinter::VisitOMPFTDirective(OMPFTDirective *Node) {
+  Indent() << "#pragma omp ft";
+  PrintOMPExecutableDirective(Node);
+}
+//
+
 void StmtPrinter::VisitOMPSimdDirective(OMPSimdDirective *Node) {
   Indent() << "#pragma omp simd";
   PrintOMPExecutableDirective(Node);
@@ -785,6 +792,17 @@ void StmtPrinter::VisitOMPFlushDirective(OMPFlushDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
+// ifdef DK
+void StmtPrinter::VisitOMPDKFlushDirective(OMPDKFlushDirective *Node) {
+  Indent() << "#pragma omp flush";
+  PrintOMPExecutableDirective(Node);
+}
+void StmtPrinter::VisitOMPVoteDirective(OMPVoteDirective *Node) {
+  Indent() << "#pragma omp flush";
+  PrintOMPExecutableDirective(Node);
+}
+// endif
+//
 void StmtPrinter::VisitOMPDepobjDirective(OMPDepobjDirective *Node) {
   Indent() << "#pragma omp depobj";
   PrintOMPExecutableDirective(Node);

@@ -203,6 +203,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPCanonicalLoopClass:
     EmitOMPCanonicalLoop(cast<OMPCanonicalLoop>(S));
     break;
+  case Stmt::OMPFTDirectiveClass:
+    EmitOMPFTDirective(cast<OMPFTDirective>(*S));
+    break;
+  case Stmt::OMPVoteDirectiveClass:
+    EmitOMPVoteDirective(cast<OMPVoteDirective>(*S));
+    break;
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
@@ -266,6 +272,11 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPFlushDirectiveClass:
     EmitOMPFlushDirective(cast<OMPFlushDirective>(*S));
     break;
+    // ifdef DK
+  case Stmt::OMPDKFlushDirectiveClass:
+    EmitOMPDKFlushDirective(cast<OMPDKFlushDirective>(*S));
+    break;
+    // endif
   case Stmt::OMPDepobjDirectiveClass:
     EmitOMPDepobjDirective(cast<OMPDepobjDirective>(*S));
     break;

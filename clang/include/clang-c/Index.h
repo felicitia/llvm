@@ -2612,9 +2612,18 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelGenericLoopDirective = 298,
 
+  // ifdef DK
+  /** OpenMP ft directive.
+   */
+  CXCursor_OMPFTDirective = 299,
+
+
+  CXCursor_FTNMRDirective = 300,
+  CXCursor_FTVoteDirective = 301,	/* from flush */
+  // endif
   /** OpenMP target parallel loop directive.
    */
-  CXCursor_OMPTargetParallelGenericLoopDirective = 299,
+  CXCursor_OMPTargetParallelGenericLoopDirective = 302,
 
   CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
 
@@ -2624,8 +2633,15 @@ enum CXCursorKind {
    * The translation unit cursor exists primarily to act as the root
    * cursor for traversing the contents of a translation unit.
    */
-  CXCursor_TranslationUnit = 300,
+  CXCursor_TranslationUnit = 303,
 
+/* ifdef DK */
+  /** OpenMP dkflush directive.
+   */
+  CXCursor_OMPDKFlushDirective = 304,
+  CXCursor_OMPVoteDirective = 305,
+/* endif DK */
+//
   /* Attributes */
   CXCursor_FirstAttr = 400,
   /**

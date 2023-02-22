@@ -22,6 +22,7 @@
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/SourceLocation.h"
 
+
 namespace clang {
 
 //===----------------------------------------------------------------------===//
@@ -674,6 +675,75 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPParallelDirectiveClass;
+  }
+};
+
+class OMPFTDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+  /// true if the construct has inner cancel directive.
+  bool HasCancel = false;
+
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive (directive keyword).
+  /// \param EndLoc Ending Location of the directive.
+  ///
+  OMPFTDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPFTDirectiveClass,
+                               llvm::omp::OMPD_ft, StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPFTDirective()
+      : OMPExecutableDirective(OMPFTDirectiveClass,
+                               llvm::omp::OMPD_ft, SourceLocation(),
+                               SourceLocation()) {}
+
+  /// Sets special task reduction descriptor.
+  void setTaskReductionRefExpr(Expr *E) { Data->getChildren()[0] = E; }
+
+  /// Set cancel state.
+  void setHasCancel(bool Has) { HasCancel = Has; }
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  /// \param AssociatedStmt Statement associated with the directive.
+  /// \param TaskRedRef Task reduction special reference expression to handle
+  /// taskgroup descriptor.
+  /// \param HasCancel true if this directive has inner cancel directive.
+  ///
+  static OMPFTDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *TaskRedRef,
+         bool HasCancel);
+
+  /// Creates an empty directive with the place for \a N clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPFTDirective *CreateEmpty(const ASTContext &C,
+                                           unsigned NumClauses, EmptyShell);
+
+  /// Returns special task reduction reference expression.
+  Expr *getTaskReductionRefExpr() {
+    return cast_or_null<Expr>(Data->getChildren()[0]);
+  }
+  const Expr *getTaskReductionRefExpr() const {
+    return const_cast<OMPFTDirective *>(this)->getTaskReductionRefExpr();
+  }
+
+  /// Return true if current directive has inner cancel directive.
+  bool hasCancel() const { return HasCancel; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPFTDirectiveClass;
   }
 };
 
@@ -2710,6 +2780,97 @@ public:
     return T->getStmtClass() == OMPFlushDirectiveClass;
   }
 };
+
+// #ifdef DK
+class OMPDKFlushDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending location of the directive.
+  ///
+  OMPDKFlushDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPDKFlushDirectiveClass, llvm::omp::OMPD_dkflush,
+                               StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPDKFlushDirective()
+      : OMPExecutableDirective(OMPDKFlushDirectiveClass, llvm::omp::OMPD_dkflush,
+                               SourceLocation(), SourceLocation()) {}
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses (only single OMPDKFlushClause clause is
+  /// allowed).
+  ///
+  static OMPDKFlushDirective *Create(const ASTContext &C, SourceLocation StartLoc,
+                                   SourceLocation EndLoc,
+                                   ArrayRef<OMPClause *> Clauses);
+
+  /// Creates an empty directive with the place for \a NumClauses
+  /// clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPDKFlushDirective *CreateEmpty(const ASTContext &C,
+                                        unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPDKFlushDirectiveClass;
+  }
+};
+class OMPVoteDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending location of the directive.
+  ///
+  OMPVoteDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPVoteDirectiveClass, llvm::omp::OMPD_dkflush,
+                               StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPVoteDirective()
+      : OMPExecutableDirective(OMPVoteDirectiveClass, llvm::omp::OMPD_dkflush,
+                               SourceLocation(), SourceLocation()) {}
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses (only single OMPVoteClause clause is
+  /// allowed).
+  ///
+  static OMPVoteDirective *Create(const ASTContext &C, SourceLocation StartLoc,
+                                   SourceLocation EndLoc,
+                                   ArrayRef<OMPClause *> Clauses);
+
+  /// Creates an empty directive with the place for \a NumClauses
+  /// clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPVoteDirective *CreateEmpty(const ASTContext &C,
+                                        unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPVoteDirectiveClass;
+  }
+};
+// #endif
 
 /// This represents '#pragma omp depobj' directive.
 ///

@@ -1599,6 +1599,16 @@ public:
                                             EndLoc);
   }
 
+  // ifdef DK
+  OMPClause *RebuildOMPDegreeClause(Expr *Degree,
+                                        SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDegreeClause(Degree, StartLoc,
+                                                 LParenLoc, EndLoc);
+  }
+  //
+
   /// Build a new OpenMP 'num_threads' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -1773,6 +1783,31 @@ public:
                                              EndLoc);
   }
 
+  // ifdef DK
+  /// Build a new OpenMP 'var' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPFTVarClause( OpenMPClauseKind Kind,
+		  		    ArrayRef<Expr *> VarList,
+  				    ArrayRef<Expr *> SizeList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPFTVarClause(Kind, VarList, SizeList, StartLoc, LParenLoc,
+                                             EndLoc);
+  }
+  OMPClause *RebuildOMPVoteClause( ArrayRef<Expr *> VarList,
+  				    ArrayRef<Expr *> SizeList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPVoteClause(VarList, SizeList, StartLoc, LParenLoc,
+                                             EndLoc);
+  }
+  // endif
+  // endif
+  //
   /// Build a new OpenMP 'reduction' clause.
   ///
   /// By default, performs semantic analysis to build the new statement.
@@ -1884,6 +1919,16 @@ public:
     return getSema().ActOnOpenMPFlushClause(VarList, StartLoc, LParenLoc,
                                             EndLoc);
   }
+
+//#ifdef DK
+  OMPClause *RebuildOMPDKFlushClause(ArrayRef<Expr *> VarList,
+                                   SourceLocation StartLoc,
+                                   SourceLocation LParenLoc,
+                                   SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDKFlushClause(VarList, StartLoc, LParenLoc,
+                                            EndLoc);
+  }
+//#endif
 
   /// Build a new OpenMP 'depobj' pseudo clause.
   ///
@@ -8603,6 +8648,19 @@ TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
   return Res;
 }
 
+//ifdef DK
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPFTDirective(OMPFTDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_ft, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+//
+
 template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPSimdDirective(OMPSimdDirective *D) {
@@ -8821,6 +8879,29 @@ TreeTransform<Derived>::TransformOMPFlushDirective(OMPFlushDirective *D) {
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
+
+//#ifdef DK
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPDKFlushDirective(OMPDKFlushDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_dkflush, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPVoteDirective(OMPVoteDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_dkflush, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+//#endif
 
 template <typename Derived>
 StmtResult
@@ -9763,6 +9844,76 @@ TreeTransform<Derived>::TransformOMPSharedClause(OMPSharedClause *C) {
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
+// ifdef DK
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPVoteClause(OMPVoteClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPVoteClause(Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPFTVarClause(OMPFTVarClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPFTVarClause(OMPC_ftvar, Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPRvarClause(OMPRvarClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPFTVarClause(OMPC_rvar, Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPVarClause(OMPVarClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPFTVarClause(OMPC_var, Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+// endif DK
+
 template <typename Derived>
 OMPClause *
 TreeTransform<Derived>::TransformOMPReductionClause(OMPReductionClause *C) {
@@ -9982,6 +10133,32 @@ OMPClause *TreeTransform<Derived>::TransformOMPFlushClause(OMPFlushClause *C) {
   return getDerived().RebuildOMPFlushClause(Vars, C->getBeginLoc(),
                                             C->getLParenLoc(), C->getEndLoc());
 }
+
+//#ifdef DK
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPDegreeClause(OMPDegreeClause *C) {
+  ExprResult Degree = getDerived().TransformExpr(C->getDegree());
+  if (Degree.isInvalid())
+    return nullptr;
+  return getDerived().RebuildOMPDegreeClause(
+      Degree.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *TreeTransform<Derived>::TransformOMPDKFlushClause(OMPDKFlushClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPDKFlushClause(Vars, C->getBeginLoc(),
+                                            C->getLParenLoc(), C->getEndLoc());
+}
+//#endif
 
 template <typename Derived>
 OMPClause *

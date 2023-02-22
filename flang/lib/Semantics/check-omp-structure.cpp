@@ -1175,6 +1175,13 @@ void OmpStructureChecker::Enter(const parser::OpenMPFlushConstruct &x) {
   PushContextAndClauseSets(dir.source, llvm::omp::Directive::OMPD_flush);
 }
 
+// #ifdef DK
+void OmpStructureChecker::Enter(const parser::OpenMPDKFlushConstruct &x) {
+  const auto &dir{std::get<parser::Verbatim>(x.t)};
+  PushContextAndClauseSets(dir.source, llvm::omp::Directive::OMPD_dkflush);
+}
+// #endif
+
 void OmpStructureChecker::Leave(const parser::OpenMPFlushConstruct &x) {
   if (FindClause(llvm::omp::Clause::OMPC_acquire) ||
       FindClause(llvm::omp::Clause::OMPC_release) ||
@@ -1754,6 +1761,9 @@ CHECK_SIMPLE_CLAUSE(DynamicAllocators, OMPC_dynamic_allocators)
 CHECK_SIMPLE_CLAUSE(Exclusive, OMPC_exclusive)
 CHECK_SIMPLE_CLAUSE(Final, OMPC_final)
 CHECK_SIMPLE_CLAUSE(Flush, OMPC_flush)
+// #ifdef DK
+CHECK_SIMPLE_CLAUSE(Flush, OMPC_dkflush)
+// #endif
 CHECK_SIMPLE_CLAUSE(From, OMPC_from)
 CHECK_SIMPLE_CLAUSE(Full, OMPC_full)
 CHECK_SIMPLE_CLAUSE(Hint, OMPC_hint)

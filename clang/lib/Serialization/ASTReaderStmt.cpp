@@ -2300,6 +2300,15 @@ void ASTStmtReader::VisitOMPParallelDirective(OMPParallelDirective *D) {
   D->setHasCancel(Record.readBool());
 }
 
+//ifdef DK
+void ASTStmtReader::VisitOMPFTDirective(OMPFTDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  D->setHasCancel(Record.readBool());
+}
+
+//endif
+
 void ASTStmtReader::VisitOMPSimdDirective(OMPSimdDirective *D) {
   VisitOMPLoopDirective(D);
 }
@@ -2411,6 +2420,17 @@ void ASTStmtReader::VisitOMPFlushDirective(OMPFlushDirective *D) {
   VisitOMPExecutableDirective(D);
 }
 
+// ifdef DK
+void ASTStmtReader::VisitOMPDKFlushDirective(OMPDKFlushDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+}
+void ASTStmtReader::VisitOMPVoteDirective(OMPVoteDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+}
+// endif
+//
 void ASTStmtReader::VisitOMPDepobjDirective(OMPDepobjDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
@@ -3206,7 +3226,14 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = OMPMetaDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
-
+// ifdef DK
+    case STMT_OMP_FT_DIRECTIVE:
+      S =
+        OMPFTDirective::CreateEmpty(Context,
+                                          Record[ASTStmtReader::NumStmtFields],
+                                          Empty);
+      break;
+// endif
     case STMT_OMP_PARALLEL_DIRECTIVE:
       S =
         OMPParallelDirective::CreateEmpty(Context,
@@ -3329,6 +3356,17 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 
+      // ifdef DK
+    case STMT_OMP_DKFLUSH_DIRECTIVE:
+      S = OMPDKFlushDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+    case STMT_OMP_VOTE_DIRECTIVE:
+      S = OMPVoteDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+      // endif
+      //
     case STMT_OMP_DEPOBJ_DIRECTIVE:
       S = OMPDepobjDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);

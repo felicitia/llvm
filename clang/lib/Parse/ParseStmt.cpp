@@ -403,6 +403,17 @@ Retry:
     ProhibitAttributes(Attrs);
     return HandlePragmaCaptured();
 
+    // ifdef DK
+  case tok::annot_pragma_ft:
+    // Prohibit attributes that are not FT attributes, but only before
+    // processing a #pragma ft clause.
+    ProhibitAttributes(Attrs);
+    LLVM_FALLTHROUGH;
+  case tok::annot_attr_ft:
+    // Do not prohibit attributes if they were FT attributes.
+      return ParseFTDeclarativeOrExecutableDirective(StmtCtx);
+    // endif
+    //
   case tok::annot_pragma_openmp:
     // Prohibit attributes that are not OpenMP attributes, but only before
     // processing a #pragma omp clause.

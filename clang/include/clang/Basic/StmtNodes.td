@@ -223,6 +223,9 @@ def OMPMetaDirective : StmtNode<OMPExecutableDirective>;
 def OMPLoopBasedDirective : StmtNode<OMPExecutableDirective, 1>;
 def OMPLoopDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPParallelDirective : StmtNode<OMPExecutableDirective>;
+// ifdefe DK
+def OMPFTDirective : StmtNode<OMPExecutableDirective>;
+// endif
 def OMPSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPLoopTransformationDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPTileDirective : StmtNode<OMPLoopTransformationDirective>;
@@ -244,6 +247,10 @@ def OMPBarrierDirective : StmtNode<OMPExecutableDirective>;
 def OMPTaskwaitDirective : StmtNode<OMPExecutableDirective>;
 def OMPTaskgroupDirective : StmtNode<OMPExecutableDirective>;
 def OMPFlushDirective : StmtNode<OMPExecutableDirective>;
+// ifdef DK
+def OMPDKFlushDirective : StmtNode<OMPExecutableDirective>;
+def OMPVoteDirective : StmtNode<OMPExecutableDirective>;
+// endif
 def OMPDepobjDirective : StmtNode<OMPExecutableDirective>;
 def OMPScanDirective : StmtNode<OMPExecutableDirective>;
 def OMPOrderedDirective : StmtNode<OMPExecutableDirective>;

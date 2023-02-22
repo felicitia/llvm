@@ -1239,6 +1239,9 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::SEHFinallyStmtClass:
     case Stmt::OMPCanonicalLoopClass:
     case Stmt::OMPParallelDirectiveClass:
+	    // ifdef DK
+    case Stmt::OMPFTDirectiveClass:
+	    // endif
     case Stmt::OMPSimdDirectiveClass:
     case Stmt::OMPForDirectiveClass:
     case Stmt::OMPForSimdDirectiveClass:
@@ -1257,6 +1260,9 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPTaskwaitDirectiveClass:
     case Stmt::OMPTaskgroupDirectiveClass:
     case Stmt::OMPFlushDirectiveClass:
+	    // ifdef DK
+    case Stmt::OMPDKFlushDirectiveClass:
+	    // endif
     case Stmt::OMPDepobjDirectiveClass:
     case Stmt::OMPScanDirectiveClass:
     case Stmt::OMPOrderedDirectiveClass:

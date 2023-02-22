@@ -553,6 +553,13 @@ public:
   /// \param Loc The location where the flush directive was encountered
   void createFlush(const LocationDescription &Loc);
 
+  // ifdef DK
+  // void createFtvote(const LocationDescription &Loc, llvm::Value * var, llvm::Value * varsize);
+  /// \param Loc The location where the flush directive was encountered
+  void createDKFlush(const LocationDescription &Loc);
+  void createVote(const LocationDescription &Loc);
+  // endif
+  //
   /// Generator for '#omp taskwait'
   ///
   /// \param Loc The location where the taskwait directive was encountered.
@@ -750,6 +757,10 @@ public:
   ///
   /// \param Loc The location at which the request originated and is fulfilled.
   void emitFlush(const LocationDescription &Loc);
+
+  // ifdef DK
+  // void emitFtvote(const LocationDescription &Loc, llvm::Value * var, llvm::Value * varsize);
+  // endif
 
   /// The finalization stack made up of finalize callbacks currently in-flight,
   /// wrapped into FinalizationInfo objects that reference also the finalization

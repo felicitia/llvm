@@ -82,6 +82,28 @@ def OMPC_Shared : Clause<"shared"> {
   let clangClass = "OMPSharedClause";
   let flangClass = "OmpObjectList";
 }
+// ifdef DK
+def OMPC_FTVar: Clause<"ftvar"> {
+  let clangClass = "OMPFTVarClause";
+  let flangClass = "OmpObjectList";
+}
+def OMPC_Vote: Clause<"vote"> {
+  let clangClass = "OMPVoteClause";
+  let flangClass = "OmpObjectList";
+}
+def OMPC_Var: Clause<"var"> {	/* DK: TODO */
+  let clangClass = "OMPVarClause";
+  let flangClass = "OmpObjectList";
+}
+def OMPC_Rvar: Clause<"rvar"> {	/* DK: TODO */
+  let clangClass = "OMPRvarClause";
+  let flangClass = "OmpObjectList";
+}
+def OMPC_Degree: Clause<"degree"> {	/* DK: TODO */
+  let clangClass = "OMPDegreeClause";
+  let flangClass = "OmpObjectList";
+}
+// endif
 def OMPC_Reduction : Clause<"reduction"> {
   let clangClass = "OMPReductionClause";
   let flangClass = "OmpReductionClause";
@@ -351,6 +373,12 @@ def OMPC_Flush : Clause<"flush"> {
   let clangClass = "OMPFlushClause";
   let isImplicit = true;
 }
+// ifdef DK
+def OMPC_DKFlush : Clause<"dkflush"> {
+  let clangClass = "OMPDKFlushClause";
+  let isImplicit = true;
+}
+// endif
 def OMPC_ThreadPrivate : Clause<"threadprivate"> {
   let alternativeName = "threadprivate or thread local";
   let isImplicit = true;
@@ -383,11 +411,33 @@ def OMPC_Bind : Clause<"bind"> {
 //===----------------------------------------------------------------------===//
 
 def OMP_ThreadPrivate : Directive<"threadprivate"> {}
+// ifdef DK
+def OMP_Ft : Directive<"ft"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_FTVar>,
+  ];
+}
+def OMP_Nmr : Directive<"nmr"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Var>,
+    VersionedClause<OMPC_Rvar>,
+    VersionedClause<OMPC_Degree>,
+  ];
+}
+def OMP_Vote : Directive<"vote"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Var>,
+  ];
+}
+// endif
 def OMP_Parallel : Directive<"parallel"> {
   let allowedClauses = [
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_Shared>,
+// ifdef DK
+    VersionedClause<OMPC_FTVar>,
+// endif
     VersionedClause<OMPC_Reduction>,
     VersionedClause<OMPC_Copyin>,
     VersionedClause<OMPC_Allocate>
@@ -527,6 +577,18 @@ def OMP_Flush : Directive<"flush"> {
     VersionedClause<OMPC_Flush>
   ];
 }
+// ifdef DK
+def OMP_DKFlush : Directive<"dkflush"> {
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_AcqRel, 50>,
+    VersionedClause<OMPC_Acquire, 50>,
+    VersionedClause<OMPC_Release, 50>,
+    // TODO This should ne `none` instead. Comment carried over from
+    // OMPKinds.def.
+    VersionedClause<OMPC_DKFlush>
+  ];
+}
+// endif
 def OMP_Ordered : Directive<"ordered"> {
   let allowedClauses = [
     VersionedClause<OMPC_Depend>
@@ -1334,6 +1396,9 @@ def OMP_TeamsDistributeParallelDo :
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_LastPrivate>,
     VersionedClause<OMPC_Shared>,
+// ifdef DK
+    VersionedClause<OMPC_FTVar>,
+// endif
     VersionedClause<OMPC_Reduction>,
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_Copyin>,

@@ -181,6 +181,9 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> FPContractHandler;
   std::unique_ptr<PragmaHandler> OpenCLExtensionHandler;
   std::unique_ptr<PragmaHandler> OpenMPHandler;
+  // ifdef DK
+  std::unique_ptr<PragmaHandler> FTHandler;
+  // endif
   std::unique_ptr<PragmaHandler> PCSectionHandler;
   std::unique_ptr<PragmaHandler> MSCommentHandler;
   std::unique_ptr<PragmaHandler> MSDetectMismatchHandler;
@@ -1220,6 +1223,14 @@ public:
     tok::TokenKind TokArray[] = {T1, T2, T3};
     return SkipUntil(TokArray, Flags);
   }
+  // ifdef DK
+  bool SkipUntil(tok::TokenKind T1, tok::TokenKind T2, tok::TokenKind T3,
+		  tok::TokenKind T4,
+                 SkipUntilFlags Flags = static_cast<SkipUntilFlags>(0)) {
+    tok::TokenKind TokArray[] = {T1, T2, T3, T4};
+    return SkipUntil(TokArray, Flags);
+  }
+  // endif
   bool SkipUntil(ArrayRef<tok::TokenKind> Toks,
                  SkipUntilFlags Flags = static_cast<SkipUntilFlags>(0));
 
@@ -3196,6 +3207,11 @@ private:
                             SourceLocation FoundLoc,
                             bool SkipUntilOpenMPEnd);
 
+  /// Parses declarative FT directives.
+  DeclGroupPtrTy ParseFTDeclarativeDirectiveWithExtDecl(
+      AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
+      DeclSpec::TST TagType = DeclSpec::TST_unspecified,
+      Decl *TagDecl = nullptr);
   /// Parses declarative OpenMP directives.
   DeclGroupPtrTy ParseOpenMPDeclarativeDirectiveWithExtDecl(
       AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
@@ -3230,6 +3246,14 @@ private:
       const llvm::function_ref<void(CXXScopeSpec &, DeclarationNameInfo)> &
           Callback,
       bool AllowScopeSpecifier);
+
+  // ifdef DK
+  StmtResult ParseFTDeclarativeOrExecutableDirective(
+      ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
+  OMPClause *ParseFTClause(OpenMPDirectiveKind mDKind,
+                               OpenMPClauseKind CKind, bool FirstClause);
+  // endif
+  
   /// Parses declarative or executable directive.
   ///
   /// \param StmtCtx The context in which we're parsing the directive.
@@ -3296,7 +3320,11 @@ private:
   ///
   OMPClause *ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
-
+  // ifdef DK
+  OMPClause *ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
+                                      OpenMPClauseKind Kind, bool ParseOnly);
+  // endif
+  
   /// Parses and creates OpenMP 5.0 iterators expression:
   /// <iterators> = 'iterator' '(' { [ <iterator-type> ] identifier =
   /// <range-specification> }+ ')'
@@ -3351,13 +3379,23 @@ public:
                           bool AllowDestructorName, bool AllowConstructorName,
                           bool AllowDeductionGuide,
                           SourceLocation *TemplateKWLoc, UnqualifiedId &Result);
-
+  // ifdef DK
+  bool ParseOpenMPVarSizeList(OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
+                          SmallVectorImpl<Expr *> &Vars,
+                          OpenMPVarListDataTy &Data,
+                          SmallVectorImpl<Expr *> &Sizes,
+                          OpenMPVarListDataTy &DataSizes);
+  // endif
+  //
   /// Parses the mapper modifier in map, to, and from clauses.
   bool parseMapperModifier(OpenMPVarListDataTy &Data);
   /// Parses map-type-modifiers in map clause.
   /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
   /// where, map-type-modifier ::= always | close | mapper(mapper-identifier)
   bool parseMapTypeModifiers(OpenMPVarListDataTy &Data);
+  // ifdef DK
+  bool parseFtvarTypeModifiers(OpenMPVarListDataTy &Data);
+  // endif
 
 private:
   //===--------------------------------------------------------------------===//

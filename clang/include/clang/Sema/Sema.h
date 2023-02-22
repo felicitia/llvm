@@ -10613,6 +10613,9 @@ public:
 
   ExprResult PerformOpenMPImplicitIntegerConversion(SourceLocation OpLoc,
                                                     Expr *Op);
+  void StartFTDSABlock(OpenMPDirectiveKind K,
+                           const DeclarationNameInfo &DirName, Scope *CurScope,
+                           SourceLocation Loc);
   /// Called on start of new data sharing attribute block.
   void StartOpenMPDSABlock(OpenMPDirectiveKind K,
                            const DeclarationNameInfo &DirName, Scope *CurScope,
@@ -10788,6 +10791,15 @@ public:
       OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
       OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
       Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
+  // ifdef DK
+  StmtResult ActOnOpenMPFTDirective(ArrayRef<OMPClause *> Clauses,
+                                          Stmt *AStmt,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  StmtResult ActOnOpenMPVoteDirective(ArrayRef<OMPClause *> Clauses,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  // endif
   /// Called on well-formed '\#pragma omp parallel' after parsing
   /// of the  associated statement.
   StmtResult ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
@@ -10893,6 +10905,11 @@ public:
   StmtResult ActOnOpenMPFlushDirective(ArrayRef<OMPClause *> Clauses,
                                        SourceLocation StartLoc,
                                        SourceLocation EndLoc);
+  /// ifdef DK
+  StmtResult ActOnOpenMPDKFlushDirective(ArrayRef<OMPClause *> Clauses,
+                                       SourceLocation StartLoc,
+                                       SourceLocation EndLoc);
+  /// endif
   /// Called on well-formed '\#pragma omp depobj'.
   StmtResult ActOnOpenMPDepobjDirective(ArrayRef<OMPClause *> Clauses,
                                         SourceLocation StartLoc,
@@ -11397,6 +11414,12 @@ public:
       OpenMPAtomicDefaultMemOrderClauseKind Kind, SourceLocation KindLoc,
       SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation EndLoc);
 
+  // ifdef DK
+  OMPClause *ActOnOpenMPVarSizeListClause(
+      OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, ArrayRef<Expr *> Sizes,
+      const OMPVarListLocTy &Locs);
+  // endif
+  
   OMPClause *ActOnOpenMPVarListClause(
       OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, Expr *DepModOrTailExpr,
       const OMPVarListLocTy &Locs, SourceLocation ColonLoc,
@@ -11442,6 +11465,19 @@ public:
                                      SourceLocation StartLoc,
                                      SourceLocation LParenLoc,
                                      SourceLocation EndLoc);
+  // ifdef DK
+  OMPClause *ActOnOpenMPDegreeClause(Expr *Degree,
+                                         SourceLocation StartLoc,
+                                         SourceLocation LParenLoc,
+                                         SourceLocation EndLoc);
+  /// Called on well-formed 'shared' clause.
+  OMPClause *ActOnOpenMPFTVarClause(OpenMPClauseKind Kind,
+		  		     ArrayRef<Expr *> VarList,
+  				     ArrayRef<Expr *> SizeList,
+                                     SourceLocation StartLoc,
+                                     SourceLocation LParenLoc,
+                                     SourceLocation EndLoc);
+  // endif
   /// Called on well-formed 'reduction' clause.
   OMPClause *ActOnOpenMPReductionClause(
       ArrayRef<Expr *> VarList, OpenMPReductionClauseModifier Modifier,
@@ -11492,6 +11528,17 @@ public:
                                     SourceLocation StartLoc,
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc);
+  /// ifdef DK
+  OMPClause *ActOnOpenMPDKFlushClause(ArrayRef<Expr *> VarList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
+  OMPClause *ActOnOpenMPVoteClause( ArrayRef<Expr *> VarList,
+		  		    ArrayRef<Expr *> SizeList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
+  /// endif
   /// Called on well-formed 'depobj' pseudo clause.
   OMPClause *ActOnOpenMPDepobjClause(Expr *Depobj, SourceLocation StartLoc,
                                      SourceLocation LParenLoc,
