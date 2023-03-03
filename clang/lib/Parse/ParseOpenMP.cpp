@@ -3262,6 +3262,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     // Fall through for further analysis.
     LLVM_FALLTHROUGH;
   case OMPD_vote:
+  case OMPD_nmr:
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_tile:

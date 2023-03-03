@@ -2301,6 +2301,12 @@ void ASTStmtReader::VisitOMPParallelDirective(OMPParallelDirective *D) {
 }
 
 //ifdef DK
+void ASTStmtReader::VisitOMPNmrDirective(OMPNmrDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  D->setHasCancel(Record.readBool());
+}
+
 void ASTStmtReader::VisitOMPFTDirective(OMPFTDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);

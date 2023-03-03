@@ -223,6 +223,7 @@ def OMPMetaDirective : StmtNode<OMPExecutableDirective>;
 def OMPLoopBasedDirective : StmtNode<OMPExecutableDirective, 1>;
 def OMPLoopDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPParallelDirective : StmtNode<OMPExecutableDirective>;
+def OMPNmrDirective : StmtNode<OMPExecutableDirective>;
 // ifdefe DK
 def OMPFTDirective : StmtNode<OMPExecutableDirective>;
 // endif

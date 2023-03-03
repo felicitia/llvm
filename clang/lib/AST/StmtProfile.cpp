@@ -952,6 +952,10 @@ void StmtProfiler::VisitOMPParallelDirective(const OMPParallelDirective *S) {
 }
 
 //ifdef DK
+void StmtProfiler::VisitOMPNmrDirective(const OMPNmrDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
 void StmtProfiler::VisitOMPFTDirective(const OMPFTDirective *S) {
   VisitOMPExecutableDirective(S);
 }

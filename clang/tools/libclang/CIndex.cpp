@@ -2050,6 +2050,7 @@ public:
   void VisitOMPParallelDirective(const OMPParallelDirective *D);
   //ifdef DK
   void VisitOMPFTDirective(const OMPFTDirective *D);
+  void VisitOMPNmrDirective(const OMPNmrDirective *D);
   //endif
   void VisitOMPSimdDirective(const OMPSimdDirective *D);
   void
@@ -2945,6 +2946,9 @@ void EnqueueVisitor::VisitOMPParallelDirective(const OMPParallelDirective *D) {
 }
 
 //ifdef DK
+void EnqueueVisitor::VisitOMPNmrDirective(const OMPNmrDirective *D) {
+  VisitOMPExecutableDirective(D);
+}
 void EnqueueVisitor::VisitOMPFTDirective(const OMPFTDirective *D) {
   VisitOMPExecutableDirective(D);
 }

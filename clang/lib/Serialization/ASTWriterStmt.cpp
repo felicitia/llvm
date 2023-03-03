@@ -2215,6 +2215,13 @@ void ASTStmtWriter::VisitOMPParallelDirective(OMPParallelDirective *D) {
 }
 
 //ifdef DK
+void ASTStmtWriter::VisitOMPNmrDirective(OMPNmrDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Record.writeBool(D->hasCancel());
+  Code = serialization::STMT_OMP_PARALLEL_DIRECTIVE;
+}
+
 void ASTStmtWriter::VisitOMPFTDirective(OMPFTDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);

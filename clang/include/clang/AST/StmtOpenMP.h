@@ -600,6 +600,72 @@ public:
   }
 };
 
+class OMPNmrDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+  /// true if the construct has inner cancel directive.
+  bool HasCancel = false;
+
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive (directive keyword).
+  /// \param EndLoc Ending Location of the directive.
+  ///
+  OMPNmrDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPNmrDirectiveClass,
+                               llvm::omp::OMPD_parallel, StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPNmrDirective()
+      : OMPExecutableDirective(OMPNmrDirectiveClass,
+                               llvm::omp::OMPD_parallel, SourceLocation(),
+                               SourceLocation()) {}
+
+  /// Sets special task reduction descriptor.
+  void setTaskReductionRefExpr(Expr *E) { Data->getChildren()[0] = E; }
+
+  /// Set cancel state.
+  void setHasCancel(bool Has) { HasCancel = Has; }
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  /// \param AssociatedStmt Statement associated with the directive.
+  /// \param TaskRedRef Task reduction special reference expression to handle
+  /// taskgroup descriptor.
+  /// \param HasCancel true if this directive has inner cancel directive.
+  ///
+  static OMPNmrDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+
+  /// Creates an empty directive with the place for \a N clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPNmrDirective *CreateEmpty(const ASTContext &C,
+                                           unsigned NumClauses, EmptyShell);
+  /// Returns special task reduction reference expression.
+  Expr *getTaskReductionRefExpr() {
+    return cast_or_null<Expr>(Data->getChildren()[0]);
+  }
+  const Expr *getTaskReductionRefExpr() const {
+    return const_cast<OMPNmrDirective *>(this)->getTaskReductionRefExpr();
+  }
+
+  /// Return true if current directive has inner cancel directive.
+  bool hasCancel() const { return HasCancel; }
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPNmrDirectiveClass;
+  }
+};
+
 /// This represents '#pragma omp parallel' directive.
 ///
 /// \code

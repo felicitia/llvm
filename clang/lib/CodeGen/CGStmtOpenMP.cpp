@@ -1567,47 +1567,27 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
       CGF, S, PrivateDecls);
 }
 
-static void emitVoteStmt(CodeGenFunction &CGF, const OMPFTVarClause * VClause, const Stmt *S) {
-   if (VClause == nullptr) return;
-   int i = -1;
-    // traverse list of var:size
-   for (const Expr *Ref : VClause->varlists()) {
-     i++;
-     Address Varaddr = CGF.EmitLValue(Ref).getAddress(CGF);
-     int j = -1;
-     for (const Expr *RefSize : VClause->sizelists()) {
-       j++;
-       bool generate_code = false;
-       bool generate_code_before = false;
-       bool generate_code_after = false;
-       if (i == j) {
-	 if (S != nullptr) {
-           generate_code = true;
-           // check if the variable is in the statement
-	 } else {
-           if ( 1 /*AST_POLYMORPHIC_MATCHER_P(CurStmt,
-                          AST_POLYMORPHIC_SUPPORTED_TYPES(
-                              BinaryOperator, CXXOperatorCallExpr,
-                              CXXRewrittenBinaryOperator, ArraySubscriptExpr),
-                          Ref, InnerMatcher) */ ) // match!
-               generate_code = true;
-	   else
-               generate_code = false;
-	 }
-	 if (generate_code) {
-           llvm::Value *Varsize;
-           if (RefSize == nullptr) {
-             Varsize = CGF.getTypeSize(Ref->getType());
-           } else {
-             Varsize = CGF.EmitScalarExpr(RefSize, /*IgnoreResultAssign=*/true);
-           }
-	   if (S != nullptr && generate_code_after == true)
-             CGF.EmitStmt(S);
-           CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, Varsize, S->getBeginLoc());
-	   if (S != nullptr && generate_code_before == true)
-             CGF.EmitStmt(S);
-	 }
-      }
+static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Vars, SmallVector<const Expr *, 4> &Sizes, const Stmt *S, SourceLocation Loc) {
+   if (Vars.size() == 0) return;
+   assert (Vars.size() == Sizes.size());
+   int vsize = Vars.size();
+   for (int i = 1; i < vsize; i++) {
+     Address Varaddr = CGF.EmitLValue(Vars[i]).getAddress(CGF);
+     llvm::Value *Varsize;
+     if (Sizes[i] == nullptr) {
+       Varsize = CGF.getTypeSize(Sizes[i]->getType());
+     } else {
+       Varsize = CGF.EmitScalarExpr(Sizes[i], /*IgnoreResultAssign=*/true);
+     }
+     bool generate_code_before = false;
+     bool generate_code_after = false;
+     if (S == nullptr) 
+         CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, Varsize, Loc);
+     else {
+       if (generate_code_after == true) CGF.EmitStmt(S);
+       CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, Varsize, S->getBeginLoc());
+       if (generate_code_before == true) CGF.EmitStmt(S);
+       if (generate_code_before == false && generate_code_after == false) CGF.EmitStmt(S);
     }
   }
 }
@@ -1633,11 +1613,6 @@ static void emitCommonOMPParallelDirective(
     CGF.CGM.getOpenMPRuntime().emitProcBindClause(
         CGF, ProcBindClause->getProcBindKind(), ProcBindClause->getBeginLoc());
   }
-    // ifdef DK
-  if (auto *FtvarClause = S.getSingleClause<OMPFTVarClause>()) {
-    emitVoteStmt(CGF, FtvarClause, nullptr);
-  }
-    // endif
   const Expr *IfCond = nullptr;
   for (const auto *C : S.getClausesOfKind<OMPIfClause>()) {
     if (C->getNameModifier() == OMPD_unknown ||
@@ -1763,15 +1738,31 @@ std::string CodeGenFunction::OMPBuilderCBHelpers::getNameWithSeparators(
 void CodeGenFunction::EmitOMPFTDirective(const OMPFTDirective &S) {
 	// ft {} == nmr {}
 	// there must be an associated statement
-#if 0
   if (CGM.getLangOpts().OpenMPIRBuilder) {
     llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
-    if (const auto *FtvarClause = S.getSingleClause<OMPFTVarClause>()) {
-	    if (FtvarClause == nullptr) return;
-      emitVoteStmt(CGM.CGF, FtvarClause, nullptr);
+    SmallVector<const Expr *, 4> Lvars;
+    SmallVector<const Expr *, 4> Lsizes;
+    SmallVector<const Expr *, 4> Rvars;
+    SmallVector<const Expr *, 4> Rsizes;
+    const auto *LvarClause = S.getSingleClause<OMPVarClause>();
+    const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
+    if (LvarClause) {
+      Lvars.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
+      Lsizes.append(LvarClause->sizelist_begin(), LvarClause->sizelist_end());
+    }
+    if (RvarClause) {
+      Rvars.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
+      Rsizes.append(RvarClause->sizelist_begin(), RvarClause->sizelist_end());
+    }
+    if (1) { // match in the statement // Now it just tests code generation
+      if (Lvars.size() > 0) emitVoteStmt(*this, Lvars, Lsizes, nullptr, LvarClause->getBeginLoc());
+      if (Rvars.size() > 0) emitVoteStmt(*this, Rvars, Rsizes, nullptr, RvarClause->getBeginLoc());
     }
   }
-#endif
+  auto *CurStmt = S.getAssociatedStmt(); 
+  EmitStmt(CurStmt);
+  EmitStmt(S.getAssociatedStmt());
+#if 0
   const auto *FtvarClause = S.getSingleClause<OMPFTVarClause>();
 //  for (auto *CurStmt: S.getAssociatedStmt()) {
     auto *CurStmt = S.getAssociatedStmt(); 
@@ -1782,7 +1773,15 @@ void CodeGenFunction::EmitOMPFTDirective(const OMPFTDirective &S) {
     } else
       EmitStmt(CurStmt);
 //  }
-#if 0
+    // ifdef DK
+  if (auto *FtvarClause = S.getSingleClause<OMPFTVarClause>()) {
+    SmallVector<const Expr *, 4> Vars;
+    SmallVector<const Expr *, 4> Sizes;
+    Vars.append(FtvarClause->varlist_begin(), FtvarClause->varlist_end());
+    Sizes.append(FtvarClause->sizelist_begin(), FtvarClause->sizelist_end());
+    emitVoteStmt(CGF, Vars, Sizes, nullptr);
+  }
+    // endif
 AST_POLYMORPHIC_MATCHER_P(hasRHS,
                           AST_POLYMORPHIC_SUPPORTED_TYPES(
                               BinaryOperator, CXXOperatorCallExpr,
@@ -1828,6 +1827,148 @@ void CodeGenFunction::EmitOMPVoteDirective(const OMPVoteDirective &S) {
     //    llvm::Value *Var_size = CGF.EmitScalarExpr(, /*IgnoreResultAssign=*/true);
     //    CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Var_addr, Var_size, );
     // call emitFTVoteClause
+}
+
+static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Expr *, 4> &Lvars, SmallVector<const Expr *, 4> &Lsizes, SmallVector<const Expr *, 4> &Rvars, SmallVector<const Expr *, 4> &Rsizes, std::vector<std::string> &LvarsName, std::vector<std::string> &RvarsName, std::vector<int> &LvarsNameIndex, std::vector<int> &RvarsNameIndex) {
+  bool matchLHS = false;
+  bool matchRHS = false;
+
+  switch (S->getStmtClass()) {
+  case Stmt::CapturedStmtClass: {
+    const CapturedDecl *CD = cast<CapturedStmt>(S)->getCapturedDecl();
+    visitStmt(CGF, CD->getBody(), Lvars, Lsizes, Rvars, Rsizes, LvarsName, RvarsName, LvarsNameIndex, RvarsNameIndex);
+    }
+    break;
+  case Stmt::CompoundStmtClass: {
+    for (auto *InnerStmt : cast<CompoundStmt>(S)->body()) {
+       std::vector<int> _LvarsNameIndex, _RvarsNameIndex;
+       visitStmt(CGF, InnerStmt, Lvars, Lsizes, Rvars, Rsizes, LvarsName, RvarsName, _LvarsNameIndex, _RvarsNameIndex);
+    }
+    }
+    return;
+  case Stmt::DeclStmtClass:
+    CGF.EmitStmt(S);
+    return;
+  case Stmt::BinaryOperatorClass: {
+    bool isEmitStmt = false;
+    const Expr * E = dyn_cast<Expr>(S);
+    const BinaryOperator * BO = cast<BinaryOperator>(E);
+//    if (BO->isAssignmentOp()) 
+//    if (UO->isIncrementDecrementOp())  UO->getSubExpr();
+
+    if (auto *SaveRef = cast<DeclRefExpr>(BO->getLHS()->IgnoreImpCasts())) {
+      isEmitStmt = true;
+      if (LvarsName.size() > 0) {
+        if (VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl())) {
+          std::string VarName = VD->getQualifiedNameAsString();
+          for (int i=0; i < LvarsName.size(); i++)
+            if (VarName == LvarsName[i]) {
+              LvarsNameIndex.push_back(i);
+	    }
+        }
+      }
+    } else {
+      visitStmt(CGF, cast<Stmt>(BO->getLHS()), Lvars, Lsizes, Rvars, Rsizes, LvarsName, RvarsName, LvarsNameIndex, RvarsNameIndex);
+    }
+    if (RvarsName.size() > 0) {
+      if (auto *OpRef = cast<DeclRefExpr>(BO->getRHS()->IgnoreImpCasts())) {
+        if (VarDecl *VD = dyn_cast<VarDecl>(OpRef->getDecl())) {
+          std::string VarName = VD->getQualifiedNameAsString();
+	  for (int i=0; i < RvarsName.size(); i++) {
+            if (VarName == RvarsName[i]) {
+              RvarsNameIndex.push_back(i);
+	    }
+	  }
+        }  
+      } else {
+        visitStmt(CGF, cast<Stmt>(BO->getRHS()), Lvars, Lsizes, Rvars, Rsizes, LvarsName, RvarsName, LvarsNameIndex, RvarsNameIndex);
+      }
+    }
+    if (LvarsNameIndex.size() > 0) 
+      matchLHS = true;
+    if (RvarsNameIndex.size() > 0) 
+      matchRHS = true;
+
+    if (isEmitStmt) {
+      if (matchRHS) { 
+        SmallVector<const Expr *, 4> TVars, TSizes;
+	for (int i=0; i < (int)RvarsNameIndex.size(); i++) {
+          TVars.push_back(Rvars[i]);
+          TSizes.push_back(Rsizes[i]);
+	}
+	emitVoteStmt(CGF, TVars, TSizes, S, S->getBeginLoc());
+      }
+      CGF.EmitStmt(S);
+      if (matchLHS) {
+        SmallVector<const Expr *, 4> TVars, TSizes;
+	for (int i=0 ; i < (int)LvarsNameIndex.size(); i++) {
+          TVars.push_back(Lvars[i]);
+          TSizes.push_back(Lsizes[i]);
+	}
+	emitVoteStmt(CGF, TVars, TSizes, S, S->getBeginLoc());
+      }
+    }
+    }
+    return;
+  case Stmt::NullStmtClass:
+    CGF.EmitStmt(S);
+    return;
+  default: {
+    if (auto *Exp = dyn_cast<Expr>(S))
+       return;
+    else {
+       CGF.EmitStmt(S);
+       return;
+    }
+    }
+  }
+}
+
+static void visitEmitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Expr *, 4> &Lvars, SmallVector<const Expr *, 4> &Lsizes, SmallVector<const Expr *, 4> &Rvars, SmallVector<const Expr *, 4> &Rsizes) {
+  std::vector<std::string> LvarsName, RvarsName;
+  std::vector<int> LvarsIndex, RvarsIndex;
+
+  for (int i = 0; i < Lvars.size(); i++) {
+     const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Lvars[i]);
+     const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
+     LvarsName.push_back(VD->getQualifiedNameAsString());
+  }
+  for (int i = 0; i < Rvars.size(); i++) {
+     const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Rvars[i]);
+     const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
+     RvarsName.push_back(VD->getQualifiedNameAsString());
+  }
+  visitStmt(CGF, S, Lvars, Lsizes, Rvars, Rsizes, LvarsName, RvarsName, LvarsIndex, RvarsIndex);
+}
+
+void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
+  llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
+  SmallVector<const Expr *, 4> Lvars;
+  SmallVector<const Expr *, 4> Lsizes;
+  SmallVector<const Expr *, 4> Rvars;
+  SmallVector<const Expr *, 4> Rsizes;
+  const auto *LvarClause = S.getSingleClause<OMPVarClause>();
+  const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
+  if (LvarClause) { // lvar
+    Lvars.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
+    Lsizes.append(LvarClause->sizelist_begin(), LvarClause->sizelist_end());
+  }
+  if (RvarClause) { // rvar
+    Rvars.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
+    Rsizes.append(RvarClause->sizelist_begin(), RvarClause->sizelist_end());
+  }
+#if 0
+  if (1) { // match in the statement // Now it just tests code generation
+    if (Lvars.size() > 0) emitVoteStmt(*this, Lvars, Lsizes, nullptr, LvarClause->getBeginLoc());
+    if (Rvars.size() > 0) emitVoteStmt(*this, Rvars, Rsizes, nullptr, RvarClause->getBeginLoc());
+  }
+#endif
+  LexicalScope Scope(*this, S.getSourceRange());
+  EmitStopPoint(&S);
+  const auto *CS = cast_or_null<CapturedStmt>(S.getAssociatedStmt());
+  EmitStmt(CS->getCapturedStmt());
+//  auto *CurStmt = S.getAssociatedStmt(); 
+//  visitEmitStmt(*this, CurStmt, Lvars, Lsizes, Rvars, Rsizes);
 }
 // DK
 

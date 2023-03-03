@@ -3938,7 +3938,7 @@ static void handleDeclareVariantConstructTrait(DSAStackTy *Stack,
 
 void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   switch (DKind) {
-  case OMPD_vote:
+//  case OMPD_vote:
   case OMPD_nmr:
   case OMPD_parallel:
   case OMPD_parallel_for:
@@ -5865,6 +5865,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   bool ErrorFound = false;
   ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
   if (AStmt && !CurContext->isDependentContext() && Kind != OMPD_atomic &&
+      Kind != OMPD_nmr &&
       Kind != OMPD_critical && Kind != OMPD_section && Kind != OMPD_master &&
       Kind != OMPD_masked && !isOpenMPLoopTransformationDirective(Kind)) {
     assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
@@ -6009,6 +6010,9 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPVoteDirective(ClausesWithImplicit, StartLoc, EndLoc);
     break;
   case OMPD_nmr:
+    Res = ActOnOpenMPNmrDirective(ClausesWithImplicit, AStmt, StartLoc,
+                                       EndLoc);
+    break;
   case OMPD_parallel:
     Res = ActOnOpenMPParallelDirective(ClausesWithImplicit, AStmt, StartLoc,
                                        EndLoc);
@@ -7444,6 +7448,26 @@ StmtResult Sema::ActOnOpenMPFTDirective(ArrayRef<OMPClause *> Clauses,
   return OMPFTDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
                                       DSAStack->getTaskgroupReductionRef(),
                                       DSAStack->isCancelRegion());
+}
+
+StmtResult Sema::ActOnOpenMPNmrDirective(ArrayRef<OMPClause *> Clauses,
+                                              Stmt *AStmt,
+                                              SourceLocation StartLoc,
+                                              SourceLocation EndLoc) {
+  if (!AStmt)
+    return StmtError();
+
+  auto *CS = cast<CapturedStmt>(AStmt);
+  // 1.2.2 OpenMP Language Terminology
+  // Structured block - An executable statement with a single entry at the
+  // top and a single exit at the bottom.
+  // The point of exit cannot be a branch out of the structured block.
+  // longjmp() and throw() must not violate the entry/exit criteria.
+  CS->getCapturedDecl()->setNothrow();
+
+  setFunctionHasBranchProtectedScope();
+
+  return OMPNmrDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 // endif
 

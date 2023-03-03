@@ -2897,6 +2897,8 @@ DEF_TRAVERSE_STMT(OMPParallelDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 //ifdef DK
+DEF_TRAVERSE_STMT(OMPNmrDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPFTDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 //endif

@@ -2640,6 +2640,7 @@ enum CXCursorKind {
    */
   CXCursor_OMPDKFlushDirective = 304,
   CXCursor_OMPVoteDirective = 305,
+  CXCursor_OMPNmrDirective = 306,
 /* endif DK */
 //
   /* Attributes */

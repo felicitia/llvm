@@ -297,6 +297,25 @@ OMPFTDirective *OMPFTDirective::CreateEmpty(const ASTContext &C,
                                                     /*HasAssociatedStmt=*/true,
                                                     /*NumChildren=*/1);
 }
+
+OMPNmrDirective *OMPNmrDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
+  auto *Dir = createDirective<OMPNmrDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/1, StartLoc, EndLoc);
+//  Dir->setTaskReductionRefExpr(TaskRedRef);
+//  Dir->setHasCancel(HasCancel);
+  return Dir;
+}
+
+OMPNmrDirective *OMPNmrDirective::CreateEmpty(const ASTContext &C,
+                                                        unsigned NumClauses,
+                                                        EmptyShell) {
+  return createEmptyDirective<OMPNmrDirective>(C, NumClauses,
+                                                    /*HasAssociatedStmt=*/true,
+                                                    /*NumChildren=*/1);
+}
+
 // endif
 
 OMPParallelDirective *OMPParallelDirective::Create(

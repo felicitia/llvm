@@ -1240,6 +1240,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPCanonicalLoopClass:
     case Stmt::OMPParallelDirectiveClass:
 	    // ifdef DK
+    case Stmt::OMPNmrDirectiveClass:
     case Stmt::OMPFTDirectiveClass:
 	    // endif
     case Stmt::OMPSimdDirectiveClass:

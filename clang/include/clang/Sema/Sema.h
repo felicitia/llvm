@@ -10799,6 +10799,10 @@ public:
   StmtResult ActOnOpenMPVoteDirective(ArrayRef<OMPClause *> Clauses,
                                           SourceLocation StartLoc,
                                           SourceLocation EndLoc);
+  StmtResult ActOnOpenMPNmrDirective(ArrayRef<OMPClause *> Clauses,
+                                          Stmt *AStmt,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
   // endif
   /// Called on well-formed '\#pragma omp parallel' after parsing
   /// of the  associated statement.

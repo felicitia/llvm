@@ -678,6 +678,11 @@ void StmtPrinter::VisitOMPParallelDirective(OMPParallelDirective *Node) {
 }
 
 //ifdef DK
+void StmtPrinter::VisitOMPNmrDirective(OMPNmrDirective *Node) {
+  Indent() << "#pragma omp parallel";
+  PrintOMPExecutableDirective(Node);
+}
+
 void StmtPrinter::VisitOMPFTDirective(OMPFTDirective *Node) {
   Indent() << "#pragma omp ft";
   PrintOMPExecutableDirective(Node);

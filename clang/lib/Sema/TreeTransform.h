@@ -8651,6 +8651,17 @@ TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
 //ifdef DK
 template <typename Derived>
 StmtResult
+TreeTransform<Derived>::TransformOMPNmrDirective(OMPNmrDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_nmr, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
+StmtResult
 TreeTransform<Derived>::TransformOMPFTDirective(OMPFTDirective *D) {
   DeclarationNameInfo DirName;
   getDerived().getSema().StartOpenMPDSABlock(OMPD_ft, DirName, nullptr,

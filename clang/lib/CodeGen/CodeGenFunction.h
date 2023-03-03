@@ -3500,6 +3500,7 @@ public:
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
 // ifdef DK
   void EmitOMPFTDirective(const OMPFTDirective &S);
+  void EmitOMPNmrDirective(const OMPNmrDirective &S);
 //
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);

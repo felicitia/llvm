@@ -3154,14 +3154,14 @@ class OMPVarClause final
   /// \param N Number of the variables in the clause.
   OMPVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_ftvar, StartLoc,
+      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_var, StartLoc,
                                           LParenLoc, EndLoc, N), NumSizes(N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPVarClause(unsigned N)
-      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_ftvar,
+      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_var,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3234,9 +3234,10 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_shared;
+    return T->getClauseKind() == llvm::omp::OMPC_var;
   }
 };
+
 class OMPRvarClause final
     : public OMPVarListClause<OMPRvarClause>,
       private llvm::TrailingObjects<OMPRvarClause, Expr *> {
@@ -3253,14 +3254,14 @@ class OMPRvarClause final
   /// \param N Number of the variables in the clause.
   OMPRvarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_ftvar, StartLoc,
+      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_rvar, StartLoc,
                                           LParenLoc, EndLoc, N), NumSizes(N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPRvarClause(unsigned N)
-      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_ftvar,
+      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_rvar,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3333,7 +3334,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_shared;
+    return T->getClauseKind() == llvm::omp::OMPC_rvar;
   }
 };
 
