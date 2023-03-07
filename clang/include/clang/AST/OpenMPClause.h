@@ -261,6 +261,7 @@ public:
   }
 };
 
+
 /// This represents 'allocator' clause in the '#pragma omp ...'
 /// directive.
 ///
@@ -3044,8 +3045,6 @@ class OMPFTVarClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
-  unsigned NumSizes;
-
   /// Build clause with number of variables \a N.
   ///
   /// \param StartLoc Starting location of the clause.
@@ -3055,7 +3054,7 @@ class OMPFTVarClause final
   OMPFTVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
       : OMPVarListClause<OMPFTVarClause>(llvm::omp::OMPC_ftvar, StartLoc,
-                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
@@ -3065,39 +3064,18 @@ class OMPFTVarClause final
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
-  MutableArrayRef<Expr *> getSizes() {
-    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
-  }
-  ArrayRef<const Expr *> getSizes() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
-  }
-
-  void setSizes(ArrayRef<Expr *> SL);
-
 public:
-  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
-  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
-  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
-  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
-
-  sizelist_range sizelists() {
-    return sizelist_range(sizelist_begin(), sizelist_end());
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
-  
-  sizelist_const_range sizelists() const {
-    return sizelist_const_range(sizelist_begin(), sizelist_end());
-  }
-  
-  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
-  sizelist_iterator sizelist_end() { return getSizes().end(); }
-  
-  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
-  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
-  
-
-  unsigned sizelist_size() const { return NumSizes; }
-  bool sizelist_empty() const { return NumSizes == 0; }
-
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3144,8 +3122,6 @@ class OMPVarClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
-  unsigned NumSizes;
-
   /// Build clause with number of variables \a N.
   ///
   /// \param StartLoc Starting location of the clause.
@@ -3155,7 +3131,7 @@ class OMPVarClause final
   OMPVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
       : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_var, StartLoc,
-                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
@@ -3165,39 +3141,18 @@ class OMPVarClause final
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
-  MutableArrayRef<Expr *> getSizes() {
-    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
-  }
-  ArrayRef<const Expr *> getSizes() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
-  }
-
-  void setSizes(ArrayRef<Expr *> SL);
-
 public:
-  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
-  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
-  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
-  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
-
-  sizelist_range sizelists() {
-    return sizelist_range(sizelist_begin(), sizelist_end());
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
-  
-  sizelist_const_range sizelists() const {
-    return sizelist_const_range(sizelist_begin(), sizelist_end());
-  }
-  
-  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
-  sizelist_iterator sizelist_end() { return getSizes().end(); }
-  
-  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
-  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
-  
-
-  unsigned sizelist_size() const { return NumSizes; }
-  bool sizelist_empty() const { return NumSizes == 0; }
-
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3244,8 +3199,6 @@ class OMPRvarClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
-  unsigned NumSizes;
-
   /// Build clause with number of variables \a N.
   ///
   /// \param StartLoc Starting location of the clause.
@@ -3255,7 +3208,7 @@ class OMPRvarClause final
   OMPRvarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
       : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_rvar, StartLoc,
-                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
@@ -3265,39 +3218,18 @@ class OMPRvarClause final
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
-  MutableArrayRef<Expr *> getSizes() {
-    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
-  }
-  ArrayRef<const Expr *> getSizes() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
-  }
-
-  void setSizes(ArrayRef<Expr *> SL);
-
 public:
-  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
-  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
-  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
-  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
-
-  sizelist_range sizelists() {
-    return sizelist_range(sizelist_begin(), sizelist_end());
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
-  
-  sizelist_const_range sizelists() const {
-    return sizelist_const_range(sizelist_begin(), sizelist_end());
-  }
-  
-  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
-  sizelist_iterator sizelist_end() { return getSizes().end(); }
-  
-  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
-  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
-  
-
-  unsigned sizelist_size() const { return NumSizes; }
-  bool sizelist_empty() const { return NumSizes == 0; }
-
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -5026,8 +4958,6 @@ class OMPVoteClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
-  unsigned NumSizes;
-
   /// Build clause with number of variables \a N.
   ///
   /// \param StartLoc Starting location of the clause.
@@ -5037,7 +4967,7 @@ class OMPVoteClause final
   OMPVoteClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
       : OMPVarListClause<OMPVoteClause>(llvm::omp::OMPC_vote, StartLoc,
-                                          LParenLoc, EndLoc, N), NumSizes(N) {}
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
@@ -5047,39 +4977,26 @@ class OMPVoteClause final
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
-  MutableArrayRef<Expr *> getSizes() {
+  MutableArrayRef<Expr *> getVarSizes() {
     return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
   }
-  ArrayRef<const Expr *> getSizes() const {
+  ArrayRef<const Expr *> getVarSizes() const {
     return llvm::makeArrayRef(varlist_end(), varlist_size());
   }
 
-  void setSizes(ArrayRef<Expr *> SL);
-
 public:
-  using sizelist_iterator = MutableArrayRef<Expr *>::iterator;
-  using sizelist_const_iterator = ArrayRef<const Expr *>::iterator;
-  using sizelist_range = llvm::iterator_range<sizelist_iterator>;
-  using sizelist_const_range = llvm::iterator_range<sizelist_const_iterator>;
 
-  sizelist_range sizelists() {
-    return sizelist_range(sizelist_begin(), sizelist_end());
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
-  
-  sizelist_const_range sizelists() const {
-    return sizelist_const_range(sizelist_begin(), sizelist_end());
-  }
-  
-  sizelist_iterator sizelist_begin() { return getSizes().begin(); }
-  sizelist_iterator sizelist_end() { return getSizes().end(); }
-  
-  sizelist_const_iterator sizelist_begin() const { return getSizes().begin(); }
-  sizelist_const_iterator sizelist_end() const { return getSizes().end(); }
-  
-
-  unsigned sizelist_size() const { return NumSizes; }
-  bool sizelist_empty() const { return NumSizes == 0; }
-
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.

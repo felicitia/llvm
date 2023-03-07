@@ -3435,6 +3435,13 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 
     StmtResult AssociatedStmt;
     if (HasAssociatedStatement) {
+      if (DKind == OMPD_nmr) {
+        ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);
+        {
+          Sema::CompoundScopeRAII Scope(Actions);
+          AssociatedStmt = ParseStatement();	// DK: here associated statements are parsed
+	}
+      } else {
       // The body is a block scope like in Lambdas and Blocks.
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
       // FIXME: We create a bogus CompoundStmt scope to hold the contents of
@@ -3452,6 +3459,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
           AssociatedStmt = Actions.ActOnOpenMPLoopnest(AssociatedStmt.get());
       }
       AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses); // DK: here addtion by OpenMP is done
+      }
     } else if (DKind == OMPD_target_update || DKind == OMPD_target_enter_data ||
                DKind == OMPD_target_exit_data) {
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());

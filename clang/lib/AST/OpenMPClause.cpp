@@ -557,8 +557,7 @@ OMPVoteClause *OMPVoteClause::Create(const ASTContext &C,
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
   OMPVoteClause *Clause =
       new (Mem) OMPVoteClause(StartLoc, LParenLoc, EndLoc, VL.size());
-  Clause->setVarRefs(VL);
-  Clause->setSizes(SL);
+  Clause->setVarSizeRefs(VL,SL);
   return Clause;
 }
 
@@ -576,8 +575,7 @@ OMPRvarClause *OMPRvarClause::Create(const ASTContext &C,
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
   OMPRvarClause *Clause =
       new (Mem) OMPRvarClause(StartLoc, LParenLoc, EndLoc, VL.size());
-  Clause->setVarRefs(VL);
-  Clause->setSizes(SL);
+  Clause->setVarSizeRefs(VL, SL);
   return Clause;
 }
 
@@ -595,7 +593,7 @@ OMPVarClause *OMPVarClause::Create(const ASTContext &C,
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
   OMPVarClause *Clause =
       new (Mem) OMPVarClause(StartLoc, LParenLoc, EndLoc, VL.size());
-  Clause->setVarRefs(VL);
+  Clause->setVarSizeRefs(VL, SL);
   return Clause;
 }
 
@@ -609,41 +607,16 @@ OMPFTVarClause *OMPFTVarClause::Create(const ASTContext &C,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
                                          ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size())*2);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
   OMPFTVarClause *Clause =
       new (Mem) OMPFTVarClause(StartLoc, LParenLoc, EndLoc, VL.size());
-  Clause->setVarRefs(VL);
-  Clause->setSizes(SL);
+  Clause->setVarSizeRefs(VL, SL);
   return Clause;
 }
 
 OMPFTVarClause *OMPFTVarClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N)*2);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
   return new (Mem) OMPFTVarClause(N);
-}
-
-void OMPFTVarClause::setSizes(ArrayRef<Expr *> SL) {
-  assert(SL.size() == varlist_size() &&
-         "Number of Sizes is not the same as the preallocated buffer");
-  std::copy(SL.begin(), SL.end(), varlist_end());
-}
-
-void OMPVoteClause::setSizes(ArrayRef<Expr *> SL) {
-  assert(SL.size() == varlist_size() &&
-         "Number of Sizes is not the same as the preallocated buffer");
-  std::copy(SL.begin(), SL.end(), varlist_end());
-}
-
-void OMPVarClause::setSizes(ArrayRef<Expr *> SL) {
-  assert(SL.size() == varlist_size() &&
-         "Number of Sizes is not the same as the preallocated buffer");
-  std::copy(SL.begin(), SL.end(), varlist_end());
-}
-
-void OMPRvarClause::setSizes(ArrayRef<Expr *> SL) {
-  assert(SL.size() == varlist_size() &&
-         "Number of Sizes is not the same as the preallocated buffer");
-  std::copy(SL.begin(), SL.end(), varlist_end());
 }
 
 // endif

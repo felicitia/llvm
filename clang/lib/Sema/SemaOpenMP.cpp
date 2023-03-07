@@ -7454,9 +7454,10 @@ StmtResult Sema::ActOnOpenMPNmrDirective(ArrayRef<OMPClause *> Clauses,
                                               Stmt *AStmt,
                                               SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
+
   if (!AStmt)
     return StmtError();
-
+#if 0
   auto *CS = cast<CapturedStmt>(AStmt);
   // 1.2.2 OpenMP Language Terminology
   // Structured block - An executable statement with a single entry at the
@@ -7466,7 +7467,7 @@ StmtResult Sema::ActOnOpenMPNmrDirective(ArrayRef<OMPClause *> Clauses,
   CS->getCapturedDecl()->setNothrow();
 
   setFunctionHasBranchProtectedScope();
-
+#endif
   return OMPNmrDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 // endif
