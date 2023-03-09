@@ -1573,7 +1573,7 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
      llvm::Value *TSize ;
      if (VarsSizes[i+1] == nullptr) {
-       TSize = CGF.getTypeSize(VarsSizes[i+1]->getType());
+       TSize = CGF.getTypeSize(VarsSizes[i]->getType());
      } else {
        TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
      }

@@ -4977,15 +4977,7 @@ class OMPVoteClause final
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
-  MutableArrayRef<Expr *> getVarSizes() {
-    return MutableArrayRef<Expr *>(varlist_end(), varlist_size());
-  }
-  ArrayRef<const Expr *> getVarSizes() const {
-    return llvm::makeArrayRef(varlist_end(), varlist_size());
-  }
-
 public:
-
   void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
     std::vector<Expr *> STL;
     assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");

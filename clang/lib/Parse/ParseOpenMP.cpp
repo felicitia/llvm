@@ -2322,6 +2322,7 @@ Parser::DeclGroupPtrTy Parser::ParseFTDeclarativeDirectiveWithExtDecl(
   case OMPD_taskgroup:
 // #ifdef DK
   case OMPD_dkflush:
+  case OMPD_vote:
 // #endif
   case OMPD_flush:
   case OMPD_depobj:
@@ -2755,6 +2756,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_taskgroup:
 // #ifdef DK
   case OMPD_dkflush:
+  case OMPD_vote:
 // #endif
   case OMPD_flush:
   case OMPD_depobj:
@@ -2884,7 +2886,7 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
       if (HasImplicitClause) {
         assert(CKind == OMPC_unknown && "Must be unknown implicit clause.");
       }
-      if (DKind == OMPD_vote)
+      if (DKind == OMPD_vote)	
 	      CKind = OMPC_vote;
 
       // No more implicit clauses allowed.
@@ -3241,6 +3243,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 // #ifdef DK
   case OMPD_dkflush:
 // #endif
+  case OMPD_vote:
   case OMPD_flush:
   case OMPD_depobj:
   case OMPD_scan:
@@ -3261,7 +3264,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     HasAssociatedStatement = false;
     // Fall through for further analysis.
     LLVM_FALLTHROUGH;
-  case OMPD_vote:
   case OMPD_nmr:
   case OMPD_parallel:
   case OMPD_simd:
@@ -3319,7 +3321,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;
 // ifdef DK
-    if (DKind == OMPD_flush || DKind == OMPD_dkflush || DKind == OMPD_depobj) {
+    if (DKind == OMPD_flush || DKind == OMPD_dkflush || DKind == OMPD_depobj || DKind == OMPD_vote) {
 // else
 //    if (DKind == OMPD_flush || DKind == OMPD_depobj) {
 // endif
@@ -5132,9 +5134,10 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
              Tok.isNot(tok::annot_pragma_openmp_end) &&
              (!MayHaveTail || Tok.isNot(tok::colon)))
       Diag(Tok, diag::err_omp_expected_punc)
+			  // ifdef DK	- without this, dkflush cannot have argument 
           << ((Kind == OMPC_flush) ? getOpenMPDirectiveName(OMPD_flush)
-			  // ifdef DK	/* without this, dkflush cannot have argument */
-			           : (Kind == OMPC_dkflush) ? getOpenMPDirectiveName(OMPD_dkflush) : getOpenMPClauseName(Kind))
+			: ((Kind == OMPC_dkflush) ? getOpenMPDirectiveName(OMPD_dkflush) 
+			           : ((Kind == OMPC_vote) ? getOpenMPDirectiveName(OMPD_vote) : getOpenMPClauseName(Kind))))
 	  		  // else
                           //         : getOpenMPClauseName(Kind))
 			  // endif

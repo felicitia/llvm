@@ -87,10 +87,6 @@ def OMPC_FTVar: Clause<"ftvar"> {
   let clangClass = "OMPFTVarClause";
   let flangClass = "OmpObjectList";
 }
-def OMPC_Vote: Clause<"vote"> {
-  let clangClass = "OMPVoteClause";
-  let flangClass = "OmpObjectList";
-}
 def OMPC_Var: Clause<"var"> {	/* DK: TODO */
   let clangClass = "OMPVarClause";
   let flangClass = "OmpObjectList";
@@ -374,6 +370,10 @@ def OMPC_Flush : Clause<"flush"> {
   let isImplicit = true;
 }
 // ifdef DK
+def OMPC_Vote: Clause<"vote"> {
+  let clangClass = "OMPVoteClause";
+  let isImplicit = true;
+}
 def OMPC_DKFlush : Clause<"dkflush"> {
   let clangClass = "OMPDKFlushClause";
   let isImplicit = true;
@@ -426,7 +426,7 @@ def OMP_Nmr : Directive<"nmr"> {
 }
 def OMP_Vote : Directive<"vote"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Var>,
+    VersionedClause<OMPC_Vote>,
   ];
 }
 // endif
