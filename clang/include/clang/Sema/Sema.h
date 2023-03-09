@@ -11421,7 +11421,9 @@ public:
   // ifdef DK
   OMPClause *ActOnOpenMPVarSizeListClause(
       OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, ArrayRef<Expr *> Sizes,
-      const OMPVarListLocTy &Locs);
+                                        SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc);
   // endif
   
   OMPClause *ActOnOpenMPVarListClause(
@@ -11474,13 +11476,6 @@ public:
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
-  /// Called on well-formed 'shared' clause.
-  OMPClause *ActOnOpenMPFTVarClause(OpenMPClauseKind Kind,
-		  		     ArrayRef<Expr *> VarList,
-  				     ArrayRef<Expr *> SizeList,
-                                     SourceLocation StartLoc,
-                                     SourceLocation LParenLoc,
-                                     SourceLocation EndLoc);
   // endif
   /// Called on well-formed 'reduction' clause.
   OMPClause *ActOnOpenMPReductionClause(

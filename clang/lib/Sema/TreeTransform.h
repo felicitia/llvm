@@ -1794,7 +1794,7 @@ public:
                                     SourceLocation StartLoc,
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPFTVarClause(Kind, VarList, SizeList, StartLoc, LParenLoc,
+    return getSema().ActOnOpenMPVarSizeListClause(Kind, VarList, SizeList, StartLoc, LParenLoc,
                                              EndLoc);
   }
   OMPClause *RebuildOMPVoteClause( ArrayRef<Expr *> VarList,

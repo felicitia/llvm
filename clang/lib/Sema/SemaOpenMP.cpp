@@ -17168,20 +17168,6 @@ OMPClause *Sema::ActOnOpenMPFilterClause(Expr *ThreadID,
                                        StartLoc, LParenLoc, EndLoc);
 }
 
-// ifdef DK
-OMPClause *Sema::ActOnOpenMPVarSizeListClause(
-    OpenMPClauseKind Kind, ArrayRef<Expr *> VarList, ArrayRef<Expr *> SizeList, 
-    const OMPVarListLocTy &Locs) {
-  OMPClause *Res = nullptr;
-  SourceLocation StartLoc = Locs.StartLoc;
-  SourceLocation LParenLoc = Locs.LParenLoc;
-  SourceLocation EndLoc = Locs.EndLoc;
-
-  Res = ActOnOpenMPFTVarClause(Kind, VarList, SizeList, StartLoc, LParenLoc, EndLoc);
-  return Res;
-}
-// endif 
-//
 OMPClause *Sema::ActOnOpenMPVarListClause(
     OpenMPClauseKind Kind, ArrayRef<Expr *> VarList, Expr *DepModOrTailExpr,
     const OMPVarListLocTy &Locs, SourceLocation ColonLoc,
@@ -17213,11 +17199,6 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_shared:
     Res = ActOnOpenMPSharedClause(VarList, StartLoc, LParenLoc, EndLoc);
     break;
-  //ifdef DK
-//  case OMPC_ftvar:
-//    Res = ActOnOpenMPFTVarClause(VarList, StartLoc, LParenLoc, EndLoc);
-//    break;
-  // endif
   case OMPC_reduction:
     assert(0 <= ExtraModifier && ExtraModifier <= OMPC_REDUCTION_unknown &&
            "Unexpected lastprivate modifier.");
@@ -18050,7 +18031,7 @@ OMPClause *Sema::ActOnOpenMPSharedClause(ArrayRef<Expr *> VarList,
 }
 
 // ifdef DK
-OMPClause *Sema::ActOnOpenMPFTVarClause(OpenMPClauseKind Kind,
+OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
 					 ArrayRef<Expr *> VarList,
 					 ArrayRef<Expr *> SizeList,
                                          SourceLocation StartLoc,
@@ -18058,6 +18039,48 @@ OMPClause *Sema::ActOnOpenMPFTVarClause(OpenMPClauseKind Kind,
                                          SourceLocation EndLoc) {
   SmallVector<Expr *, 4> Vars;
   SmallVector<Expr *, 4> SizeL;
+  // DK TODO: recode with array index
+  for (int i = 0; i < VarList.size(); i++) {
+    SourceLocation ELoc;
+    SourceRange ERange;
+    Expr *SimpleRefExpr = VarList[i];
+    auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
+    if (Res.second) {
+      // It will be analyzed later.
+      Vars.push_back(VarList[i]);
+      SizeL.push_back(SizeList[i]);
+    }
+    ValueDecl *D = Res.first;
+    if (!D)
+      continue;
+    auto *VD = dyn_cast<VarDecl>(D);
+
+    // OpenMP [2.9.1.1, Data-sharing Attribute Rules for Variables Referenced
+    // in a Construct]
+    //  Variables with the predetermined data-sharing attributes may not be
+    //  listed in data-sharing attributes clauses, except for the cases
+    //  listed below. For these exceptions only, listing a predetermined
+    //  variable in a data-sharing attribute clause is allowed and overrides
+    //  the variable's predetermined data-sharing attributes.
+    DSAStackTy::DSAVarData DVar = DSAStack->getTopDSA(D, /*FromParent=*/false);
+    if (DVar.CKind != OMPC_unknown && DVar.CKind != OMPC_shared &&
+        DVar.RefExpr) {
+      Diag(ELoc, diag::err_omp_wrong_dsa) << getOpenMPClauseName(DVar.CKind)
+                                          << getOpenMPClauseName(OMPC_shared);
+      reportOriginalDsa(*this, DSAStack, D, DVar);
+      continue;
+    }
+
+    DeclRefExpr *Ref = nullptr;
+    if (!VD && isOpenMPCapturedDecl(D) && !CurContext->isDependentContext())
+      Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/true);
+    DSAStack->addDSA(D, VarList[i]->IgnoreParens(), OMPC_shared, Ref);
+    Vars.push_back((VD || !Ref || CurContext->isDependentContext())
+                       ? VarList[i]->IgnoreParens()
+                       : Ref);
+    SizeL.push_back(SizeList[i]);
+  }
+#if 0
   int i = -1;
   for (Expr *RefExpr : VarList) {
     i++;
@@ -18112,6 +18135,7 @@ OMPClause *Sema::ActOnOpenMPFTVarClause(OpenMPClauseKind Kind,
 	}
     }
   }
+#endif
 
   if (Vars.empty())
     return nullptr;
