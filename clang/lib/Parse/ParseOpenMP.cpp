@@ -4759,67 +4759,6 @@ ExprResult Parser::ParseOpenMPIteratorsExpr() {
                                       Data);
 }
 
-// ifdef DK
-bool Parser::ParseOpenMPVarSizeList(OpenMPDirectiveKind DKind,
-                                OpenMPClauseKind Kind,
-                                SmallVectorImpl<Expr *> &Vars,
-                                OpenMPVarListDataTy &Data,
-                                SmallVectorImpl<Expr *> &Sizes,
-                                OpenMPVarListDataTy &DataSizes) {
-  bool IsComma = true;
-  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
-  if (T.expectAndConsume(diag::err_expected_lparen_after,
-                         getOpenMPClauseName(Kind).data()))
-    return true;
-
-  while (Tok.isNot(tok::r_paren) /* && Tok.isNot(tok::colon) */ &&
-                     Tok.isNot(tok::annot_pragma_openmp_end)) {
-    ParseScope OMPListScope(this, Scope::OpenMPDirectiveScope);
-    ColonProtectionRAIIObject ColonRAII(*this);
-    // Parse variable
-    ExprResult VarExpr =
-        Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
-    if (VarExpr.isUsable()) {
-      Vars.push_back(VarExpr.get());
-    } else {
-      SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
-                StopBeforeMatch);
-    }
-    // Skip ',' if any
-    bool IsColon = Tok.is(tok::colon);
-    IsComma = Tok.is(tok::comma);
-    if (IsColon) {  // size is specified explicitly
-      DataSizes.ColonLoc = ConsumeToken();	// DK: we may not need this. It is overwritten anyway
-      // Parse variable
-      SourceLocation ELoc = Tok.getLocation();
-      ExprResult LHS(
-          ParseCastExpression(AnyCastExpr, false, NotTypeCast));
-      ExprResult Val(ParseRHSOfBinaryExpression(LHS, prec::Conditional));
-      Val = Actions.ActOnFinishFullExpr(Val.get(), ELoc, /*DiscardedValue*/ false);
-      // Parse variable
-      if (Val.isInvalid()) {
-        return false;
-      } else {
-        Sizes.push_back(Val.get());
-        SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
-                  StopBeforeMatch);
-      }
-      IsComma = Tok.is(tok::comma);
-    }  else { // use default value or size of the variable
-        Sizes.push_back(nullptr);
-    }
-    if (IsComma)
-      ConsumeToken();
-  }
-
-  // Parse ')'.
-  Data.RLoc = Tok.getLocation();
-  if (!T.consumeClose())
-    Data.RLoc = T.getCloseLocation();
-  return (false);
-}
-// endif
-//
 /// Parses clauses with list.
 bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                                 OpenMPClauseKind Kind,
@@ -5265,11 +5204,6 @@ OMPClause *Parser::ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
   OpenMPVarListDataTy Data;
   OpenMPVarListDataTy DataSizes;
 
-#if 0
-  // TODO: DK: remove ParseOpenMPVarSizeList
-  if (ParseOpenMPVarSizeList(DKind, Kind, Vars, Data, Sizes, DataSizes))
-    return nullptr;
-#endif
   bool IsComma = true;
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,

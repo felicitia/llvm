@@ -1567,7 +1567,7 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
       CGF, S, PrivateDecls);
 }
 
-static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, const Stmt *S, SourceLocation Loc) {
+static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
    for (int i = 0; i < VarsSizes.size(); i+=2) {
      Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
@@ -1577,6 +1577,8 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      } else {
        TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
      }
+     CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, TSize, Loc);
+#if 0
      bool generate_code_before = false;
      bool generate_code_after = false;
      if (S == nullptr) 
@@ -1587,6 +1589,7 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
        if (generate_code_before == true) CGF.EmitStmt(S);
        if (generate_code_before == false && generate_code_after == false) CGF.EmitStmt(S);
     }
+#endif
   }
 }
 
@@ -1600,7 +1603,7 @@ static void emitLRVoteStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<cons
         TVarsSizes.push_back(RVarsSizes[i*2]);
         TVarsSizes.push_back(RVarsSizes[i*2+1]);
       }
-      emitVoteStmt(CGF, TVarsSizes, S, S->getBeginLoc());
+      emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
     }
     CGF.EmitStmt(S);
     if (LVarsNameIndex.size() > 0) {
@@ -1609,7 +1612,7 @@ static void emitLRVoteStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<cons
         TVarsSizes.push_back(LVarsSizes[i*2]);
         TVarsSizes.push_back(LVarsSizes[i*2+1]);
       }
-      emitVoteStmt(CGF, TVarsSizes, S, S->getBeginLoc());
+      emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
     }
 }
 
@@ -1759,6 +1762,7 @@ std::string CodeGenFunction::OMPBuilderCBHelpers::getNameWithSeparators(
 void CodeGenFunction::EmitOMPFTDirective(const OMPFTDirective &S) {
 	// ft {} == nmr {}
 	// there must be an associated statement
+#if 0
   if (CGM.getLangOpts().OpenMPIRBuilder) {
     llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
     SmallVector<const Expr *, 4> Lvarsize;
@@ -1776,40 +1780,11 @@ void CodeGenFunction::EmitOMPFTDirective(const OMPFTDirective &S) {
       if (Rvarsize.size() > 0) emitVoteStmt(*this, Rvarsize, nullptr, RvarClause->getBeginLoc());
     }
   }
+#endif
+
   auto *CurStmt = S.getAssociatedStmt(); 
   EmitStmt(CurStmt);
   EmitStmt(S.getAssociatedStmt());
-#if 0
-  const auto *FtvarClause = S.getSingleClause<OMPFTVarClause>();
-//  for (auto *CurStmt: S.getAssociatedStmt()) {
-    auto *CurStmt = S.getAssociatedStmt(); 
- // reference EmitSimpleStmt()
-    EnsureInsertPoint();
-    if (isa<Stmt>(CurStmt) || isa<DeclStmt>(CurStmt)) {
-      emitVoteStmt(*this, FtvarClause, CurStmt);
-    } else
-      EmitStmt(CurStmt);
-//  }
-    // ifdef DK
-  if (auto *FtvarClause = S.getSingleClause<OMPFTVarClause>()) {
-    SmallVector<const Expr *, 4> Vars;
-    SmallVector<const Expr *, 4> Sizes;
-    Vars.append(FtvarClause->varlist_begin(), FtvarClause->varlist_end());
-    Sizes.append(FtvarClause->sizelist_begin(), FtvarClause->sizelist_end());
-    emitVoteStmt(CGF, Vars, Sizes, nullptr);
-  }
-    // endif
-AST_POLYMORPHIC_MATCHER_P(hasRHS,
-                          AST_POLYMORPHIC_SUPPORTED_TYPES(
-                              BinaryOperator, CXXOperatorCallExpr,
-                              CXXRewrittenBinaryOperator, ArraySubscriptExpr),
-                          Ref, InnerMatcher) ;
-AST_POLYMORPHIC_MATCHER_P(
-    hasEitherOperand,
-    AST_POLYMORPHIC_SUPPORTED_TYPES(BinaryOperator, CXXOperatorCallExpr,
-                                    CXXRewrittenBinaryOperator),
-    internal::Matcher<Expr>, InnerMatcher) ;
-#endif
 }
 
 void CodeGenFunction::EmitOMPVoteDirective(const OMPVoteDirective &S) {
@@ -1817,7 +1792,7 @@ void CodeGenFunction::EmitOMPVoteDirective(const OMPVoteDirective &S) {
   if (const auto *FtvarClause = S.getSingleClause<OMPVoteClause>()) {
     SmallVector<const Expr *, 4> VarsSizes;
     VarsSizes.append(FtvarClause->varlist_begin(), FtvarClause->varlist_end());
-    emitVoteStmt(*this, VarsSizes, nullptr, S.getBeginLoc());
+    emitVoteStmt(*this, VarsSizes, S.getBeginLoc());
   }
 }
 
@@ -1841,8 +1816,14 @@ static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &LVarsS
 	  const DeclRefExpr * DR = cast<DeclRefExpr>((*TVarsSizes)[i]);
 	  const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
           if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
-              && VD->getDeclContext() == VD2->getDeclContext()) {	// TODO: this cannot handle a new definiion within a sub-block
-            TVarsSizesIndex->push_back(i);
+              && VD->getDeclContext() == VD2->getDeclContext()) {
+	    bool found = false;
+	    for (int j = 0; j < TVarsSizesIndex->size(); j++) {
+	      if ((*TVarsSizesIndex)[j] == i) // already included
+		found = true;
+	    }
+            if (!found) 
+              TVarsSizesIndex->push_back(i);
 	    break;
           }
         }
@@ -1895,8 +1876,6 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
     }
   case Stmt::BinaryOperatorClass: {
     const BinaryOperator * BO = cast<BinaryOperator>(S);
-//    if (BO->isAssignmentOp()) 
-//    if (UO->isIncrementDecrementOp())  UO->getSubExpr();
     if (RVarsSizes.size() == 0 && LVarsSizes.size() == 0) return;
     visitStmt(CGF, cast<Stmt>(BO->getLHS()), LVarsSizes, RVarsSizes, LVarsNameIndex, RVarsNameIndex, false, isLHS);
     visitStmt(CGF, cast<Stmt>(BO->getRHS()), LVarsSizes, RVarsSizes, LVarsNameIndex, RVarsNameIndex, false, false);
@@ -1913,28 +1892,6 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
   case Stmt::DeclRefExprClass:
     {
     visitExpr(cast<DeclRefExpr>(S) , LVarsSizes, RVarsSizes, LVarsNameIndex, RVarsNameIndex, isTopLevel, isLHS);
-#if 0
-    auto *SaveRef = cast<DeclRefExpr>(S);
-    SmallVector<const Expr *, 4> * TVarsSizes;
-    std::vector<int> * TVarsNameIndex;
-    if (isLHS) {
-      TVarsSizes = &LVarsSizes; 
-      TVarsNameIndex = & LVarsNameIndex;
-    } else {
-      TVarsSizes = &RVarsSizes;
-      TVarsNameIndex = & RVarsNameIndex;
-    }
-    if (TVarsSizes->size() == 0) return;
-    if (const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl())) {
-      for (int i=0; i < TVarsSizes->size(); i+=2) {
-	const DeclRefExpr * DR = cast<DeclRefExpr>((*TVarsSizes)[i]);
-	const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
-        if (VD->getDeclContext() == VD2->getDeclContext() && 
-	    VD->getQualifiedSizeAsString() == VD2->getQualifiedSizeAsString())
-              TVarsNameIndex->push_back(i);
-        }
-      }
-#endif
     }
     return;
   case Stmt::NullStmtClass:
@@ -1945,27 +1902,11 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
     for (const Stmt *subStmt : S->children()) {
       visitStmt(CGF, subStmt, LVarsSizes, RVarsSizes, LVarsNameIndex, RVarsNameIndex, false, false);
     }
+    if (isTopLevel) {
+      emitLRVoteStmt(CGF, S, LVarsSizes, RVarsSizes, LVarsNameIndex, RVarsNameIndex);
+    }
     return;
   }
-}
-
-static void visitEmitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Expr *, 4> &LVarSize, 
-		SmallVector<const Expr *, 4> &RVarSize) {
-  std::vector<int> LvarsIndex, RvarsIndex;
-
-  /*
-  for (int i = 0; i < LVarSize.size(); i+=2) {
-     const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(LVarSize[i]);
-     const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
-     LvarsName.push_back(VD->getQualifiedNameAsString());
-  }
-  for (int i = 0; i < RVarSize.size(); i+=2) {
-     const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(RVarSize[i]);
-     const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
-     RvarsName.push_back(VD->getQualifiedNameAsString());
-  }
-  */
-  visitStmt(CGF, S, LVarSize, RVarSize, LvarsIndex, RvarsIndex, true, false);
 }
 
 void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
@@ -1974,25 +1915,18 @@ void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
   SmallVector<const Expr *, 4> Rvarsize;
   const auto *LvarClause = S.getSingleClause<OMPVarClause>();
   const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
+  std::vector<int> LvarsIndex, RvarsIndex;
+
   if (LvarClause)  // lvar
     Lvarsize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
   if (RvarClause)  // rvar
     Rvarsize.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
-#if 0
-  if (1) { // match in the statement // Now it just tests code generation
-    if (Lvars.size() > 0) emitVoteStmt(*this, Lvars, Lsizes, nullptr, LvarClause->getBeginLoc());
-    if (Rvars.size() > 0) emitVoteStmt(*this, Rvars, Rsizes, nullptr, RvarClause->getBeginLoc());
-  }
-#endif
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(&S);
-#if 0
-  const auto *CS = cast_or_null<CapturedStmt>(S.getAssociatedStmt());
-  EmitStmt(CS->getCapturedStmt());
-#endif
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());
 //  EmitStmt(CS);
-  visitEmitStmt(*this, CS, Lvarsize, Rvarsize);
+//  DK: TODO: replace visitEmitStmt with visitStmt
+  visitStmt(*this, CS, Lvarsize, Rvarsize, LvarsIndex, RvarsIndex, true, false);
 }
 // DK
 

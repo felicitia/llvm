@@ -3379,13 +3379,6 @@ public:
                           bool AllowDestructorName, bool AllowConstructorName,
                           bool AllowDeductionGuide,
                           SourceLocation *TemplateKWLoc, UnqualifiedId &Result);
-  // ifdef DK
-  bool ParseOpenMPVarSizeList(OpenMPDirectiveKind DKind, OpenMPClauseKind Kind,
-                          SmallVectorImpl<Expr *> &Vars,
-                          OpenMPVarListDataTy &Data,
-                          SmallVectorImpl<Expr *> &Sizes,
-                          OpenMPVarListDataTy &DataSizes);
-  // endif
   //
   /// Parses the mapper modifier in map, to, and from clauses.
   bool parseMapperModifier(OpenMPVarListDataTy &Data);

@@ -7459,17 +7459,6 @@ StmtResult Sema::ActOnOpenMPNmrDirective(ArrayRef<OMPClause *> Clauses,
 
   if (!AStmt)
     return StmtError();
-#if 0
-  auto *CS = cast<CapturedStmt>(AStmt);
-  // 1.2.2 OpenMP Language Terminology
-  // Structured block - An executable statement with a single entry at the
-  // top and a single exit at the bottom.
-  // The point of exit cannot be a branch out of the structured block.
-  // longjmp() and throw() must not violate the entry/exit criteria.
-  CS->getCapturedDecl()->setNothrow();
-
-  setFunctionHasBranchProtectedScope();
-#endif
   return OMPNmrDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 // endif
@@ -18080,62 +18069,6 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
                        : Ref);
     SizeL.push_back(SizeList[i]);
   }
-#if 0
-  int i = -1;
-  for (Expr *RefExpr : VarList) {
-    i++;
-    assert(RefExpr && "NULL expr in OpenMP lastprivate clause.");
-    SourceLocation ELoc;
-    SourceRange ERange;
-    Expr *SimpleRefExpr = RefExpr;
-    auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
-    if (Res.second) {
-      // It will be analyzed later.
-      Vars.push_back(RefExpr);
-      int j = -1;
-      for (Expr *RefSize : SizeList) {
-	 j++;
-	 if (j == i)  { SizeL.push_back(RefSize); break; }
-      }
-    }
-    ValueDecl *D = Res.first;
-    if (!D)
-      continue;
-
-    auto *VD = dyn_cast<VarDecl>(D);
-    // OpenMP [2.9.1.1, Data-sharing Attribute Rules for Variables Referenced
-    // in a Construct]
-    //  Variables with the predetermined data-sharing attributes may not be
-    //  listed in data-sharing attributes clauses, except for the cases
-    //  listed below. For these exceptions only, listing a predetermined
-    //  variable in a data-sharing attribute clause is allowed and overrides
-    //  the variable's predetermined data-sharing attributes.
-    DSAStackTy::DSAVarData DVar = DSAStack->getTopDSA(D, /*FromParent=*/false);
-    if (DVar.CKind != OMPC_unknown && DVar.CKind != OMPC_shared &&
-        DVar.RefExpr) {
-      Diag(ELoc, diag::err_omp_wrong_dsa) << getOpenMPClauseName(DVar.CKind)
-                                          << getOpenMPClauseName(OMPC_shared);
-      reportOriginalDsa(*this, DSAStack, D, DVar);
-      continue;
-    }
-
-    DeclRefExpr *Ref = nullptr;
-    if (!VD && isOpenMPCapturedDecl(D) && !CurContext->isDependentContext())
-      Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/true);
-    DSAStack->addDSA(D, RefExpr->IgnoreParens(), OMPC_shared, Ref);
-    Vars.push_back((VD || !Ref || CurContext->isDependentContext())
-                       ? RefExpr->IgnoreParens()
-                       : Ref);
-    int j = -1;
-    for (Expr *RefSize : SizeList) {
-	j++;
-	if (j == i)  { 
-		SizeL.push_back(RefSize);
-		break;
-	}
-    }
-  }
-#endif
 
   if (Vars.empty())
     return nullptr;

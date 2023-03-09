@@ -2951,20 +2951,12 @@ void CGOpenMPRuntime::emitFTVoteClause(CodeGenFunction &CGF,
       emitUpdateLocation(CGF, Loc), 
       IL.getPointer(),
       CGF.Builder.CreateIntCast(VarSize, CGF.Int32Ty, /*isSigned*/ true)};
-#if 0
-  if (CGF.CGM.getLangOpts().OpenMPIRBuilder) {
-    OMPBuilder.createFtvote(CGF.Builder);
-  } else {
-#endif
     if (!CGF.HaveInsertPoint())
       return;
     // Build call __ft_vote(&loc, var, size)
     CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
                             CGM.getModule(), OMPRTL___kmpc_ftvote),
                         Args);
-#if 0
-  }
-#endif
 }
 
 void CGOpenMPRuntime::emitDegreeClause(CodeGenFunction &CGF,
