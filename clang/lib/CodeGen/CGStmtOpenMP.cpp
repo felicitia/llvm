@@ -1578,18 +1578,6 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
        TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
      }
      CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, TSize, Loc);
-#if 0
-     bool generate_code_before = false;
-     bool generate_code_after = false;
-     if (S == nullptr) 
-         CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, TSize, Loc);
-     else {
-       if (generate_code_after == true) CGF.EmitStmt(S);
-       CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, TSize, S->getBeginLoc());
-       if (generate_code_before == true) CGF.EmitStmt(S);
-       if (generate_code_before == false && generate_code_after == false) CGF.EmitStmt(S);
-    }
-#endif
   }
 }
 
@@ -1600,8 +1588,8 @@ static void emitLRVoteStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<cons
     if (RVarsNameIndex.size() > 0) {
       SmallVector<const Expr *, 4> TVarsSizes;
       for (int i=0; i < (int)RVarsNameIndex.size(); i++) {
-        TVarsSizes.push_back(RVarsSizes[i*2]);
-        TVarsSizes.push_back(RVarsSizes[i*2+1]);
+        TVarsSizes.push_back(RVarsSizes[RVarsNameIndex[i]]);
+        TVarsSizes.push_back(RVarsSizes[RVarsNameIndex[i]+1]);
       }
       emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
     }
@@ -1609,8 +1597,8 @@ static void emitLRVoteStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<cons
     if (LVarsNameIndex.size() > 0) {
       SmallVector<const Expr *, 4> TVarsSizes;
       for (int i=0 ; i < (int)LVarsNameIndex.size(); i++) {
-        TVarsSizes.push_back(LVarsSizes[i*2]);
-        TVarsSizes.push_back(LVarsSizes[i*2+1]);
+        TVarsSizes.push_back(LVarsSizes[RVarsNameIndex[i]]);
+        TVarsSizes.push_back(LVarsSizes[RVarsNameIndex[i]+1]);
       }
       emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
     }

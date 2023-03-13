@@ -3323,6 +3323,8 @@ private:
   // ifdef DK
   OMPClause *ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
+  OMPClause *ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
+                                      OpenMPClauseKind Kind, bool ParseOnly);
   // endif
   
   /// Parses and creates OpenMP 5.0 iterators expression:

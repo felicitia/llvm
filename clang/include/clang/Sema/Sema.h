@@ -10792,6 +10792,10 @@ public:
       OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
       Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
   // ifdef DK
+  StmtResult ActOnFTExecutableDirective(
+      OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
+      ArrayRef<OMPClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
   StmtResult ActOnOpenMPFTDirective(ArrayRef<OMPClause *> Clauses,
                                           Stmt *AStmt,
                                           SourceLocation StartLoc,

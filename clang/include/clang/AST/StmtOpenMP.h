@@ -613,13 +613,13 @@ class OMPNmrDirective : public OMPExecutableDirective {
   ///
   OMPNmrDirective(SourceLocation StartLoc, SourceLocation EndLoc)
       : OMPExecutableDirective(OMPNmrDirectiveClass,
-                               llvm::omp::OMPD_parallel, StartLoc, EndLoc) {}
+                               llvm::omp::OMPD_nmr, StartLoc, EndLoc) {}
 
   /// Build an empty directive.
   ///
   explicit OMPNmrDirective()
       : OMPExecutableDirective(OMPNmrDirectiveClass,
-                               llvm::omp::OMPD_parallel, SourceLocation(),
+                               llvm::omp::OMPD_nmr, SourceLocation(),
                                SourceLocation()) {}
 
   /// Sets special task reduction descriptor.
@@ -2901,13 +2901,13 @@ class OMPVoteDirective : public OMPExecutableDirective {
   /// \param EndLoc Ending location of the directive.
   ///
   OMPVoteDirective(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPExecutableDirective(OMPVoteDirectiveClass, llvm::omp::OMPD_dkflush,
+      : OMPExecutableDirective(OMPVoteDirectiveClass, llvm::omp::OMPD_vote,
                                StartLoc, EndLoc) {}
 
   /// Build an empty directive.
   ///
   explicit OMPVoteDirective()
-      : OMPExecutableDirective(OMPVoteDirectiveClass, llvm::omp::OMPD_dkflush,
+      : OMPExecutableDirective(OMPVoteDirectiveClass, llvm::omp::OMPD_vote,
                                SourceLocation(), SourceLocation()) {}
 
 public:

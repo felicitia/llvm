@@ -8906,7 +8906,7 @@ template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPVoteDirective(OMPVoteDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_dkflush, DirName, nullptr,
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_vote, DirName, nullptr,
                                              D->getBeginLoc());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
