@@ -258,6 +258,9 @@ public:
     unsigned Index;
   };
 
+  SmallVector<const Expr *, 4> LVarSize;
+  SmallVector<const Expr *, 4> RVarSize;
+
   CodeGenModule &CGM;  // Per-module state.
   const TargetInfo &Target;
 

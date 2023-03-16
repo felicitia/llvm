@@ -1597,8 +1597,8 @@ static void emitLRVoteStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<cons
     if (LVarsNameIndex.size() > 0) {
       SmallVector<const Expr *, 4> TVarsSizes;
       for (int i=0 ; i < (int)LVarsNameIndex.size(); i++) {
-        TVarsSizes.push_back(LVarsSizes[RVarsNameIndex[i]]);
-        TVarsSizes.push_back(LVarsSizes[RVarsNameIndex[i]+1]);
+        TVarsSizes.push_back(LVarsSizes[LVarsNameIndex[i]]);
+        TVarsSizes.push_back(LVarsSizes[LVarsNameIndex[i]+1]);
       }
       emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
     }
@@ -1826,6 +1826,7 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
   bool matchLHS = false;
   bool matchRHS = false;
 
+  if (!S) return;
   switch (S->getStmtClass()) {
     case Stmt::ImplicitCastExprClass: {
     const ImplicitCastExpr * E = cast<ImplicitCastExpr>(S);
@@ -1839,6 +1840,7 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
     }
   case Stmt::CompoundStmtClass: 
     for (auto *InnerStmt : cast<CompoundStmt>(S)->body()) {
+      if (!InnerStmt) continue;
        std::vector<int> _LVarsNameIndex, _RVarsNameIndex;
        visitStmt(CGF, InnerStmt, LVarsSizes, RVarsSizes, _LVarsNameIndex, _RVarsNameIndex, true, true);
     }
@@ -1888,6 +1890,8 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
     return;
   default: 
     for (const Stmt *subStmt : S->children()) {
+      if (!subStmt)
+        continue;
       visitStmt(CGF, subStmt, LVarsSizes, RVarsSizes, LVarsNameIndex, RVarsNameIndex, false, false);
     }
     if (isTopLevel) {
@@ -1899,22 +1903,29 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
 
 void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
   llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
-  SmallVector<const Expr *, 4> Lvarsize;
+/*
+ * SmallVector<const Expr *, 4> Lvarsize;
   SmallVector<const Expr *, 4> Rvarsize;
+  */
   const auto *LvarClause = S.getSingleClause<OMPVarClause>();
   const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
   std::vector<int> LvarsIndex, RvarsIndex;
 
+  LVarSize.clear();
+  RVarSize.clear();
+
   if (LvarClause)  // lvar
-    Lvarsize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
+    LVarSize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
   if (RvarClause)  // rvar
-    Rvarsize.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
+    RVarSize.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(&S);
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());
-//  EmitStmt(CS);
+  EmitStmt(CS);
+  LVarSize.clear();
+  RVarSize.clear();
 //  DK: TODO: replace visitEmitStmt with visitStmt
-  visitStmt(*this, CS, Lvarsize, Rvarsize, LvarsIndex, RvarsIndex, true, false);
+//  visitStmt(*this, CS, Lvarsize, Rvarsize, LvarsIndex, RvarsIndex, true, false);
 }
 // DK
 

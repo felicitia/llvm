@@ -40,6 +40,147 @@ using namespace CodeGen;
 //                              Statement Emission
 //===----------------------------------------------------------------------===//
 
+static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSize,
+		std::vector<int> &VarsSizesIndex, bool lookforLHS, bool canbeLHS) {
+  if (!E) return;
+  if (VarSize.size() == 0) return;
+  if (lookforLHS && !canbeLHS) return;
+  if (!lookforLHS && canbeLHS) return;
+  if (auto *SaveRef = cast<DeclRefExpr>(E->IgnoreImpCasts())) {
+    if (const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl())) {
+      for (int i=0; i < VarSize.size(); i+=2) {
+        const DeclRefExpr * DR = cast<DeclRefExpr>(VarSize[i]);
+        const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
+        if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
+            && VD->getDeclContext() == VD2->getDeclContext()) {
+          bool found = false;
+          for (int j = 0; j < VarsSizesIndex.size(); j++) {
+            if (VarsSizesIndex[j] == i) // already included
+              found = true;
+          }
+          if (!found) 
+            VarsSizesIndex.push_back(i);
+          break;
+        }
+      }
+    }
+  }
+}
+
+static void visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
+		std::vector<int> &VarsNameIndex, bool lookforLHS, bool canbeLHS) {
+
+  if (!S) return;
+  if (VarSize.size() == 0) return;
+  switch (S->getStmtClass()) {
+  case Stmt::ImplicitCastExprClass: {
+    const ImplicitCastExpr * E = cast<ImplicitCastExpr>(S);
+    visitStmt(cast<Stmt>(E->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
+    return;
+    }
+  case Stmt::CompoundStmtClass: 
+    for (auto *InnerStmt : cast<CompoundStmt>(S)->body()) {
+      if (!InnerStmt) continue;
+       std::vector<int> _VarsNameIndex;
+       visitStmt(InnerStmt, VarSize, _VarsNameIndex, lookforLHS, false);
+    }
+    return;
+  case Stmt::UnaryOperatorClass: {
+    const UnaryOperator * UO = cast<UnaryOperator>(S);
+    if (UO->isPrefix() || UO->isPostfix()) {
+      if (lookforLHS) visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, true);
+      // Should we include it as Rvalue, too.
+      if (!lookforLHS) visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
+    }
+    else { 
+      if (!lookforLHS)
+        visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
+    }
+    return;
+    }
+  case Stmt::ArraySubscriptExprClass: 
+    {
+    const ArraySubscriptExpr * ARS = cast<ArraySubscriptExpr>(S);
+    visitStmt(cast<Stmt>(ARS->getLHS()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
+    visitStmt(cast<Stmt>(ARS->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    return;
+    }
+  case Stmt::BinaryOperatorClass: {
+    const BinaryOperator * BO = cast<BinaryOperator>(S);
+    if (BO->getOpcode() == BO_Assign) {
+        visitStmt(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
+        visitStmt(cast<Stmt>(BO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    } else {
+        visitStmt(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, false);
+        visitStmt(cast<Stmt>(BO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    }
+    return;
+    }
+  case Stmt::CompoundAssignOperatorClass: {
+    const CompoundAssignOperator * CO = cast<CompoundAssignOperator>(S);
+    visitStmt(cast<Stmt>(CO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
+    visitStmt(cast<Stmt>(CO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    return;
+    }
+  case Stmt::DeclStmtClass: {
+    return;
+    }
+  case Stmt::DeclRefExprClass:
+    {
+    visitExpr(cast<DeclRefExpr>(S) , VarSize, VarsNameIndex, lookforLHS, canbeLHS);
+    }
+    return;
+  case Stmt::NullStmtClass:
+    return;
+  case Stmt::CaseStmtClass:
+    {
+    if (lookforLHS) return;
+    const CaseStmt * CS = cast<CaseStmt>(S);
+    visitStmt(cast<Stmt>(CS->getLHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    visitStmt(cast<Stmt>(CS->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    return;
+    }
+  default: 
+    if (lookforLHS) return;
+    for (const Stmt *subStmt : S->children()) {
+      if (!subStmt)
+        continue;
+      visitStmt(subStmt, VarSize, VarsNameIndex, lookforLHS, false);
+    }
+    return;
+  }
+}
+
+static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
+   if (VarsSizes.size() == 0) return;
+   for (int i = 0; i < VarsSizes.size(); i+=2) {
+     Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
+     llvm::Value *TSize ;
+     if (VarsSizes[i+1] == nullptr) {
+       TSize = CGF.getTypeSize(VarsSizes[i]->getType());
+     } else {
+       TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
+     }
+     CGF.CGM.getOpenMPRuntime().emitFTVoteClause(CGF, Varaddr, TSize, Loc);
+  }
+}
+
+void emitVarVote(CodeGenFunction &CGF, const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS) {
+  std::vector<int> VarsNameIndex;
+  SmallVector<const Expr *, 4> TVarsSizes;
+
+  if (VarSize.size() == 0) return;
+
+  visitStmt(S, VarSize, VarsNameIndex, lookforLHS, true);
+  if (VarsNameIndex.size() == 0) return;
+
+  for (int i=0; i < (int)VarsNameIndex.size(); i++) {
+    TVarsSizes.push_back(VarSize[VarsNameIndex[i]]);
+    TVarsSizes.push_back(VarSize[VarsNameIndex[i]+1]);
+  }
+  emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
+}
+
 void CodeGenFunction::EmitStopPoint(const Stmt *S) {
   if (CGDebugInfo *DI = getDebugInfo()) {
     SourceLocation Loc;
@@ -118,8 +259,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm::BasicBlock *incoming = Builder.GetInsertBlock();
     assert(incoming && "expression emission must have an insertion point");
 
+    emitVarVote(*this, S, RVarSize, false);
     EmitIgnoredExpr(cast<Expr>(S));
-
+    emitVarVote(*this, S, LVarSize, true);
     llvm::BasicBlock *outgoing = Builder.GetInsertBlock();
     assert(outgoing && "expression emission cleared block!");
 
