@@ -6124,13 +6124,13 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
            "No associated statement allowed for 'omp flush' directive");
     Res = ActOnOpenMPFlushDirective(ClausesWithImplicit, StartLoc, EndLoc);
     break;
-// #ifdef DK
+#ifdef DK
   case OMPD_dkflush:
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp dkflush' directive");
     Res = ActOnOpenMPDKFlushDirective(ClausesWithImplicit, StartLoc, EndLoc);
     break;
-// #endif
+#endif
   case OMPD_depobj:
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp depobj' directive");
@@ -6535,6 +6535,39 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     // Register target to DSA Stack.
     DSAStack->addTargetDirLocation(StartLoc);
   }
+
+  return Res;
+}
+
+StmtResult Sema::ActOnFTExecutableDirective(
+    OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
+    ArrayRef<OMPClause *> Clauses,
+    Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc) {
+  StmtResult Res = StmtError();
+  OpenMPBindClauseKind BindKind = OMPC_BIND_unknown;
+  llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
+  bool ErrorFound = false;
+  ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
+
+  llvm::SmallVector<OpenMPDirectiveKind, 4> AllowedNameModifiers;
+  switch (Kind) {
+  case OMPD_vote:
+    assert(AStmt == nullptr &&
+           "No associated statement allowed for 'omp flush' directive");
+    Res = ActOnOpenMPVoteDirective(ClausesWithImplicit, StartLoc, EndLoc);
+    break;
+  case OMPD_nmr:
+    Res = ActOnOpenMPNmrDirective(ClausesWithImplicit, AStmt, StartLoc,
+                                       EndLoc);
+    break;
+  default:
+    llvm_unreachable("Unknown OpenMP directive");
+  }
+
+  ErrorFound = Res.isInvalid() || ErrorFound;
+
+  if (ErrorFound)
+    return StmtError();
 
   return Res;
 }
@@ -14756,10 +14789,10 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_sizes:
   case OMPC_allocate:
   case OMPC_flush:
-// #ifdef DK
+#ifdef DK
   case OMPC_vote:
   case OMPC_dkflush:
-// #endif
+#endif
   case OMPC_read:
   case OMPC_write:
   case OMPC_update:
@@ -15665,10 +15698,10 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-// #ifdef DK
+#ifdef DK
   case OMPC_vote:
   case OMPC_dkflush:
-// #endif
+#endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -16160,10 +16193,10 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-// #ifdef DK
+#ifdef DK
   case OMPC_vote:
   case OMPC_dkflush:
-// #endif
+#endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -16472,10 +16505,10 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-// #ifdef DK
+#ifdef DK
   case OMPC_vote:
   case OMPC_dkflush:
-// #endif
+#endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -16746,10 +16779,10 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-// #ifdef DK
+#ifdef DK
   case OMPC_vote:
   case OMPC_dkflush:
-// #endif
+#endif
   case OMPC_depobj:
   case OMPC_depend:
   case OMPC_device:
