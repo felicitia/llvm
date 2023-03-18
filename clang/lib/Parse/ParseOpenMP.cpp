@@ -2923,8 +2923,8 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
       }
 //      AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses);
     } 
-    Directive = Actions.ActOnOpenMPExecutableDirective(
-        DKind, DirName, CancelRegion, Clauses, AssociatedStmt.get(), Loc,
+    Directive = Actions.ActOnFTExecutableDirective(
+        DKind, DirName, Clauses, AssociatedStmt.get(), Loc,
         EndLoc);
 
     // Exit scope.
@@ -3233,7 +3233,9 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     }
     break;
   }
+#ifdef DK
   case OMPD_vote:
+#endif
   case OMPD_flush:
   case OMPD_depobj:
   case OMPD_scan:
@@ -3254,7 +3256,9 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     HasAssociatedStatement = false;
     // Fall through for further analysis.
     LLVM_FALLTHROUGH;
+#ifdef DK
   case OMPD_nmr:
+#endif
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_tile:
@@ -3310,7 +3314,11 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     // Special processing for flush and depobj clauses.
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;
+#ifdef DK
     if (DKind == OMPD_flush || DKind == OMPD_depobj || DKind == OMPD_vote) {
+#else
+    if (DKind == OMPD_flush || DKind == OMPD_depobj) {
+#endif
       ImplicitTok = Tok;
       ImplicitClauseAllowed = true;
     }
@@ -3367,11 +3375,11 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
         if (DKind == OMPD_flush) {
           CKind = OMPC_flush;
         } 
-// #ifdef DK
+#ifdef DK
 	else if (DKind == OMPD_vote) {
           CKind = OMPC_vote;
         } 
-// #endif
+#endif
 	else {
           assert(DKind == OMPD_depobj &&
                  "Expected flush or depobj directives.");
@@ -3830,14 +3838,14 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                  ? ParseOpenMPSimpleClause(CKind, WrongDirective)
                  : ParseOpenMPClause(CKind, WrongDirective);
     break;
-    // ifdef DK
+#ifdef DK
   case OMPC_vote:
   case OMPC_ftvar:
   case OMPC_var:
   case OMPC_rvar:
     Clause = ParseOpenMPDoubleVarListClause(DKind, CKind, WrongDirective);
     break;
-    // endif
+#endif
   case OMPC_private:
   case OMPC_firstprivate:
   case OMPC_lastprivate:
@@ -4894,7 +4902,7 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 
     if (Tok.is(tok::colon))
       Data.ColonLoc = ConsumeToken();
-// ifdef DK
+#ifdef DK
   } else if (Kind == OMPC_ftvar) {
     // Handle map type for map clause.
     ColonProtectionRAIIObject ColonRAII(*this);
@@ -4930,7 +4938,7 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 
     if (Tok.is(tok::colon))
       Data.ColonLoc = ConsumeToken();
-// endif
+#endif
   } else if (Kind == OMPC_to || Kind == OMPC_from) {
     while (Tok.is(tok::identifier)) {
       auto Modifier = static_cast<OpenMPMotionModifierKind>(
@@ -5055,10 +5063,11 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
       Diag(Tok, diag::err_omp_expected_punc)
 			  // ifdef DK	without this, vote cannot have argument 
           << ((Kind == OMPC_flush) ? getOpenMPDirectiveName(OMPD_flush)
+#ifdef DK
 			           : ((Kind == OMPC_vote) ? getOpenMPDirectiveName(OMPD_vote) : getOpenMPClauseName(Kind)))
-	  		  // else
-                          //         : getOpenMPClauseName(Kind))
-			  // endif
+#else
+			           : getOpenMPClauseName(Kind))
+#endif
           << (Kind == OMPC_flush);
   }
 

@@ -1903,16 +1903,18 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
 
 void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
   llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
-/*
- * SmallVector<const Expr *, 4> Lvarsize;
-  SmallVector<const Expr *, 4> Rvarsize;
-  */
+
+  SmallVector<const Expr *, 4> SaveLVarSize;
+  SmallVector<const Expr *, 4> SaveRVarSize;
+
   const auto *LvarClause = S.getSingleClause<OMPVarClause>();
   const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
   std::vector<int> LvarsIndex, RvarsIndex;
 
-  LVarSize.clear();
-  RVarSize.clear();
+//  LVarSize.clear();
+//  RVarSize.clear();
+  SaveLVarSize = LVarSize;
+  SaveRVarSize = RVarSize;
 
   if (LvarClause)  // lvar
     LVarSize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
@@ -1922,8 +1924,9 @@ void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
   EmitStopPoint(&S);
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());
   EmitStmt(CS);
-  LVarSize.clear();
-  RVarSize.clear();
+
+  LVarSize = SaveLVarSize;
+  RVarSize = SaveRVarSize;
 //  DK: TODO: replace visitEmitStmt with visitStmt
 //  visitStmt(*this, CS, Lvarsize, Rvarsize, LvarsIndex, RvarsIndex, true, false);
 }
