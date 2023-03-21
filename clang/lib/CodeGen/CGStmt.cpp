@@ -48,13 +48,13 @@ static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSiz
   if (!lookforLHS && canbeLHS) return;
   if (auto *SaveRef = cast<DeclRefExpr>(E->IgnoreImpCasts())) {
     if (const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl())) {
-      for (int i=0; i < VarSize.size(); i+=2) {
+      for (int i=0; i < (int)VarSize.size(); i+=2) {
         const DeclRefExpr * DR = cast<DeclRefExpr>(VarSize[i]);
         const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
         if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
             && VD->getDeclContext() == VD2->getDeclContext()) {
           bool found = false;
-          for (int j = 0; j < VarsSizesIndex.size(); j++) {
+          for (int j = 0; j < (int)VarsSizesIndex.size(); j++) {
             if (VarsSizesIndex[j] == i) // already included
               found = true;
           }
@@ -153,7 +153,7 @@ static void visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
 
 static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
-   for (int i = 0; i < VarsSizes.size(); i+=2) {
+   for (int i = 0; i < (int)VarsSizes.size(); i+=2) {
      Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
      llvm::Value *TSize ;
      if (VarsSizes[i+1] == nullptr) {

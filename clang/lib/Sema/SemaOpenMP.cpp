@@ -6544,7 +6544,7 @@ StmtResult Sema::ActOnFTExecutableDirective(
     ArrayRef<OMPClause *> Clauses,
     Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc) {
   StmtResult Res = StmtError();
-  OpenMPBindClauseKind BindKind = OMPC_BIND_unknown;
+//  OpenMPBindClauseKind BindKind = OMPC_BIND_unknown;
   llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
   bool ErrorFound = false;
   ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
@@ -18062,7 +18062,7 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
   SmallVector<Expr *, 4> Vars;
   SmallVector<Expr *, 4> SizeL;
   // DK TODO: recode with array index
-  for (int i = 0; i < VarList.size(); i++) {
+  for (int i = 0; i < (int)VarList.size(); i++) {
     SourceLocation ELoc;
     SourceRange ERange;
     Expr *SimpleRefExpr = VarList[i];

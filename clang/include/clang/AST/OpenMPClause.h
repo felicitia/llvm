@@ -3068,7 +3068,7 @@ public:
   void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
     std::vector<Expr *> STL;
     assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
-    for (int i = 0; i < VL.size(); i++) {
+    for (int i = 0; i < (int)VL.size(); i++) {
       STL.push_back(VL[i]);
       STL.push_back(SL[i]);
     }
@@ -3145,7 +3145,7 @@ public:
   void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
     std::vector<Expr *> STL;
     assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
-    for (int i = 0; i < VL.size(); i++) {
+    for (int i = 0; i < (int)VL.size(); i++) {
       STL.push_back(VL[i]);
       STL.push_back(SL[i]);
     }
@@ -3222,7 +3222,7 @@ public:
   void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
     std::vector<Expr *> STL;
     assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
-    for (int i = 0; i < VL.size(); i++) {
+    for (int i = 0; i < (int)VL.size(); i++) {
       STL.push_back(VL[i]);
       STL.push_back(SL[i]);
     }
@@ -4981,7 +4981,7 @@ public:
   void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
     std::vector<Expr *> STL;
     assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
-    for (int i = 0; i < VL.size(); i++) {
+    for (int i = 0; i < (int)VL.size(); i++) {
       STL.push_back(VL[i]);
       STL.push_back(SL[i]);
     }

@@ -1379,9 +1379,6 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_taskwait:
     case OMPD_taskgroup:
     case OMPD_flush:
-// #ifdef DK
-    case OMPD_dkflush:
-// #endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_ordered:
@@ -1569,7 +1566,7 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
 
 static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
-   for (int i = 0; i < VarsSizes.size(); i+=2) {
+   for (int i = 0; i < (int)VarsSizes.size(); i+=2) {
      Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
      llvm::Value *TSize ;
      if (VarsSizes[i+1] == nullptr) {
@@ -1800,13 +1797,13 @@ static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &LVarsS
       if (TVarsSizes->size() == 0) return;
       if (const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl())) {
         std::string VarSize = VD->getQualifiedNameAsString();
-        for (int i=0; i < TVarsSizes->size(); i+=2) {
+        for (int i=0; i < (int)TVarsSizes->size(); i+=2) {
 	  const DeclRefExpr * DR = cast<DeclRefExpr>((*TVarsSizes)[i]);
 	  const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
           if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
               && VD->getDeclContext() == VD2->getDeclContext()) {
 	    bool found = false;
-	    for (int j = 0; j < TVarsSizesIndex->size(); j++) {
+	    for (int j = 0; j < (int)TVarsSizesIndex->size(); j++) {
 	      if ((*TVarsSizesIndex)[j] == i) // already included
 		found = true;
 	    }
@@ -1823,8 +1820,6 @@ static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &LVarsS
 static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Expr *, 4> &LVarsSizes, 
 		SmallVector<const Expr *, 4> &RVarsSizes, 
 		std::vector<int> &LVarsNameIndex, std::vector<int> &RVarsNameIndex, bool isTopLevel, bool isLHS) {
-  bool matchLHS = false;
-  bool matchRHS = false;
 
   if (!S) return;
   switch (S->getStmtClass()) {
@@ -6414,9 +6409,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_copyin:
   case OMPC_copyprivate:
   case OMPC_flush:
-// #ifdef DK
-  case OMPC_dkflush:
-// #endif
   case OMPC_depobj:
   case OMPC_proc_bind:
   case OMPC_schedule:

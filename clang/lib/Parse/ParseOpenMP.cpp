@@ -2823,6 +2823,15 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   return nullptr;
 }
 
+static bool withinOpenMPScope(Parser *Self) {
+  Scope * PScope = Self->getCurScope();
+  while (PScope) {
+    if (PScope->isOpenMPDirectiveScope() || PScope->isOpenMPLoopDirectiveScope() || PScope->isOpenMPSimdDirectiveScope()) return true;
+    PScope = PScope->getParent();
+  }
+  return false;
+}
+
 StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
     ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective) {
   ParsingOpenMPDirectiveRAII DirScope(*this);
@@ -2831,7 +2840,7 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
   SmallVector<llvm::PointerIntPair<OMPClause *, 1, bool>,
               llvm::omp::Clause_enumSize + 1>
       FirstClauses(llvm::omp::Clause_enumSize + 1);	// DK: track if the same clause occurs again
-  OpenMPDirectiveKind CancelRegion = OMPD_unknown;
+//  OpenMPDirectiveKind CancelRegion = OMPD_unknown;
   StmtResult Directive = StmtError();
   DeclarationNameInfo DirName;
   bool HasAssociatedStatement = true;
@@ -2839,7 +2848,7 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
   Token ImplicitTok;
   bool ImplicitClauseAllowed = false;
   unsigned ScopeFlags = Scope::FnScope | Scope::DeclScope |
-                        Scope::CompoundStmtScope | Scope::OpenMPDirectiveScope;
+                        Scope::CompoundStmtScope | Scope::FTDirectiveScope;
 
   SourceLocation Loc = ReadDirectiveWithinMetadirective
                            ? Tok.getLocation()
@@ -2853,13 +2862,21 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
         .Default(OMPD_unknown);
 
   switch (DKind) {
+  default:
+    assert(false && "Not an FT directive!");
+    break;
   case OMPD_vote:
   case OMPD_nmr:
     if (DKind == OMPD_vote) {
       HasAssociatedStatement = false;
       ImplicitTok = Tok;
     }
-    else HasAssociatedStatement = true;
+    else {
+      HasAssociatedStatement = true;
+      // if FT is declared within an OpenMP region, reject it as error
+      if (withinOpenMPScope(this)) 
+        return StmtError();
+    }
     ConsumeToken();
     ImplicitClauseAllowed = true;
     ParseScope OMPDirectiveScope(this, ScopeFlags);
@@ -4593,7 +4610,7 @@ static OpenMPMapClauseKind isMapType(Parser &P) {
   return MapType;
 }
 
-// ifdef DK
+#ifdef DK
 /// Checks if the token is a valid map-type.
 /// FIXME: It will return an OpenMPMapModifierKind if that's what it parses.
 static OpenMPMapClauseKind isFtvarType(Parser &P) {
@@ -4607,7 +4624,7 @@ static OpenMPMapClauseKind isFtvarType(Parser &P) {
           OMPC_map, PP.getSpelling(Tok), P.getLangOpts()));
   return MapType;
 }
-// endif
+#endif
 
 /// Parse map-type in map clause.
 /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
@@ -4624,7 +4641,7 @@ static void parseMapType(Parser &P, Parser::OpenMPVarListDataTy &Data) {
   P.ConsumeToken();
 }
 
-// ifdef DK
+#ifdef DK
 /// Parse ftvar-type in map clause.
 /// ftvar([ var : size ] list)
 static void parseFtvarType(Parser &P, Parser::OpenMPVarListDataTy &Data) {
@@ -4638,8 +4655,8 @@ static void parseFtvarType(Parser &P, Parser::OpenMPVarListDataTy &Data) {
     P.Diag(Tok, diag::err_omp_unknown_map_type);
   P.ConsumeToken();
 }
+#endif
 
-// endif
 /// Parses simple expression in parens for single-expression clauses of OpenMP
 /// constructs.
 ExprResult Parser::ParseOpenMPIteratorsExpr() {

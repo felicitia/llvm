@@ -140,6 +140,9 @@ public:
     /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
     /// continue block from here.
     ConditionVarScope = 0x2000000,
+
+    /// This is the scope of FT executable directive.
+    FTDirectiveScope = 0x4000000,
   };
 
 private:
