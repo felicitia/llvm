@@ -122,9 +122,6 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_untied:
   case OMPC_mergeable:
   case OMPC_threadprivate:
-// #ifdef DK
-  case OMPC_dkflush:
-// #endif
   case OMPC_flush:
   case OMPC_depobj:
   case OMPC_read:
@@ -218,9 +215,6 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_untied:
   case OMPC_mergeable:
   case OMPC_threadprivate:
-// #ifdef DK
-  case OMPC_dkflush:
-// #endif
   case OMPC_flush:
   case OMPC_depobj:
   case OMPC_read:
@@ -601,24 +595,6 @@ OMPVarClause *OMPVarClause::CreateEmpty(const ASTContext &C, unsigned N) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
   return new (Mem) OMPVarClause(N*2);
 }
-OMPFTVarClause *OMPFTVarClause::Create(const ASTContext &C,
-                                         SourceLocation StartLoc,
-                                         SourceLocation LParenLoc,
-                                         SourceLocation EndLoc,
-                                         ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
-  OMPFTVarClause *Clause =
-      new (Mem) OMPFTVarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL, SL);
-  return Clause;
-}
-
-OMPFTVarClause *OMPFTVarClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
-  return new (Mem) OMPFTVarClause(N*2);
-}
-
 // endif
 
 void OMPLinearClause::setPrivates(ArrayRef<Expr *> PL) {
@@ -1104,26 +1080,6 @@ OMPFlushClause *OMPFlushClause::CreateEmpty(const ASTContext &C, unsigned N) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
   return new (Mem) OMPFlushClause(N);
 }
-
-///ifdef DK
-OMPDKFlushClause *OMPDKFlushClause::Create(const ASTContext &C,
-                                       SourceLocation StartLoc,
-                                       SourceLocation LParenLoc,
-                                       SourceLocation EndLoc,
-                                       ArrayRef<Expr *> VL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size() + 1));
-  OMPDKFlushClause *Clause =
-      new (Mem) OMPDKFlushClause(StartLoc, LParenLoc, EndLoc, VL.size());
-  Clause->setVarRefs(VL);
-  return Clause;
-}
-
-OMPDKFlushClause *OMPDKFlushClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
-  return new (Mem) OMPDKFlushClause(N);
-}
-
-//endif
 
 OMPDepobjClause *OMPDepobjClause::Create(const ASTContext &C,
                                          SourceLocation StartLoc,
@@ -2151,13 +2107,6 @@ void OMPClausePrinter::VisitOMPSharedClause(OMPSharedClause *Node) {
 }
 
 // ifdef DK
-void OMPClausePrinter::VisitOMPFTVarClause(OMPFTVarClause *Node) {
-  if (!Node->varlist_empty()) {
-    OS << "shared";
-    VisitOMPClauseList(Node, '(');
-    OS << ")";
-  }
-}
 void OMPClausePrinter::VisitOMPVoteClause(OMPVoteClause *Node) {
   if (!Node->varlist_empty()) {
     OS << "shared";
@@ -2308,15 +2257,6 @@ void OMPClausePrinter::VisitOMPFlushClause(OMPFlushClause *Node) {
     OS << ")";
   }
 }
-
-//ifdef DK
-void OMPClausePrinter::VisitOMPDKFlushClause(OMPDKFlushClause *Node) {
-  if (!Node->varlist_empty()) {
-    VisitOMPClauseList(Node, '(');
-    OS << ")";
-  }
-}
-//endif
 
 void OMPClausePrinter::VisitOMPDepobjClause(OMPDepobjClause *Node) {
   OS << "(";

@@ -219,14 +219,12 @@ def AsTypeExpr : StmtNode<Expr>;
 // OpenMP Directives.
 def OMPCanonicalLoop : StmtNode<Stmt>;
 def OMPExecutableDirective : StmtNode<Stmt, 1>;
+def FTExecutableDirective : StmtNode<Stmt, 1>;
 def OMPMetaDirective : StmtNode<OMPExecutableDirective>;
 def OMPLoopBasedDirective : StmtNode<OMPExecutableDirective, 1>;
 def OMPLoopDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPParallelDirective : StmtNode<OMPExecutableDirective>;
-def OMPNmrDirective : StmtNode<OMPExecutableDirective>;
-// ifdefe DK
-def OMPFTDirective : StmtNode<OMPExecutableDirective>;
-// endif
+def FTNmrDirective : StmtNode<FTExecutableDirective>;
 def OMPSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPLoopTransformationDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPTileDirective : StmtNode<OMPLoopTransformationDirective>;
@@ -249,8 +247,7 @@ def OMPTaskwaitDirective : StmtNode<OMPExecutableDirective>;
 def OMPTaskgroupDirective : StmtNode<OMPExecutableDirective>;
 def OMPFlushDirective : StmtNode<OMPExecutableDirective>;
 // ifdef DK
-def OMPDKFlushDirective : StmtNode<OMPExecutableDirective>;
-def OMPVoteDirective : StmtNode<OMPExecutableDirective>;
+def FTVoteDirective : StmtNode<FTExecutableDirective>;
 // endif
 def OMPDepobjDirective : StmtNode<OMPExecutableDirective>;
 def OMPScanDirective : StmtNode<OMPExecutableDirective>;

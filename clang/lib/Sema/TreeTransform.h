@@ -716,6 +716,7 @@ public:
       TypeSourceInfo **RecoveryTSI);
 
   StmtResult TransformOMPExecutableDirective(OMPExecutableDirective *S);
+  StmtResult TransformFTExecutableDirective(FTExecutableDirective *S);
 
 // FIXME: We use LLVM_ATTRIBUTE_NOINLINE because inlining causes a ridiculous
 // amount of stack usage with clang.
@@ -1573,6 +1574,16 @@ public:
         Kind, DirName, CancelRegion, Clauses, AStmt, StartLoc, EndLoc);
   }
 
+  StmtResult RebuildFTExecutableDirective(OpenMPDirectiveKind Kind,
+                                           DeclarationNameInfo DirName,
+                                           OpenMPDirectiveKind CancelRegion,
+                                           ArrayRef<OMPClause *> Clauses,
+                                           Stmt *AStmt, SourceLocation StartLoc,
+                                           SourceLocation EndLoc) {
+    return getSema().ActOnFTExecutableDirective(
+        Kind, DirName, Clauses, AStmt, StartLoc, EndLoc);
+  }
+
   /// Build a new OpenMP 'if' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -1788,7 +1799,7 @@ public:
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
   /// Subclasses may override this routine to provide different behavior.
-  OMPClause *RebuildOMPFTVarClause( OpenMPClauseKind Kind,
+  OMPClause *RebuildFTVarClause( OpenMPClauseKind Kind,
 		  		    ArrayRef<Expr *> VarList,
   				    ArrayRef<Expr *> SizeList,
                                     SourceLocation StartLoc,
@@ -1919,16 +1930,6 @@ public:
     return getSema().ActOnOpenMPFlushClause(VarList, StartLoc, LParenLoc,
                                             EndLoc);
   }
-
-//#ifdef DK
-  OMPClause *RebuildOMPDKFlushClause(ArrayRef<Expr *> VarList,
-                                   SourceLocation StartLoc,
-                                   SourceLocation LParenLoc,
-                                   SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPDKFlushClause(VarList, StartLoc, LParenLoc,
-                                            EndLoc);
-  }
-//#endif
 
   /// Build a new OpenMP 'depobj' pseudo clause.
   ///
@@ -8629,6 +8630,74 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
 }
 
 template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformFTExecutableDirective(
+    FTExecutableDirective *D) {
+
+  // Transform the clauses
+  llvm::SmallVector<OMPClause *, 16> TClauses;
+  ArrayRef<OMPClause *> Clauses = D->clauses();
+  TClauses.reserve(Clauses.size());
+  for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
+       I != E; ++I) {
+    if (*I) {
+      getDerived().getSema().StartOpenMPClause((*I)->getClauseKind());
+      OMPClause *Clause = getDerived().TransformOMPClause(*I);
+      getDerived().getSema().EndOpenMPClause();
+      if (Clause)
+        TClauses.push_back(Clause);
+    } else {
+      TClauses.push_back(nullptr);
+    }
+  }
+  StmtResult AssociatedStmt;
+  if (D->hasAssociatedStmt() && D->getAssociatedStmt()) {
+    getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(),
+                                                  /*CurScope=*/nullptr);
+    StmtResult Body;
+    {
+      Sema::CompoundScopeRAII CompoundScope(getSema());
+      Stmt *CS;
+      if (D->getDirectiveKind() == OMPD_atomic ||
+          D->getDirectiveKind() == OMPD_critical ||
+          D->getDirectiveKind() == OMPD_section ||
+          D->getDirectiveKind() == OMPD_master)
+        CS = D->getAssociatedStmt();
+      else
+        CS = D->getRawStmt();
+      Body = getDerived().TransformStmt(CS);
+      if (Body.isUsable() && isOpenMPLoopDirective(D->getDirectiveKind()) &&
+          getSema().getLangOpts().OpenMPIRBuilder)
+        Body = getDerived().RebuildOMPCanonicalLoop(Body.get());
+    }
+    AssociatedStmt =
+        getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
+    if (AssociatedStmt.isInvalid()) {
+      return StmtError();
+    }
+  }
+  if (TClauses.size() != Clauses.size()) {
+    return StmtError();
+  }
+
+  // Transform directive name for 'omp critical' directive.
+  DeclarationNameInfo DirName;
+  if (D->getDirectiveKind() == OMPD_critical) {
+    DirName = cast<OMPCriticalDirective>(D)->getDirectiveName();
+    DirName = getDerived().TransformDeclarationNameInfo(DirName);
+  }
+  OpenMPDirectiveKind CancelRegion = OMPD_unknown;
+  if (D->getDirectiveKind() == OMPD_cancellation_point) {
+    CancelRegion = cast<OMPCancellationPointDirective>(D)->getCancelRegion();
+  } else if (D->getDirectiveKind() == OMPD_cancel) {
+    CancelRegion = cast<OMPCancelDirective>(D)->getCancelRegion();
+  }
+
+  return getDerived().RebuildFTExecutableDirective(
+      D->getDirectiveKind(), DirName, CancelRegion, TClauses,
+      AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc());
+}
+
+template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPMetaDirective(OMPMetaDirective *D) {
   // TODO: Fix This
@@ -8651,22 +8720,21 @@ TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
 //ifdef DK
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformOMPNmrDirective(OMPNmrDirective *D) {
+TreeTransform<Derived>::TransformFTNmrDirective(FTNmrDirective *D) {
   DeclarationNameInfo DirName;
   getDerived().getSema().StartOpenMPDSABlock(OMPD_nmr, DirName, nullptr,
                                              D->getBeginLoc());
-  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  StmtResult Res = getDerived().TransformFTExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
-
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformOMPFTDirective(OMPFTDirective *D) {
+TreeTransform<Derived>::TransformFTVoteDirective(FTVoteDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_ft, DirName, nullptr,
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_vote, DirName, nullptr,
                                              D->getBeginLoc());
-  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  StmtResult Res = getDerived().TransformFTExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
@@ -8890,29 +8958,6 @@ TreeTransform<Derived>::TransformOMPFlushDirective(OMPFlushDirective *D) {
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
-
-//#ifdef DK
-template <typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformOMPDKFlushDirective(OMPDKFlushDirective *D) {
-  DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_dkflush, DirName, nullptr,
-                                             D->getBeginLoc());
-  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
-  getDerived().getSema().EndOpenMPDSABlock(Res.get());
-  return Res;
-}
-template <typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformOMPVoteDirective(OMPVoteDirective *D) {
-  DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_vote, DirName, nullptr,
-                                             D->getBeginLoc());
-  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
-  getDerived().getSema().EndOpenMPDSABlock(Res.get());
-  return Res;
-}
-//#endif
 
 template <typename Derived>
 StmtResult
@@ -9875,23 +9920,6 @@ TreeTransform<Derived>::TransformOMPVoteClause(OMPVoteClause *C) {
 
 template <typename Derived>
 OMPClause *
-TreeTransform<Derived>::TransformOMPFTVarClause(OMPFTVarClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildOMPFTVarClause(OMPC_ftvar, Vars, Sizes, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
 TreeTransform<Derived>::TransformOMPRvarClause(OMPRvarClause *C) {
   llvm::SmallVector<Expr *, 16> Vars;
   Vars.reserve(C->varlist_size());
@@ -9903,7 +9931,7 @@ TreeTransform<Derived>::TransformOMPRvarClause(OMPRvarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildOMPFTVarClause(OMPC_rvar, Vars, Sizes, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_rvar, Vars, Sizes, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
@@ -9920,7 +9948,7 @@ TreeTransform<Derived>::TransformOMPVarClause(OMPVarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildOMPFTVarClause(OMPC_var, Vars, Sizes, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_var, Vars, Sizes, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 // endif DK
@@ -10156,19 +10184,6 @@ TreeTransform<Derived>::TransformOMPDegreeClause(OMPDegreeClause *C) {
       Degree.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 
-template <typename Derived>
-OMPClause *TreeTransform<Derived>::TransformOMPDKFlushClause(OMPDKFlushClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildOMPDKFlushClause(Vars, C->getBeginLoc(),
-                                            C->getLParenLoc(), C->getEndLoc());
-}
 //#endif
 
 template <typename Derived>

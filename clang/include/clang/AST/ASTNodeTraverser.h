@@ -694,6 +694,10 @@ public:
       Visit(C);
   }
 
+  void VisitFTExecutableDirective(const FTExecutableDirective *Node) {
+    for (const auto *C : Node->clauses())
+      Visit(C);
+  }
   void VisitInitListExpr(const InitListExpr *ILE) {
     if (auto *Filler = ILE->getArrayFiller()) {
       Visit(Filler, "array_filler");

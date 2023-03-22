@@ -25,6 +25,7 @@
 namespace clang {
 class OMPTraitInfo;
 class OMPChildren;
+class FTChildren;
 
 /// An object for streaming information from a record.
 class ASTRecordReader
@@ -269,6 +270,8 @@ public:
 
   /// Read an OpenMP children, advancing Idx.
   void readOMPChildren(OMPChildren *Data);
+
+  void readFTChildren(FTChildren *Data);
 
   /// Read a source location, advancing Idx.
   SourceLocation readSourceLocation() {

@@ -1853,6 +1853,12 @@ void TextNodeDumper::VisitOMPExecutableDirective(
     OS << " openmp_standalone_directive";
 }
 
+void TextNodeDumper::VisitFTExecutableDirective(
+    const FTExecutableDirective *D) {
+  if (D->isStandaloneDirective())
+    OS << " openmp_standalone_directive";
+}
+
 void TextNodeDumper::VisitOMPDeclareReductionDecl(
     const OMPDeclareReductionDecl *D) {
   dumpName(D);

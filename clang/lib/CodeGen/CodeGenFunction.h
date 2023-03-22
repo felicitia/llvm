@@ -3503,8 +3503,7 @@ public:
 
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
 // ifdef DK
-  void EmitOMPFTDirective(const OMPFTDirective &S);
-  void EmitOMPNmrDirective(const OMPNmrDirective &S);
+  void EmitFTNmrDirective(const FTNmrDirective &S);
 //
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
@@ -3529,8 +3528,7 @@ public:
   void EmitOMPTaskgroupDirective(const OMPTaskgroupDirective &S);
   void EmitOMPFlushDirective(const OMPFlushDirective &S);
   // ifdef DK
-  void EmitOMPDKFlushDirective(const OMPDKFlushDirective &S);
-  void EmitOMPVoteDirective(const OMPVoteDirective &S);
+  void EmitFTVoteDirective(const FTVoteDirective &S);
   // endif
   void EmitOMPDepobjDirective(const OMPDepobjDirective &S);
   void EmitOMPScanDirective(const OMPScanDirective &S);

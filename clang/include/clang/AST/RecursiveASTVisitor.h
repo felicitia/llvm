@@ -497,6 +497,7 @@ private:
   bool TraverseFunctionHelper(FunctionDecl *D);
   bool TraverseVarHelper(VarDecl *D);
   bool TraverseOMPExecutableDirective(OMPExecutableDirective *S);
+  bool TraverseFTExecutableDirective(FTExecutableDirective *S);
   bool TraverseOMPLoopDirective(OMPLoopDirective *S);
   bool TraverseOMPClause(OMPClause *C);
 #define GEN_CLANG_CLAUSE_CLASS
@@ -2876,6 +2877,15 @@ bool RecursiveASTVisitor<Derived>::TraverseOMPExecutableDirective(
   return true;
 }
 
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::TraverseFTExecutableDirective(
+    FTExecutableDirective *S) {
+  for (auto *C : S->clauses()) {
+    TRY_TO(TraverseOMPClause(C));
+  }
+  return true;
+}
+
 DEF_TRAVERSE_STMT(OMPCanonicalLoop, {
   if (!getDerived().shouldVisitImplicitCode()) {
     // Visit only the syntactical loop.
@@ -2897,10 +2907,8 @@ DEF_TRAVERSE_STMT(OMPParallelDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 //ifdef DK
-DEF_TRAVERSE_STMT(OMPNmrDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
-DEF_TRAVERSE_STMT(OMPFTDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+DEF_TRAVERSE_STMT(FTNmrDirective,
+                  { TRY_TO(TraverseFTExecutableDirective(S)); })
 //endif
 
 DEF_TRAVERSE_STMT(OMPSimdDirective,
@@ -2972,12 +2980,10 @@ DEF_TRAVERSE_STMT(OMPFlushDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 // ifdef DK
-DEF_TRAVERSE_STMT(OMPDKFlushDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
-DEF_TRAVERSE_STMT(OMPVoteDirective,
-                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+DEF_TRAVERSE_STMT(FTVoteDirective,
+                  { TRY_TO(TraverseFTExecutableDirective(S)); })
 // endif
-//
+
 DEF_TRAVERSE_STMT(OMPDepobjDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
@@ -3456,11 +3462,6 @@ bool RecursiveASTVisitor<Derived>::VisitOMPSharedClause(OMPSharedClause *C) {
 
 // ifdef DK
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPFTVarClause(OMPFTVarClause *C) {
-  TRY_TO(VisitOMPClauseList(C));
-  return true;
-}
-template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPVarClause(OMPVarClause *C) {
   TRY_TO(VisitOMPClauseList(C));
   return true;
@@ -3623,11 +3624,6 @@ bool RecursiveASTVisitor<Derived>::VisitOMPFlushClause(OMPFlushClause *C) {
 }
 
 //ifdef DK
-template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPDKFlushClause(OMPDKFlushClause *C) {
-  TRY_TO(VisitOMPClauseList(C));
-  return true;
-}
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPVoteClause(OMPVoteClause *C) {
   TRY_TO(VisitOMPClauseList(C));

@@ -11751,9 +11751,6 @@ OMPClause *OMPClauseReader::readClause() {
     C = OMPSharedClause::CreateEmpty(Context, Record.readInt());
     break;
   // ifdef DK
-  case llvm::omp::OMPC_ftvar:
-    C = OMPFTVarClause::CreateEmpty(Context, Record.readInt());
-    break;
   case llvm::omp::OMPC_vote:
     C = OMPVoteClause::CreateEmpty(Context, Record.readInt());
     break;
@@ -11794,11 +11791,6 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_flush:
     C = OMPFlushClause::CreateEmpty(Context, Record.readInt());
     break;
-// #ifdef DK
-  case llvm::omp::OMPC_dkflush:
-    C = OMPDKFlushClause::CreateEmpty(Context, Record.readInt());
-    break;
-// #endif
   case llvm::omp::OMPC_depobj:
     C = OMPDepobjClause::CreateEmpty(Context);
     break;
@@ -12236,15 +12228,6 @@ void OMPClauseReader::VisitOMPSharedClause(OMPSharedClause *C) {
 }
 
 // ifdef DK
-void OMPClauseReader::VisitOMPFTVarClause(OMPFTVarClause *C) {
-  C->setLParenLoc(Record.readSourceLocation());
-  unsigned NumVars = C->varlist_size();
-  SmallVector<Expr *, 16> Vars;
-  Vars.reserve(NumVars);
-  for (unsigned i = 0; i != NumVars; ++i)
-    Vars.push_back(Record.readSubExpr());
-  C->setVarRefs(Vars);
-}
 void OMPClauseReader::VisitOMPVoteClause(OMPVoteClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
   unsigned NumVars = C->varlist_size();
@@ -12499,18 +12482,6 @@ void OMPClauseReader::VisitOMPFlushClause(OMPFlushClause *C) {
   C->setVarRefs(Vars);
 }
 
-//ifdef DK
-void OMPClauseReader::VisitOMPDKFlushClause(OMPDKFlushClause *C) {
-  C->setLParenLoc(Record.readSourceLocation());
-  unsigned NumVars = C->varlist_size();
-  SmallVector<Expr *, 16> Vars;
-  Vars.reserve(NumVars);
-  for (unsigned i = 0; i != NumVars; ++i)
-    Vars.push_back(Record.readSubExpr());
-  C->setVarRefs(Vars);
-}
-//endif
-//
 void OMPClauseReader::VisitOMPDepobjClause(OMPDepobjClause *C) {
   C->setDepobj(Record.readSubExpr());
   C->setLParenLoc(Record.readSourceLocation());
@@ -13062,6 +13033,23 @@ OMPTraitInfo *ASTRecordReader::readOMPTraitInfo() {
 }
 
 void ASTRecordReader::readOMPChildren(OMPChildren *Data) {
+  if (!Data)
+    return;
+  if (Reader->ReadingKind == ASTReader::Read_Stmt) {
+    // Skip NumClauses, NumChildren and HasAssociatedStmt fields.
+    skipInts(3);
+  }
+  SmallVector<OMPClause *, 4> Clauses(Data->getNumClauses());
+  for (unsigned I = 0, E = Data->getNumClauses(); I < E; ++I)
+    Clauses[I] = readOMPClause();
+  Data->setClauses(Clauses);
+  if (Data->hasAssociatedStmt())
+    Data->setAssociatedStmt(readStmt());
+  for (unsigned I = 0, E = Data->getNumChildren(); I < E; ++I)
+    Data->getChildren()[I] = readStmt();
+}
+
+void ASTRecordReader::readFTChildren(FTChildren *Data) {
   if (!Data)
     return;
   if (Reader->ReadingKind == ASTReader::Read_Stmt) {

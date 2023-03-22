@@ -281,6 +281,9 @@ public:
   /// Writes data related to the OpenMP directives.
   void writeOMPChildren(OMPChildren *Data);
 
+  /// Writes data related to the OpenMP directives.
+  void writeFTChildren(FTChildren *Data);
+
   /// Emit a string.
   void AddString(StringRef Str) {
     return Writer->AddString(Str, *Record);

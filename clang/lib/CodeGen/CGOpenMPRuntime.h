@@ -1353,10 +1353,6 @@ public:
   virtual void emitFlush(CodeGenFunction &CGF, ArrayRef<const Expr *> Vars,
                          SourceLocation Loc, llvm::AtomicOrdering AO);
 
-  /// ifdef DK
-  virtual void emitDKFlush(CodeGenFunction &CGF, ArrayRef<const Expr *> Vars,
-                         SourceLocation Loc, llvm::AtomicOrdering AO);
-  /// endif
   //
   /// Emit task region for the task directive. The task region is
   /// emitted in several steps:

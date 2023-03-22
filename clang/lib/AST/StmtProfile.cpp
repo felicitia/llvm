@@ -642,9 +642,6 @@ void OMPClauseProfiler::VisitOMPSharedClause(const OMPSharedClause *C) {
   VisitOMPClauseList(C);
 }
 // ifdef DK
-void OMPClauseProfiler::VisitOMPFTVarClause(const OMPFTVarClause *C) {
-  VisitOMPClauseList(C);
-}
 void OMPClauseProfiler::VisitOMPVoteClause(const OMPVoteClause *C) {
   VisitOMPClauseList(C);
 }
@@ -813,11 +810,6 @@ OMPClauseProfiler::VisitOMPCopyprivateClause(const OMPCopyprivateClause *C) {
 void OMPClauseProfiler::VisitOMPFlushClause(const OMPFlushClause *C) {
   VisitOMPClauseList(C);
 }
-// ifdef DK
-void OMPClauseProfiler::VisitOMPDKFlushClause(const OMPDKFlushClause *C) {
-  VisitOMPClauseList(C);
-}
-// endif
 void OMPClauseProfiler::VisitOMPDepobjClause(const OMPDepobjClause *C) {
   if (const Expr *Depobj = C->getDepobj())
     Profiler->VisitStmt(Depobj);
@@ -931,6 +923,17 @@ StmtProfiler::VisitOMPExecutableDirective(const OMPExecutableDirective *S) {
       P.Visit(*I);
 }
 
+void
+StmtProfiler::VisitFTExecutableDirective(const FTExecutableDirective *S) {
+  VisitStmt(S);
+  OMPClauseProfiler P(this);
+  ArrayRef<OMPClause *> Clauses = S->clauses();
+  for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
+       I != E; ++I)
+    if (*I)
+      P.Visit(*I);
+}
+
 void StmtProfiler::VisitOMPCanonicalLoop(const OMPCanonicalLoop *L) {
   VisitStmt(L);
 }
@@ -952,12 +955,8 @@ void StmtProfiler::VisitOMPParallelDirective(const OMPParallelDirective *S) {
 }
 
 //ifdef DK
-void StmtProfiler::VisitOMPNmrDirective(const OMPNmrDirective *S) {
-  VisitOMPExecutableDirective(S);
-}
-
-void StmtProfiler::VisitOMPFTDirective(const OMPFTDirective *S) {
-  VisitOMPExecutableDirective(S);
+void StmtProfiler::VisitFTNmrDirective(const FTNmrDirective *S) {
+  VisitFTExecutableDirective(S);
 }
 //
 
@@ -1054,11 +1053,8 @@ void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
 }
 
 // ifdef DK
-void StmtProfiler::VisitOMPDKFlushDirective(const OMPDKFlushDirective *S) {
-  VisitOMPExecutableDirective(S);
-}
-void StmtProfiler::VisitOMPVoteDirective(const OMPVoteDirective *S) {
-  VisitOMPExecutableDirective(S);
+void StmtProfiler::VisitFTVoteDirective(const FTVoteDirective *S) {
+  VisitFTExecutableDirective(S);
 }
 // endif
 //

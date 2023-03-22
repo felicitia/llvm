@@ -650,11 +650,11 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_OMPParallelDirective;
     break;
     // ifdef DK
-  case Stmt::OMPNmrDirectiveClass:
-    K = CXCursor_OMPNmrDirective;
+  case Stmt::FTNmrDirectiveClass:
+    K = CXCursor_FTNmrDirective;
     break;
-  case Stmt::OMPFTDirectiveClass:
-    K = CXCursor_OMPFTDirective;
+  case Stmt::FTVoteDirectiveClass:
+    K = CXCursor_FTVoteDirective;
     break;
     // endif
   case Stmt::OMPSimdDirectiveClass:
@@ -717,11 +717,6 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPFlushDirectiveClass:
     K = CXCursor_OMPFlushDirective;
     break;
-    // ifdef DK
-  case Stmt::OMPDKFlushDirectiveClass:
-    K = CXCursor_OMPDKFlushDirective;
-    break;
-    // endif
   case Stmt::OMPDepobjDirectiveClass:
     K = CXCursor_OMPDepobjDirective;
     break;

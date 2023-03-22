@@ -2190,6 +2190,12 @@ void ASTStmtWriter::VisitOMPExecutableDirective(OMPExecutableDirective *E) {
   Record.AddSourceLocation(E->getEndLoc());
 }
 
+void ASTStmtWriter::VisitFTExecutableDirective(FTExecutableDirective *E) {
+  Record.writeFTChildren(E->Data);
+  Record.AddSourceLocation(E->getBeginLoc());
+  Record.AddSourceLocation(E->getEndLoc());
+}
+
 void ASTStmtWriter::VisitOMPLoopBasedDirective(OMPLoopBasedDirective *D) {
   VisitStmt(D);
   Record.writeUInt32(D->getLoopsNumber());
@@ -2215,20 +2221,12 @@ void ASTStmtWriter::VisitOMPParallelDirective(OMPParallelDirective *D) {
 }
 
 //ifdef DK
-void ASTStmtWriter::VisitOMPNmrDirective(OMPNmrDirective *D) {
+void ASTStmtWriter::VisitFTNmrDirective(FTNmrDirective *D) {
   VisitStmt(D);
-  VisitOMPExecutableDirective(D);
+  VisitFTExecutableDirective(D);
   Record.writeBool(D->hasCancel());
-  Code = serialization::STMT_OMP_PARALLEL_DIRECTIVE;
+  Code = serialization::STMT_FT_NMR_DIRECTIVE;
 }
-
-void ASTStmtWriter::VisitOMPFTDirective(OMPFTDirective *D) {
-  VisitStmt(D);
-  VisitOMPExecutableDirective(D);
-  Record.writeBool(D->hasCancel());
-  Code = serialization::STMT_OMP_FT_DIRECTIVE;
-}
-
 //
 
 void ASTStmtWriter::VisitOMPSimdDirective(OMPSimdDirective *D) {
@@ -2410,16 +2408,10 @@ void ASTStmtWriter::VisitOMPFlushDirective(OMPFlushDirective *D) {
   Code = serialization::STMT_OMP_FLUSH_DIRECTIVE;
 }
 
-void ASTStmtWriter::VisitOMPDKFlushDirective(OMPDKFlushDirective *D) {
+void ASTStmtWriter::VisitFTVoteDirective(FTVoteDirective *D) {
   VisitStmt(D);
-  VisitOMPExecutableDirective(D);
-  Code = serialization::STMT_OMP_DKFLUSH_DIRECTIVE;
-}
-
-void ASTStmtWriter::VisitOMPVoteDirective(OMPVoteDirective *D) {
-  VisitStmt(D);
-  VisitOMPExecutableDirective(D);
-  Code = serialization::STMT_OMP_VOTE_DIRECTIVE;
+  VisitFTExecutableDirective(D);
+  Code = serialization::STMT_FT_VOTE_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPDepobjDirective(OMPDepobjDirective *D) {

@@ -3017,22 +3017,6 @@ void CGOpenMPRuntime::emitFlush(CodeGenFunction &CGF, ArrayRef<const Expr *>,
   }
 }
 
-// ifdef DK
-void CGOpenMPRuntime::emitDKFlush(CodeGenFunction &CGF, ArrayRef<const Expr *>,
-                                SourceLocation Loc, llvm::AtomicOrdering AO) {
-  if (CGF.CGM.getLangOpts().OpenMPIRBuilder) {
-    OMPBuilder.createFlush(CGF.Builder);
-  } else {
-    if (!CGF.HaveInsertPoint())
-      return;
-    // Build call void __kmpc_flush(ident_t *loc)
-    CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
-                            CGM.getModule(), OMPRTL___kmpc_flush),
-                        emitUpdateLocation(CGF, Loc));
-  }
-}
-// endif
-//
 namespace {
 /// Indexes of fields for type kmp_task_t.
 enum KmpTaskTFields {
@@ -6671,13 +6655,7 @@ const Stmt *CGOpenMPRuntime::getSingleCompoundChild(ASTContext &Ctx,
           continue;
       }
       // Some of the statements can be ignored.
-#define DK
-#ifdef DK
-      if (isa<AsmStmt>(S) || isa<NullStmt>(S) || isa<OMPFlushDirective>(S) || isa<OMPDKFlushDirective>(S) ||
-#else
       if (isa<AsmStmt>(S) || isa<NullStmt>(S) || isa<OMPFlushDirective>(S) ||
-#endif
-#undef DK
           isa<OMPBarrierDirective>(S) || isa<OMPTaskyieldDirective>(S))
         continue;
       // Analyze declarations.
@@ -6798,9 +6776,6 @@ const Expr *CGOpenMPRuntime::getNumTeamsExprForTargetDirective(
   case OMPD_taskgroup:
   case OMPD_atomic:
   case OMPD_flush:
-// #ifdef DK
-  case OMPD_dkflush:
-// #endif
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_teams:
@@ -7058,9 +7033,6 @@ const Expr *CGOpenMPRuntime::getNumThreadsExprForTargetDirective(
   case OMPD_taskgroup:
   case OMPD_atomic:
   case OMPD_flush:
-// #ifdef DK
-  case OMPD_dkflush:
-// #endif
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_teams:
@@ -7279,9 +7251,6 @@ llvm::Value *CGOpenMPRuntime::emitNumThreadsForTargetDirective(
   case OMPD_taskgroup:
   case OMPD_atomic:
   case OMPD_flush:
-// #ifdef DK
-  case OMPD_dkflush:
-// #endif
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_teams:
@@ -9956,9 +9925,6 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_taskgroup:
     case OMPD_atomic:
     case OMPD_flush:
-// #ifdef DK
-    case OMPD_dkflush:
-// #endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_teams:
@@ -10813,9 +10779,6 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_taskgroup:
     case OMPD_atomic:
     case OMPD_flush:
-// #ifdef DK
-    case OMPD_dkflush:
-// #endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_teams:
@@ -11491,9 +11454,6 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_taskgroup:
     case OMPD_atomic:
     case OMPD_flush:
-// #ifdef DK
-    case OMPD_dkflush:
-// #endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_teams:

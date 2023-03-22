@@ -1324,11 +1324,6 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_parallel:
       TaskRedRef = cast<OMPParallelDirective>(D).getTaskReductionRefExpr();
       break;
-      // ifdef DK
-    case OMPD_ft:
-      TaskRedRef = cast<OMPFTDirective>(D).getTaskReductionRefExpr();
-      break;
-      // endif
     case OMPD_for:
       TaskRedRef = cast<OMPForDirective>(D).getTaskReductionRefExpr();
       break;
@@ -1743,36 +1738,7 @@ std::string CodeGenFunction::OMPBuilderCBHelpers::getNameWithSeparators(
   return OS.str().str();
 }
 
-// ifdef DK
-void CodeGenFunction::EmitOMPFTDirective(const OMPFTDirective &S) {
-	// ft {} == nmr {}
-	// there must be an associated statement
-#if 0
-  if (CGM.getLangOpts().OpenMPIRBuilder) {
-    llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
-    SmallVector<const Expr *, 4> Lvarsize;
-    SmallVector<const Expr *, 4> Rvarsize;
-    const auto *LvarClause = S.getSingleClause<OMPVarClause>();
-    const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
-    if (LvarClause) {
-      Lvarsize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
-    }
-    if (RvarClause) {
-      Rvarsize.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
-    }
-    if (1) { // match in the statement // Now it just tests code generation
-      if (Lvarsize.size() > 0) emitVoteStmt(*this, Lvarsize, nullptr, LvarClause->getBeginLoc());
-      if (Rvarsize.size() > 0) emitVoteStmt(*this, Rvarsize, nullptr, RvarClause->getBeginLoc());
-    }
-  }
-#endif
-
-  auto *CurStmt = S.getAssociatedStmt(); 
-  EmitStmt(CurStmt);
-  EmitStmt(S.getAssociatedStmt());
-}
-
-void CodeGenFunction::EmitOMPVoteDirective(const OMPVoteDirective &S) {
+void CodeGenFunction::EmitFTVoteDirective(const FTVoteDirective &S) {
 	// no associated statement
   if (const auto *FtvarClause = S.getSingleClause<OMPVoteClause>()) {
     SmallVector<const Expr *, 4> VarsSizes;
@@ -1896,7 +1862,7 @@ static void visitStmt(CodeGenFunction &CGF, const Stmt *S, SmallVector<const Exp
   }
 }
 
-void CodeGenFunction::EmitOMPNmrDirective(const OMPNmrDirective &S) {
+void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
   llvm::OpenMPIRBuilder &OMPBuilder = CGM.getOpenMPRuntime().getOMPBuilder();
 
   SmallVector<const Expr *, 4> SaveLVarSize;
@@ -4639,6 +4605,7 @@ public:
     }
   }
   void VisitOMPExecutableDirective(const OMPExecutableDirective *) {}
+  void VisitFTExecutableDirective(const FTExecutableDirective *) {}
   void VisitCapturedStmt(const CapturedStmt *) {}
   void VisitLambdaExpr(const LambdaExpr *) {}
   void VisitBlockExpr(const BlockExpr *) {}
@@ -5297,23 +5264,6 @@ void CodeGenFunction::EmitOMPFlushDirective(const OMPFlushDirective &S) {
       }(),
       S.getBeginLoc(), AO);
 }
-
-// #ifdef DK
-void CodeGenFunction::EmitOMPDKFlushDirective(const OMPDKFlushDirective &S) {
-  llvm::AtomicOrdering AO = S.getSingleClause<OMPDKFlushClause>()
-                                ? llvm::AtomicOrdering::NotAtomic
-                                : llvm::AtomicOrdering::AcquireRelease;
-  CGM.getOpenMPRuntime().emitDKFlush(
-      *this,
-      [&S]() -> ArrayRef<const Expr *> {
-        if (const auto *DKFlushClause = S.getSingleClause<OMPDKFlushClause>())
-          return llvm::makeArrayRef(DKFlushClause->varlist_begin(),
-                                    DKFlushClause->varlist_end());
-        return llvm::None;
-      }(),
-      S.getBeginLoc(), AO);
-}
-// #endif
 
 void CodeGenFunction::EmitOMPDepobjDirective(const OMPDepobjDirective &S) {
   const auto *DO = S.getSingleClause<OMPDepobjClause>();

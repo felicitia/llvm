@@ -43,8 +43,6 @@
 #include <iterator>
 #include <utility>
 
-#define __DK
-
 namespace clang {
 
 class ASTContext;
@@ -3039,83 +3037,6 @@ public:
 /// \endcode
 /// In this example directive '#pragma omp parallel' has clause 'var'
 /// with the variables 'a' and 'b'.
-class OMPFTVarClause final
-    : public OMPVarListClause<OMPFTVarClause>,
-      private llvm::TrailingObjects<OMPFTVarClause, Expr *> {
-  friend OMPVarListClause;
-  friend TrailingObjects;
-
-  /// Build clause with number of variables \a N.
-  ///
-  /// \param StartLoc Starting location of the clause.
-  /// \param LParenLoc Location of '('.
-  /// \param EndLoc Ending location of the clause.
-  /// \param N Number of the variables in the clause.
-  OMPFTVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-                  SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPFTVarClause>(llvm::omp::OMPC_ftvar, StartLoc,
-                                          LParenLoc, EndLoc, N) {}
-
-  /// Build an empty clause.
-  ///
-  /// \param N Number of variables.
-  explicit OMPFTVarClause(unsigned N)
-      : OMPVarListClause<OMPFTVarClause>(llvm::omp::OMPC_ftvar,
-                                          SourceLocation(), SourceLocation(),
-                                          SourceLocation(), N) {}
-
-public:
-  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
-    std::vector<Expr *> STL;
-    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
-    for (int i = 0; i < (int)VL.size(); i++) {
-      STL.push_back(VL[i]);
-      STL.push_back(SL[i]);
-    }
-    ArrayRef<Expr *> TL(STL);
-    std::copy(TL.begin(), TL.end(),
-              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
-  }
-  /// Creates clause with a list of variables \a VL.
-  ///
-  /// \param C AST context.
-  /// \param StartLoc Starting location of the clause.
-  /// \param LParenLoc Location of '('.
-  /// \param EndLoc Ending location of the clause.
-  /// \param VL List of references to the variables.
-  static OMPFTVarClause *Create(const ASTContext &C, SourceLocation StartLoc,
-                                 SourceLocation LParenLoc,
-                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
-
-  /// Creates an empty clause with \a N variables.
-  ///
-  /// \param C AST context.
-  /// \param N The number of variables.
-  static OMPFTVarClause *CreateEmpty(const ASTContext &C, unsigned N);
-
-  child_range children() {
-    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
-                       reinterpret_cast<Stmt **>(varlist_end()));
-  }
-
-  const_child_range children() const {
-    auto Children = const_cast<OMPFTVarClause *>(this)->children();
-    return const_child_range(Children.begin(), Children.end());
-  }
-
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-  const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
-  }
-
-  static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_ftvar;
-  }
-};
-
 class OMPVarClause final
     : public OMPVarListClause<OMPVarClause>,
       private llvm::TrailingObjects<OMPVarClause, Expr *> {
@@ -4875,83 +4796,6 @@ public:
   }
 };
 
-#ifdef __DK
-/// This represents implicit clause 'flush' for the '#pragma omp flush'
-/// directive.
-/// This clause does not exist by itself, it can be only as a part of 'omp
-/// flush' directive. This clause is introduced to keep the original structure
-/// of \a OMPExecutableDirective class and its derivatives and to use the
-/// existing infrastructure of clauses with the list of variables.
-///
-/// \code
-/// #pragma omp flush(a,b)
-/// \endcode
-/// In this example directive '#pragma omp flush' has implicit clause 'flush'
-/// with the variables 'a' and 'b'.
-class OMPDKFlushClause final
-    : public OMPVarListClause<OMPDKFlushClause>,
-      private llvm::TrailingObjects<OMPDKFlushClause, Expr *> {
-  friend OMPVarListClause;
-  friend TrailingObjects;
-
-  /// Build clause with number of variables \a N.
-  ///
-  /// \param StartLoc Starting location of the clause.
-  /// \param LParenLoc Location of '('.
-  /// \param EndLoc Ending location of the clause.
-  /// \param N Number of the variables in the clause.
-  OMPDKFlushClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-                 SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPDKFlushClause>(llvm::omp::OMPC_dkflush, StartLoc,
-                                         LParenLoc, EndLoc, N) {}
-
-  /// Build an empty clause.
-  ///
-  /// \param N Number of variables.
-  explicit OMPDKFlushClause(unsigned N)
-      : OMPVarListClause<OMPDKFlushClause>(llvm::omp::OMPC_dkflush,
-                                         SourceLocation(), SourceLocation(),
-                                         SourceLocation(), N) {}
-
-public:
-  /// Creates clause with a list of variables \a VL.
-  ///
-  /// \param C AST context.
-  /// \param StartLoc Starting location of the clause.
-  /// \param LParenLoc Location of '('.
-  /// \param EndLoc Ending location of the clause.
-  /// \param VL List of references to the variables.
-  static OMPDKFlushClause *Create(const ASTContext &C, SourceLocation StartLoc,
-                                SourceLocation LParenLoc, SourceLocation EndLoc,
-                                ArrayRef<Expr *> VL);
-
-  /// Creates an empty clause with \a N variables.
-  ///
-  /// \param C AST context.
-  /// \param N The number of variables.
-  static OMPDKFlushClause *CreateEmpty(const ASTContext &C, unsigned N);
-
-  child_range children() {
-    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
-                       reinterpret_cast<Stmt **>(varlist_end()));
-  }
-
-  const_child_range children() const {
-    auto Children = const_cast<OMPDKFlushClause *>(this)->children();
-    return const_child_range(Children.begin(), Children.end());
-  }
-
-  child_range used_children() {
-    return child_range(child_iterator(), child_iterator());
-  }
-  const_child_range used_children() const {
-    return const_child_range(const_child_iterator(), const_child_iterator());
-  }
-
-  static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_dkflush;
-  }
-};
 class OMPVoteClause final
     : public OMPVarListClause<OMPVoteClause>,
       private llvm::TrailingObjects<OMPVoteClause, Expr *> {
@@ -5028,7 +4872,6 @@ public:
     return T->getClauseKind() == llvm::omp::OMPC_vote;
   }
 };
-#endif
 
 /// This represents implicit clause 'flush' for the '#pragma omp flush'
 /// directive.
@@ -9471,6 +9314,147 @@ public:
   }
   const Stmt *getRawStmt() const {
     return const_cast<OMPChildren *>(this)->getRawStmt();
+  }
+
+  Stmt::child_range getAssociatedStmtAsRange() {
+    if (!HasAssociatedStmt)
+      return Stmt::child_range(Stmt::child_iterator(), Stmt::child_iterator());
+    return Stmt::child_range(&getTrailingObjects<Stmt *>()[NumChildren],
+                             &getTrailingObjects<Stmt *>()[NumChildren + 1]);
+  }
+};
+
+class FTChildren final
+    : private llvm::TrailingObjects<FTChildren, OMPClause *, Stmt *> {
+  friend TrailingObjects;
+  friend class OMPClauseReader;
+  friend class FTExecutableDirective;
+  template <typename T> friend class FTDeclarativeDirective;
+
+  /// Numbers of clauses.
+  unsigned NumClauses = 0;
+  /// Number of child expressions/stmts.
+  unsigned NumChildren = 0;
+  /// true if the directive has associated statement.
+  bool HasAssociatedStmt = false;
+
+  /// Define the sizes of each trailing object array except the last one. This
+  /// is required for TrailingObjects to work properly.
+  size_t numTrailingObjects(OverloadToken<OMPClause *>) const {
+    return NumClauses;
+  }
+
+  FTChildren() = delete;
+
+  FTChildren(unsigned NumClauses, unsigned NumChildren, bool HasAssociatedStmt)
+      : NumClauses(NumClauses), NumChildren(NumChildren),
+        HasAssociatedStmt(HasAssociatedStmt) {}
+
+  static size_t size(unsigned NumClauses, bool HasAssociatedStmt,
+                     unsigned NumChildren);
+
+  static FTChildren *Create(void *Mem, ArrayRef<OMPClause *> Clauses);
+  static FTChildren *Create(void *Mem, ArrayRef<OMPClause *> Clauses, Stmt *S,
+                             unsigned NumChildren = 0);
+  static FTChildren *CreateEmpty(void *Mem, unsigned NumClauses,
+                                  bool HasAssociatedStmt = false,
+                                  unsigned NumChildren = 0);
+
+public:
+  unsigned getNumClauses() const { return NumClauses; }
+  unsigned getNumChildren() const { return NumChildren; }
+  bool hasAssociatedStmt() const { return HasAssociatedStmt; }
+
+  /// Set associated statement.
+  void setAssociatedStmt(Stmt *S) {
+    getTrailingObjects<Stmt *>()[NumChildren] = S;
+  }
+
+  void setChildren(ArrayRef<Stmt *> Children);
+
+  /// Sets the list of variables for this clause.
+  ///
+  /// \param Clauses The list of clauses for the directive.
+  ///
+  void setClauses(ArrayRef<OMPClause *> Clauses);
+
+  /// Returns statement associated with the directive.
+  const Stmt *getAssociatedStmt() const {
+    return const_cast<FTChildren *>(this)->getAssociatedStmt();
+  }
+  Stmt *getAssociatedStmt() {
+    assert(HasAssociatedStmt &&
+           "Expected directive with the associated statement.");
+    return getTrailingObjects<Stmt *>()[NumChildren];
+  }
+
+  /// Get the clauses storage.
+  MutableArrayRef<OMPClause *> getClauses() {
+    return llvm::makeMutableArrayRef(getTrailingObjects<OMPClause *>(),
+                                     NumClauses);
+  }
+  ArrayRef<OMPClause *> getClauses() const {
+    return const_cast<FTChildren *>(this)->getClauses();
+  }
+
+  /// Returns the captured statement associated with the
+  /// component region within the (combined) directive.
+  ///
+  /// \param RegionKind Component region kind.
+  const CapturedStmt *
+  getCapturedStmt(OpenMPDirectiveKind RegionKind,
+                  ArrayRef<OpenMPDirectiveKind> CaptureRegions) const {
+    assert(llvm::any_of(
+               CaptureRegions,
+               [=](const OpenMPDirectiveKind K) { return K == RegionKind; }) &&
+           "RegionKind not found in OpenMP CaptureRegions.");
+    auto *CS = cast<CapturedStmt>(getAssociatedStmt());
+    for (auto ThisCaptureRegion : CaptureRegions) {
+      if (ThisCaptureRegion == RegionKind)
+        return CS;
+      CS = cast<CapturedStmt>(CS->getCapturedStmt());
+    }
+    llvm_unreachable("Incorrect RegionKind specified for directive.");
+  }
+
+  /// Get innermost captured statement for the construct.
+  CapturedStmt *
+  getInnermostCapturedStmt(ArrayRef<OpenMPDirectiveKind> CaptureRegions) {
+    assert(hasAssociatedStmt() && "Must have associated captured statement.");
+    assert(!CaptureRegions.empty() &&
+           "At least one captured statement must be provided.");
+    auto *CS = cast<CapturedStmt>(getAssociatedStmt());
+    for (unsigned Level = CaptureRegions.size(); Level > 1; --Level)
+      CS = cast<CapturedStmt>(CS->getCapturedStmt());
+    return CS;
+  }
+
+  const CapturedStmt *
+  getInnermostCapturedStmt(ArrayRef<OpenMPDirectiveKind> CaptureRegions) const {
+    return const_cast<FTChildren *>(this)->getInnermostCapturedStmt(
+        CaptureRegions);
+  }
+
+  MutableArrayRef<Stmt *> getChildren();
+  ArrayRef<Stmt *> getChildren() const {
+    return const_cast<FTChildren *>(this)->getChildren();
+  }
+
+  Stmt *getRawStmt() {
+    assert(HasAssociatedStmt &&
+           "Expected directive with the associated statement.");
+    if (auto *CS = dyn_cast<CapturedStmt>(getAssociatedStmt())) {
+      Stmt *S = nullptr;
+      do {
+        S = CS->getCapturedStmt();
+        CS = dyn_cast<CapturedStmt>(S);
+      } while (CS);
+      return S;
+    }
+    return getAssociatedStmt();
+  }
+  const Stmt *getRawStmt() const {
+    return const_cast<FTChildren *>(this)->getRawStmt();
   }
 
   Stmt::child_range getAssociatedStmtAsRange() {

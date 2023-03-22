@@ -128,6 +128,8 @@ namespace {
     void PrintRawSEHFinallyStmt(SEHFinallyStmt *S);
     void PrintOMPExecutableDirective(OMPExecutableDirective *S,
                                      bool ForceNoStmt = false);
+    void PrintFTExecutableDirective(FTExecutableDirective *S,
+                                     bool ForceNoStmt = false);
 
     void PrintExpr(Expr *E) {
       if (E)
@@ -667,6 +669,21 @@ void StmtPrinter::PrintOMPExecutableDirective(OMPExecutableDirective *S,
     PrintStmt(S->getRawStmt());
 }
 
+void StmtPrinter::PrintFTExecutableDirective(FTExecutableDirective *S,
+                                              bool ForceNoStmt) {
+  OMPClausePrinter Printer(OS, Policy);
+  ArrayRef<OMPClause *> Clauses = S->clauses();
+  Indent() << "#pragma omp parallel";
+  for (auto *Clause : Clauses)
+    if (Clause && !Clause->isImplicit()) {
+      OS << ' ';
+      Printer.Visit(Clause);
+    }
+  OS << NL;
+  if (!ForceNoStmt && S->hasAssociatedStmt())
+    PrintStmt(S->getRawStmt());
+}
+
 void StmtPrinter::VisitOMPMetaDirective(OMPMetaDirective *Node) {
   Indent() << "#pragma omp metadirective";
   PrintOMPExecutableDirective(Node);
@@ -678,14 +695,9 @@ void StmtPrinter::VisitOMPParallelDirective(OMPParallelDirective *Node) {
 }
 
 //ifdef DK
-void StmtPrinter::VisitOMPNmrDirective(OMPNmrDirective *Node) {
+void StmtPrinter::VisitFTNmrDirective(FTNmrDirective *Node) {
   Indent() << "#pragma omp parallel";
-  PrintOMPExecutableDirective(Node);
-}
-
-void StmtPrinter::VisitOMPFTDirective(OMPFTDirective *Node) {
-  Indent() << "#pragma omp ft";
-  PrintOMPExecutableDirective(Node);
+  PrintFTExecutableDirective(Node);
 }
 //
 
@@ -798,13 +810,9 @@ void StmtPrinter::VisitOMPFlushDirective(OMPFlushDirective *Node) {
 }
 
 // ifdef DK
-void StmtPrinter::VisitOMPDKFlushDirective(OMPDKFlushDirective *Node) {
+void StmtPrinter::VisitFTVoteDirective(FTVoteDirective *Node) {
   Indent() << "#pragma omp flush";
-  PrintOMPExecutableDirective(Node);
-}
-void StmtPrinter::VisitOMPVoteDirective(OMPVoteDirective *Node) {
-  Indent() << "#pragma omp flush";
-  PrintOMPExecutableDirective(Node);
+  PrintFTExecutableDirective(Node);
 }
 // endif
 //

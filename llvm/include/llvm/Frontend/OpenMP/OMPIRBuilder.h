@@ -556,7 +556,6 @@ public:
   // ifdef DK
   // void createFtvote(const LocationDescription &Loc, llvm::Value * var, llvm::Value * varsize);
   /// \param Loc The location where the flush directive was encountered
-  void createDKFlush(const LocationDescription &Loc);
   void createVote(const LocationDescription &Loc);
   // endif
   //

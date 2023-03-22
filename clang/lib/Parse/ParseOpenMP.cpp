@@ -2931,14 +2931,12 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
 
     StmtResult AssociatedStmt;
     if (HasAssociatedStatement) {	// DK: region
-      if (DKind == OMPD_nmr) {
+      assert(DKind == OMPD_nmr && "Only NMR directive has associated statements!");
         ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);
         {
           Sema::CompoundScopeRAII Scope(Actions);
           AssociatedStmt = ParseStatement();	// DK: here associated statements are parsed
 	}
-      }
-//      AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses);
     } 
     Directive = Actions.ActOnFTExecutableDirective(
         DKind, DirName, Clauses, AssociatedStmt.get(), Loc,
@@ -3445,6 +3443,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 
     StmtResult AssociatedStmt;
     if (HasAssociatedStatement) {
+#ifdef DK
       if (DKind == OMPD_nmr) {
         ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);
         {
@@ -3452,6 +3451,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
           AssociatedStmt = ParseStatement();	// DK: here associated statements are parsed
 	}
       } else {
+#endif
       // The body is a block scope like in Lambdas and Blocks.
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
       // FIXME: We create a bogus CompoundStmt scope to hold the contents of
@@ -3462,14 +3462,14 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
         Sema::CompoundScopeRAII Scope(Actions);
         AssociatedStmt = ParseStatement();	// DK: here associated statements are parsed
     
-        //DK
-	// AssociatedStmt = Actions.ActOnOpenFT(AssociatedStmt, Clauses); // DK: here addtion by OpenMP is done
         if (AssociatedStmt.isUsable() && isOpenMPLoopDirective(DKind) &&
             getLangOpts().OpenMPIRBuilder)
           AssociatedStmt = Actions.ActOnOpenMPLoopnest(AssociatedStmt.get());
       }
       AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses); // DK: here addtion by OpenMP is done
+#ifdef DK
       }
+#endif
     } else if (DKind == OMPD_target_update || DKind == OMPD_target_enter_data ||
                DKind == OMPD_target_exit_data) {
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
@@ -3499,6 +3499,8 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
         << 1 << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::annot_pragma_openmp_end);
     break;
+  case OMPD_nmr:
+  case OMPD_vote:
   case OMPD_unknown:
   default:
     Diag(Tok, diag::err_omp_unknown_directive);
@@ -3857,7 +3859,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     break;
 #ifdef DK
   case OMPC_vote:
-  case OMPC_ftvar:
   case OMPC_var:
   case OMPC_rvar:
     Clause = ParseOpenMPDoubleVarListClause(DKind, CKind, WrongDirective);
@@ -4641,22 +4642,6 @@ static void parseMapType(Parser &P, Parser::OpenMPVarListDataTy &Data) {
   P.ConsumeToken();
 }
 
-#ifdef DK
-/// Parse ftvar-type in map clause.
-/// ftvar([ var : size ] list)
-static void parseFtvarType(Parser &P, Parser::OpenMPVarListDataTy &Data) {
-  Token Tok = P.getCurToken();
-  if (Tok.is(tok::colon)) {
-    P.Diag(Tok, diag::err_omp_map_type_missing);
-    return;
-  }
-  Data.ExtraModifier = isFtvarType(P);
-  if (Data.ExtraModifier == OMPC_MAP_unknown)
-    P.Diag(Tok, diag::err_omp_unknown_map_type);
-  P.ConsumeToken();
-}
-#endif
-
 /// Parses simple expression in parens for single-expression clauses of OpenMP
 /// constructs.
 ExprResult Parser::ParseOpenMPIteratorsExpr() {
@@ -4919,43 +4904,6 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
 
     if (Tok.is(tok::colon))
       Data.ColonLoc = ConsumeToken();
-#ifdef DK
-  } else if (Kind == OMPC_ftvar) {
-    // Handle map type for map clause.
-    ColonProtectionRAIIObject ColonRAII(*this);
-
-    // The first identifier may be a list item, a map-type or a
-    // map-type-modifier. The map-type can also be delete which has the same
-    // spelling of the C++ delete keyword.
-    Data.ExtraModifier = OMPC_MAP_unknown;
-    Data.ExtraModifierLoc = Tok.getLocation();
-
-    // Check for presence of a colon in the map clause.
-    TentativeParsingAction TPA(*this);
-    bool ColonPresent = false;
-    if (SkipUntil(tok::colon, tok::r_paren, tok::annot_pragma_openmp_end,
-                  StopBeforeMatch)) {
-      if (Tok.is(tok::colon))
-        ColonPresent = true;
-    }
-    TPA.Revert();
-    // Only parse map-type-modifier[s] and map-type if a colon is present in
-    // the map clause.
-    if (ColonPresent) {
-      IsInvalidMapperModifier = parseFtvarTypeModifiers(Data);
-      if (!IsInvalidMapperModifier)
-        parseFtvarType(*this, Data);
-      else
-        SkipUntil(tok::colon, tok::annot_pragma_openmp_end, StopBeforeMatch);
-    }
-    if (Data.ExtraModifier == OMPC_MAP_unknown) {
-      Data.ExtraModifier = OMPC_MAP_tofrom;
-      Data.IsMapTypeImplicit = true;
-    }
-
-    if (Tok.is(tok::colon))
-      Data.ColonLoc = ConsumeToken();
-#endif
   } else if (Kind == OMPC_to || Kind == OMPC_from) {
     while (Tok.is(tok::identifier)) {
       auto Modifier = static_cast<OpenMPMotionModifierKind>(
