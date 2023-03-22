@@ -3504,7 +3504,9 @@ public:
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
 // ifdef DK
   void EmitFTNmrDirective(const FTNmrDirective &S);
-//
+  void EmitVarVote(CodeGenFunction &CGF, const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS);
+  void EmitFTVoteDirective(const FTVoteDirective &S);
+// endif
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
   void EmitOMPTileDirective(const OMPTileDirective &S);
@@ -3527,9 +3529,6 @@ public:
   void EmitOMPTaskwaitDirective(const OMPTaskwaitDirective &S);
   void EmitOMPTaskgroupDirective(const OMPTaskgroupDirective &S);
   void EmitOMPFlushDirective(const OMPFlushDirective &S);
-  // ifdef DK
-  void EmitFTVoteDirective(const FTVoteDirective &S);
-  // endif
   void EmitOMPDepobjDirective(const OMPDepobjDirective &S);
   void EmitOMPScanDirective(const OMPScanDirective &S);
   void EmitOMPOrderedDirective(const OMPOrderedDirective &S);

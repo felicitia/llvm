@@ -4387,9 +4387,6 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_cancellation_point:
   case OMPD_cancel:
   case OMPD_flush:
-#ifdef DK
-  case OMPD_vote:
-#endif
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_declare_reduction:
@@ -6496,9 +6493,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
         continue;
       case OMPC_allocator:
       case OMPC_flush:
-// #ifdef DK
-      case OMPC_vote:
-// #endif
       case OMPC_depobj:
       case OMPC_threadprivate:
       case OMPC_uniform:
@@ -14749,9 +14743,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_sizes:
   case OMPC_allocate:
   case OMPC_flush:
-#ifdef DK
-  case OMPC_vote:
-#endif
   case OMPC_read:
   case OMPC_write:
   case OMPC_update:
@@ -14925,9 +14916,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15011,9 +14999,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15106,9 +15091,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15196,9 +15178,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15272,7 +15251,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target_simd:
     case OMPD_target_parallel:
     case OMPD_cancel:
-/*    case OMPD_nmr: */
     case OMPD_parallel:
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
@@ -15283,9 +15261,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15373,9 +15348,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15466,9 +15438,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15543,7 +15512,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_distribute_parallel_for:
     case OMPD_distribute_parallel_for_simd:
     case OMPD_cancel:
-/*    case OMPD_nmr: */
     case OMPD_parallel:
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
@@ -15556,9 +15524,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
-#ifdef DK
-    case OMPD_vote:
-#endif
     case OMPD_depobj:
     case OMPD_scan:
     case OMPD_declare_reduction:
@@ -15645,9 +15610,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-#ifdef DK
-  case OMPC_vote:
-#endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -16139,9 +16101,6 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-#ifdef DK
-  case OMPC_vote:
-#endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -16450,9 +16409,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-#ifdef DK
-  case OMPC_vote:
-#endif
   case OMPC_depobj:
   case OMPC_read:
   case OMPC_write:
@@ -16723,9 +16679,6 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_threadprivate:
   case OMPC_allocate:
   case OMPC_flush:
-#ifdef DK
-  case OMPC_vote:
-#endif
   case OMPC_depobj:
   case OMPC_depend:
   case OMPC_device:

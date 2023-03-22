@@ -1289,15 +1289,6 @@ public:
                                     llvm::Value *NumThreads,
                                     SourceLocation Loc);
 
-  // ifdef DK
-  virtual void emitDegreeClause(CodeGenFunction &CGF,
-                                    llvm::Value *Degree,
-                                    SourceLocation Loc);
-  virtual void emitFTVoteClause(CodeGenFunction &CGF, Address IL, 
-		  	    llvm::Value *VarSize,
-                            SourceLocation Loc);
-  //
-
   /// Emit call to void __kmpc_push_proc_bind(ident_t *loc, kmp_int32
   /// global_tid, int proc_bind) to generate code for 'proc_bind' clause.
   virtual void emitProcBindClause(CodeGenFunction &CGF,
@@ -2191,13 +2182,6 @@ public:
   /// \param NumThreads An integer value of threads.
   void emitNumThreadsClause(CodeGenFunction &CGF, llvm::Value *NumThreads,
                             SourceLocation Loc) override;
-// ifdef DK
-  void emitDegreeClause(CodeGenFunction &CGF, llvm::Value *Degree,
-                            SourceLocation Loc) override;
-  void emitFTVoteClause(CodeGenFunction &CGF, Address IL, 
-		  	    llvm::Value *VarSize,
-                            SourceLocation Loc) override;
-//
 
   /// Emit call to void __kmpc_push_proc_bind(ident_t *loc, kmp_int32
   /// global_tid, int proc_bind) to generate code for 'proc_bind' clause.

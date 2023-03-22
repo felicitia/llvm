@@ -2320,9 +2320,6 @@ Parser::DeclGroupPtrTy Parser::ParseFTDeclarativeDirectiveWithExtDecl(
   case OMPD_barrier:
   case OMPD_taskwait:
   case OMPD_taskgroup:
-// #ifdef DK
-  case OMPD_vote:
-// #endif
   case OMPD_flush:
   case OMPD_depobj:
   case OMPD_scan:
@@ -2753,9 +2750,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_barrier:
   case OMPD_taskwait:
   case OMPD_taskgroup:
-// #ifdef DK
-  case OMPD_vote:
-// #endif
   case OMPD_flush:
   case OMPD_depobj:
   case OMPD_scan:
@@ -3248,9 +3242,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     }
     break;
   }
-#ifdef DK
-  case OMPD_vote:
-#endif
   case OMPD_flush:
   case OMPD_depobj:
   case OMPD_scan:
@@ -3271,9 +3262,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     HasAssociatedStatement = false;
     // Fall through for further analysis.
     LLVM_FALLTHROUGH;
-#ifdef DK
-  case OMPD_nmr:
-#endif
   case OMPD_parallel:
   case OMPD_simd:
   case OMPD_tile:
@@ -3329,11 +3317,7 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     // Special processing for flush and depobj clauses.
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;
-#ifdef DK
-    if (DKind == OMPD_flush || DKind == OMPD_depobj || DKind == OMPD_vote) {
-#else
     if (DKind == OMPD_flush || DKind == OMPD_depobj) {
-#endif
       ImplicitTok = Tok;
       ImplicitClauseAllowed = true;
     }
@@ -3390,11 +3374,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
         if (DKind == OMPD_flush) {
           CKind = OMPC_flush;
         } 
-#ifdef DK
-	else if (DKind == OMPD_vote) {
-          CKind = OMPC_vote;
-        } 
-#endif
 	else {
           assert(DKind == OMPD_depobj &&
                  "Expected flush or depobj directives.");
@@ -3443,15 +3422,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
 
     StmtResult AssociatedStmt;
     if (HasAssociatedStatement) {
-#ifdef DK
-      if (DKind == OMPD_nmr) {
-        ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);
-        {
-          Sema::CompoundScopeRAII Scope(Actions);
-          AssociatedStmt = ParseStatement();	// DK: here associated statements are parsed
-	}
-      } else {
-#endif
       // The body is a block scope like in Lambdas and Blocks.
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
       // FIXME: We create a bogus CompoundStmt scope to hold the contents of
@@ -3467,9 +3437,6 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
           AssociatedStmt = Actions.ActOnOpenMPLoopnest(AssociatedStmt.get());
       }
       AssociatedStmt = Actions.ActOnOpenMPRegionEnd(AssociatedStmt, Clauses); // DK: here addtion by OpenMP is done
-#ifdef DK
-      }
-#endif
     } else if (DKind == OMPD_target_update || DKind == OMPD_target_enter_data ||
                DKind == OMPD_target_exit_data) {
       Actions.ActOnOpenMPRegionStart(DKind, getCurScope());
@@ -3857,13 +3824,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                  ? ParseOpenMPSimpleClause(CKind, WrongDirective)
                  : ParseOpenMPClause(CKind, WrongDirective);
     break;
-#ifdef DK
-  case OMPC_vote:
-  case OMPC_var:
-  case OMPC_rvar:
-    Clause = ParseOpenMPDoubleVarListClause(DKind, CKind, WrongDirective);
-    break;
-#endif
   case OMPC_private:
   case OMPC_firstprivate:
   case OMPC_lastprivate:
@@ -4611,22 +4571,6 @@ static OpenMPMapClauseKind isMapType(Parser &P) {
   return MapType;
 }
 
-#ifdef DK
-/// Checks if the token is a valid map-type.
-/// FIXME: It will return an OpenMPMapModifierKind if that's what it parses.
-static OpenMPMapClauseKind isFtvarType(Parser &P) {
-  Token Tok = P.getCurToken();
-  // The map-type token can be either an identifier or the C++ delete keyword.
-  if (!Tok.isOneOf(tok::identifier, tok::kw_delete))  // TODO
-    return OMPC_MAP_unknown;
-  Preprocessor &PP = P.getPreprocessor();
-  OpenMPMapClauseKind MapType =
-      static_cast<OpenMPMapClauseKind>(getOpenMPSimpleClauseType(
-          OMPC_map, PP.getSpelling(Tok), P.getLangOpts()));
-  return MapType;
-}
-#endif
-
 /// Parse map-type in map clause.
 /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
 /// where, map-type ::= to | from | tofrom | alloc | release | delete
@@ -5028,11 +4972,7 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
       Diag(Tok, diag::err_omp_expected_punc)
 			  // ifdef DK	without this, vote cannot have argument 
           << ((Kind == OMPC_flush) ? getOpenMPDirectiveName(OMPD_flush)
-#ifdef DK
-			           : ((Kind == OMPC_vote) ? getOpenMPDirectiveName(OMPD_vote) : getOpenMPClauseName(Kind)))
-#else
 			           : getOpenMPClauseName(Kind))
-#endif
           << (Kind == OMPC_flush);
   }
 

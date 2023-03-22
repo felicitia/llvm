@@ -765,27 +765,12 @@ LValue ReductionCodeGen::emitSharedLValue(CodeGenFunction &CGF, const Expr *E) {
   return CGF.EmitOMPSharedLValue(E);
 }
 
-// ifdef DK
-//LValue ReductionCodeGen::emitFTVarLValue(CodeGenFunction &CGF, const Expr *E) {
-//  return CGF.EmitOMPFTVarLValue(E);
-//}
-// endif
-
 LValue ReductionCodeGen::emitSharedLValueUB(CodeGenFunction &CGF,
                                             const Expr *E) {
   if (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
     return CGF.EmitOMPArraySectionExpr(OASE, /*IsLowerBound=*/false);
   return LValue();
 }
-
-// ifdef DK
-//LValue ReductionCodeGen::emitFTVarLValueUB(CodeGenFunction &CGF,
-//                                            const Expr *E) {
-//  if (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
-//    return CGF.EmitOMPArraySectionExpr(OASE, /*IsLowerBound=*/false);
-//  return LValue();
-//}
-// endif
 
 void ReductionCodeGen::emitAggregateInitialization(
     CodeGenFunction &CGF, unsigned N, Address PrivateAddr, Address SharedAddr,
@@ -2942,38 +2927,6 @@ llvm::Value *CGOpenMPRuntime::emitForNext(CodeGenFunction &CGF,
       CGF.getContext().BoolTy, Loc);
 }
 
-// ifdef DK
-void CGOpenMPRuntime::emitFTVoteClause(CodeGenFunction &CGF,
-					   Address IL,
-                                           llvm::Value *VarSize,
-                                           SourceLocation Loc) {
-  llvm::Value *Args[] = {
-      emitUpdateLocation(CGF, Loc), 
-      IL.getPointer(),
-      CGF.Builder.CreateIntCast(VarSize, CGF.Int32Ty, /*isSigned*/ true)};
-    if (!CGF.HaveInsertPoint())
-      return;
-    // Build call __ft_vote(&loc, var, size)
-    CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
-                            CGM.getModule(), OMPRTL___kmpc_ftvote),
-                        Args);
-}
-
-void CGOpenMPRuntime::emitDegreeClause(CodeGenFunction &CGF,
-                                           llvm::Value *Degree,
-                                           SourceLocation Loc) {
-  if (!CGF.HaveInsertPoint())
-    return;
-  // Build call __kmpc_push_num_threads(&loc, global_tid, num_threads)
-  llvm::Value *Args[] = {
-      emitUpdateLocation(CGF, Loc), getThreadID(CGF, Loc),
-      CGF.Builder.CreateIntCast(Degree, CGF.Int32Ty, /*isSigned*/ true)};
-  CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
-                          CGM.getModule(), OMPRTL___kmpc_push_num_threads),
-                      Args);
-}
-
-//
 void CGOpenMPRuntime::emitNumThreadsClause(CodeGenFunction &CGF,
                                            llvm::Value *NumThreads,
                                            SourceLocation Loc) {
@@ -13050,20 +13003,6 @@ llvm::Value *CGOpenMPSIMDRuntime::emitForNext(CodeGenFunction &CGF,
   llvm_unreachable("Not supported in SIMD-only mode");
 }
 
-//ifdef
-void CGOpenMPSIMDRuntime::emitFTVoteClause(CodeGenFunction &CGF,
-					   Address IL,
-                                           llvm::Value *VarSizes,
-                                           SourceLocation Loc) {
-  llvm_unreachable("Not supported in SIMD-only mode");
-}
-
-void CGOpenMPSIMDRuntime::emitDegreeClause(CodeGenFunction &CGF,
-                                               llvm::Value *Degree,
-                                               SourceLocation Loc) {
-  llvm_unreachable("Not supported in SIMD-only mode");
-}
-//endif
 void CGOpenMPSIMDRuntime::emitNumThreadsClause(CodeGenFunction &CGF,
                                                llvm::Value *NumThreads,
                                                SourceLocation Loc) {
