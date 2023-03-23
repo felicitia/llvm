@@ -1726,6 +1726,31 @@ std::string CodeGenFunction::OMPBuilderCBHelpers::getNameWithSeparators(
   return OS.str().str();
 }
 
+static bool isSameExpr(const Expr * E1, const Expr * E2) {
+    const DeclRefExpr * DR = cast<DeclRefExpr>(E1);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    const DeclRefExpr * DR2 = cast<DeclRefExpr>(E2);
+    const VarDecl *VD2 = dyn_cast<VarDecl>(DR2->getDecl());
+    if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
+          && VD->getDeclContext() == VD2->getDeclContext()) return true;
+    else return false;
+}
+
+static void removeVars(SmallVector<const Expr *, 4> &VarSize, SmallVector<const Expr*, 4> &DeleteVars) {
+  if (VarSize.size() == 0 || DeleteVars.size() == 0) return;
+  SmallVector<int, 4> indices;
+  for (int i=0; i < (int)DeleteVars.size(); i+=2) {
+    for (int j=0; j < (int)VarSize.size(); j+=2) {
+      if (isSameExpr(DeleteVars[i], VarSize[j]))
+        indices.push_back(j);
+    }
+  }
+  for (int i = indices.size() - 1; i >= 0; i--) {
+    VarSize.erase(VarSize.begin() + indices[i] + 1);
+    VarSize.erase(VarSize.begin() + indices[i]);
+  } 
+}
+
 static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSize,
 		std::vector<int> &VarsSizesIndex, bool lookforLHS, bool canbeLHS) {
   if (!E || VarSize.size() == 0 || (lookforLHS && !canbeLHS) || (!lookforLHS && canbeLHS)) return;
@@ -1862,18 +1887,36 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
 
   SmallVector<const Expr *, 4> SaveLVarSize;
   SmallVector<const Expr *, 4> SaveRVarSize;
+  SmallVector<const Expr *, 4> NovarSize;
+  SmallVector<const Expr *, 4> NorvarSize;
+  SmallVector<const Expr *, 4> NovoteSize;
 
   const auto *LvarClause = S.getSingleClause<OMPVarClause>();
   const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
+  const auto *NovarClause = S.getSingleClause<OMPNovarClause>();
+  const auto *NorvarClause = S.getSingleClause<OMPNorvarClause>();
+  const auto *NovoteClause = S.getSingleClause<OMPNovoteClause>();
   std::vector<int> LvarsIndex, RvarsIndex;
 
   SaveLVarSize = LVarSize;
   SaveRVarSize = RVarSize;
 
+  // inherit outer NMR region's var, rvar and add local ones
   if (LvarClause)  // lvar
     LVarSize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
   if (RvarClause)  // rvar
     RVarSize.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
+  if (NovarClause)
+    NovarSize.append(NovarClause->varlist_begin(), NovarClause->varlist_end());
+  if (NorvarClause)
+    NorvarSize.append(NorvarClause->varlist_begin(), NorvarClause->varlist_end());
+  if (NovoteClause)
+    NovoteSize.append(NovoteClause->varlist_begin(), NovoteClause->varlist_end());
+  // remove entries in (No) clauses
+  removeVars(LVarSize, NovarSize);
+  removeVars(LVarSize, NovoteSize);
+  removeVars(RVarSize, NorvarSize);
+  removeVars(RVarSize, NovoteSize);
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(&S);
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());

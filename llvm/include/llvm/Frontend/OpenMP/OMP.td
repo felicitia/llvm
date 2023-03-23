@@ -91,6 +91,18 @@ def OMPC_Rvar: Clause<"rvar"> {	/* DK: TODO */
   let clangClass = "OMPRvarClause";
   let flangClass = "OmpObjectList";
 }
+def OMPC_Novar: Clause<"novar"> {	/* DK: TODO */
+  let clangClass = "OMPNovarClause";
+  let flangClass = "OmpObjectList";
+}
+def OMPC_Norvar: Clause<"norvar"> {	/* DK: TODO */
+  let clangClass = "OMPNorvarClause";
+  let flangClass = "OmpObjectList";
+}
+def OMPC_Novote: Clause<"novote"> {	/* DK: TODO */
+  let clangClass = "OMPNovoteClause";
+  let flangClass = "OmpObjectList";
+}
 def OMPC_Degree: Clause<"degree"> {	/* DK: TODO */
   let clangClass = "OMPDegreeClause";
   let flangClass = "OmpObjectList";
@@ -408,6 +420,9 @@ def OMP_Nmr : Directive<"nmr"> {
   let allowedClauses = [
     VersionedClause<OMPC_Var>,
     VersionedClause<OMPC_Rvar>,
+    VersionedClause<OMPC_Novar>,
+    VersionedClause<OMPC_Norvar>,
+    VersionedClause<OMPC_Novote>,
     VersionedClause<OMPC_Degree>,
   ];
 }

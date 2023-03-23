@@ -3114,6 +3114,83 @@ public:
   }
 };
 
+class OMPNovarClause final
+    : public OMPVarListClause<OMPNovarClause>,
+      private llvm::TrailingObjects<OMPNovarClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPNovarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_novar, StartLoc,
+                                          LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPNovarClause(unsigned N)
+      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_novar,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+public:
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Novariable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPNovarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPNovarClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPNovarClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_novar;
+  }
+};
+
 class OMPRvarClause final
     : public OMPVarListClause<OMPRvarClause>,
       private llvm::TrailingObjects<OMPRvarClause, Expr *> {
@@ -3188,6 +3265,160 @@ public:
 
   static bool classof(const OMPClause *T) {
     return T->getClauseKind() == llvm::omp::OMPC_rvar;
+  }
+};
+
+class OMPNorvarClause final
+    : public OMPVarListClause<OMPNorvarClause>,
+      private llvm::TrailingObjects<OMPNorvarClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPNorvarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPNorvarClause>(llvm::omp::OMPC_norvar, StartLoc,
+                                          LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPNorvarClause(unsigned N)
+      : OMPVarListClause<OMPNorvarClause>(llvm::omp::OMPC_norvar,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+public:
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPNorvarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPNorvarClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPNorvarClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_norvar;
+  }
+};
+
+class OMPNovoteClause final
+    : public OMPVarListClause<OMPNovoteClause>,
+      private llvm::TrailingObjects<OMPNovoteClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPNovoteClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPNovoteClause>(llvm::omp::OMPC_novote, StartLoc,
+                                          LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPNovoteClause(unsigned N)
+      : OMPVarListClause<OMPNovoteClause>(llvm::omp::OMPC_novote,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
+
+public:
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPNovoteClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL);
+
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPNovoteClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPNovoteClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == llvm::omp::OMPC_novote;
   }
 };
 

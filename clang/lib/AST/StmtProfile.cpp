@@ -651,6 +651,15 @@ void OMPClauseProfiler::VisitOMPVarClause(const OMPVarClause *C) {
 void OMPClauseProfiler::VisitOMPRvarClause(const OMPRvarClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseProfiler::VisitOMPNovoteClause(const OMPNovoteClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseProfiler::VisitOMPNovarClause(const OMPNovarClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseProfiler::VisitOMPNorvarClause(const OMPNorvarClause *C) {
+  VisitOMPClauseList(C);
+}
 void OMPClauseProfiler::VisitOMPDegreeClause(const OMPDegreeClause *C) {
   VistOMPClauseWithPreInit(C);
   if (C->getDegree())

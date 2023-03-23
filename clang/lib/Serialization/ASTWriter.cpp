@@ -6444,6 +6444,24 @@ void OMPClauseWriter::VisitOMPRvarClause(OMPRvarClause *C) {
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
+void OMPClauseWriter::VisitOMPNovoteClause(OMPNovoteClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void OMPClauseWriter::VisitOMPNovarClause(OMPNovarClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void OMPClauseWriter::VisitOMPNorvarClause(OMPNorvarClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
 void OMPClauseWriter::VisitOMPDegreeClause(OMPDegreeClause *C) {
   VisitOMPClauseWithPreInit(C);
   Record.AddStmt(C->getDegree());

@@ -18004,6 +18004,12 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
       return OMPRvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
     case OMPC_var:
       return OMPVarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+    case OMPC_novote:
+      return OMPNovoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+    case OMPC_norvar:
+      return OMPNorvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+    case OMPC_novar:
+      return OMPNovarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
     default:
       return nullptr;
   }

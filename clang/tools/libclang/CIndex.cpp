@@ -2439,6 +2439,15 @@ void OMPClauseEnqueue::VisitOMPVarClause(const OMPVarClause *C) {
 void OMPClauseEnqueue::VisitOMPRvarClause(const OMPRvarClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseEnqueue::VisitOMPNovoteClause(const OMPNovoteClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseEnqueue::VisitOMPNovarClause(const OMPNovarClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseEnqueue::VisitOMPNorvarClause(const OMPNorvarClause *C) {
+  VisitOMPClauseList(C);
+}
 void OMPClauseEnqueue::VisitOMPDegreeClause(const OMPDegreeClause *C) {
   VisitOMPClauseWithPreInit(C);
   Visitor->AddStmt(C->getDegree());

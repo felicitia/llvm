@@ -9951,6 +9951,57 @@ TreeTransform<Derived>::TransformOMPVarClause(OMPVarClause *C) {
   return getDerived().RebuildFTVarClause(OMPC_var, Vars, Sizes, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPNovarClause(OMPNovarClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(OMPC_novar, Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPNorvarClause(OMPNorvarClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(OMPC_norvar, Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPNovoteClause(OMPNovoteClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(OMPC_novote, Vars, Sizes, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
 // endif DK
 
 template <typename Derived>

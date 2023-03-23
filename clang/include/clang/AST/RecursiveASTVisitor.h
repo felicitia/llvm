@@ -3472,6 +3472,21 @@ bool RecursiveASTVisitor<Derived>::VisitOMPRvarClause(OMPRvarClause *C) {
   return true;
 }
 template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPNovarClause(OMPNovarClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPNorvarClause(OMPNorvarClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPNovoteClause(OMPNovoteClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPDegreeClause(OMPDegreeClause *C) {
   TRY_TO(VisitOMPClauseWithPreInit(C));
   TRY_TO(TraverseStmt(C->getDegree()));

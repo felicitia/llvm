@@ -595,6 +595,60 @@ OMPVarClause *OMPVarClause::CreateEmpty(const ASTContext &C, unsigned N) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
   return new (Mem) OMPVarClause(N*2);
 }
+
+OMPNovoteClause *OMPNovoteClause::Create(const ASTContext &C,
+                                         SourceLocation StartLoc,
+                                         SourceLocation LParenLoc,
+                                         SourceLocation EndLoc,
+                                         ArrayRef<Expr *> VL,
+                                         ArrayRef<Expr *> SL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+  OMPNovoteClause *Clause =
+      new (Mem) OMPNovoteClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
+  Clause->setVarSizeRefs(VL,SL);
+  return Clause;
+}
+
+OMPNovoteClause *OMPNovoteClause::CreateEmpty(const ASTContext &C, unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
+  return new (Mem) OMPNovoteClause(N);
+}
+
+OMPNorvarClause *OMPNorvarClause::Create(const ASTContext &C,
+                                         SourceLocation StartLoc,
+                                         SourceLocation LParenLoc,
+                                         SourceLocation EndLoc,
+                                         ArrayRef<Expr *> VL,
+                                         ArrayRef<Expr *> SL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+  OMPNorvarClause *Clause =
+      new (Mem) OMPNorvarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
+  Clause->setVarSizeRefs(VL, SL);
+  return Clause;
+}
+
+OMPNorvarClause *OMPNorvarClause::CreateEmpty(const ASTContext &C, unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
+  return new (Mem) OMPNorvarClause(N*2);
+}
+
+OMPNovarClause *OMPNovarClause::Create(const ASTContext &C,
+                                         SourceLocation StartLoc,
+                                         SourceLocation LParenLoc,
+                                         SourceLocation EndLoc,
+                                         ArrayRef<Expr *> VL,
+                                         ArrayRef<Expr *> SL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+  OMPNovarClause *Clause =
+      new (Mem) OMPNovarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
+  Clause->setVarSizeRefs(VL, SL);
+  return Clause;
+}
+
+OMPNovarClause *OMPNovarClause::CreateEmpty(const ASTContext &C, unsigned N) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
+  return new (Mem) OMPNovarClause(N*2);
+}
 // endif
 
 void OMPLinearClause::setPrivates(ArrayRef<Expr *> PL) {
@@ -2124,6 +2178,27 @@ void OMPClausePrinter::VisitOMPVarClause(OMPVarClause *Node) {
 void OMPClausePrinter::VisitOMPRvarClause(OMPRvarClause *Node) {
   if (!Node->varlist_empty()) {
     OS << "rvar";
+    VisitOMPClauseList(Node, '(');
+    OS << ")";
+  }
+}
+void OMPClausePrinter::VisitOMPNovoteClause(OMPNovoteClause *Node) {
+  if (!Node->varlist_empty()) {
+    OS << "novote";
+    VisitOMPClauseList(Node, '(');
+    OS << ")";
+  }
+}
+void OMPClausePrinter::VisitOMPNovarClause(OMPNovarClause *Node) {
+  if (!Node->varlist_empty()) {
+    OS << "novar";
+    VisitOMPClauseList(Node, '(');
+    OS << ")";
+  }
+}
+void OMPClausePrinter::VisitOMPNorvarClause(OMPNorvarClause *Node) {
+  if (!Node->varlist_empty()) {
+    OS << "norvar";
     VisitOMPClauseList(Node, '(');
     OS << ")";
   }

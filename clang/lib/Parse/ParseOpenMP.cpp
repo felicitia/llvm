@@ -3634,6 +3634,15 @@ OMPClause *Parser::ParseFTClause(OpenMPDirectiveKind DKind,
     case OMPC_rvar:	/* RVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
+    case OMPC_novote:	/* LVALUE */
+        Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
+	break;
+    case OMPC_novar:	/* LVALUE */
+        Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
+	break;
+    case OMPC_norvar:	/* RVALUE */
+        Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
+	break;
     case OMPC_degree:	/* TODO: degree of NMR */
 	  break;
     default:
