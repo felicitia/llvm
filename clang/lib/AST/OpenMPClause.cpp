@@ -547,17 +547,19 @@ OMPVoteClause *OMPVoteClause::Create(const ASTContext &C,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+                                         ArrayRef<Expr *> SL,
+                                         ArrayRef<Expr *> PL
+					 ) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*3));
   OMPVoteClause *Clause =
-      new (Mem) OMPVoteClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL,SL);
+      new (Mem) OMPVoteClause(StartLoc, LParenLoc, EndLoc, VL.size()*3);
+  Clause->setVarSizePtrRefs(VL,SL,PL);
   return Clause;
 }
 
 OMPVoteClause *OMPVoteClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
-  return new (Mem) OMPVoteClause(N);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*3));
+  return new (Mem) OMPVoteClause(N*3);
 }
 
 OMPRvarClause *OMPRvarClause::Create(const ASTContext &C,
@@ -565,17 +567,18 @@ OMPRvarClause *OMPRvarClause::Create(const ASTContext &C,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+                                         ArrayRef<Expr *> SL,
+                                         ArrayRef<Expr *> PL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*3));
   OMPRvarClause *Clause =
-      new (Mem) OMPRvarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL, SL);
+      new (Mem) OMPRvarClause(StartLoc, LParenLoc, EndLoc, VL.size()*3);
+  Clause->setVarSizePtrRefs(VL, SL,PL);
   return Clause;
 }
 
 OMPRvarClause *OMPRvarClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
-  return new (Mem) OMPRvarClause(N*2);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*3));
+  return new (Mem) OMPRvarClause(N*3);
 }
 
 OMPVarClause *OMPVarClause::Create(const ASTContext &C,
@@ -583,17 +586,18 @@ OMPVarClause *OMPVarClause::Create(const ASTContext &C,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+                                         ArrayRef<Expr *> SL,
+                                         ArrayRef<Expr *> PL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*3));
   OMPVarClause *Clause =
-      new (Mem) OMPVarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL, SL);
+      new (Mem) OMPVarClause(StartLoc, LParenLoc, EndLoc, VL.size()*3);
+  Clause->setVarSizePtrRefs(VL, SL,PL);
   return Clause;
 }
 
 OMPVarClause *OMPVarClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
-  return new (Mem) OMPVarClause(N*2);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*3));
+  return new (Mem) OMPVarClause(N*3);
 }
 
 OMPNovoteClause *OMPNovoteClause::Create(const ASTContext &C,
@@ -601,17 +605,18 @@ OMPNovoteClause *OMPNovoteClause::Create(const ASTContext &C,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+                                         ArrayRef<Expr *> SL,
+                                         ArrayRef<Expr *> PL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*3));
   OMPNovoteClause *Clause =
-      new (Mem) OMPNovoteClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL,SL);
+      new (Mem) OMPNovoteClause(StartLoc, LParenLoc, EndLoc, VL.size()*3);
+  Clause->setVarSizePtrRefs(VL,SL,PL);
   return Clause;
 }
 
 OMPNovoteClause *OMPNovoteClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
-  return new (Mem) OMPNovoteClause(N);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*3));
+  return new (Mem) OMPNovoteClause(N*3);
 }
 
 OMPNorvarClause *OMPNorvarClause::Create(const ASTContext &C,
@@ -619,17 +624,18 @@ OMPNorvarClause *OMPNorvarClause::Create(const ASTContext &C,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+                                         ArrayRef<Expr *> SL,
+                                         ArrayRef<Expr *> PL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*3));
   OMPNorvarClause *Clause =
-      new (Mem) OMPNorvarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL, SL);
+      new (Mem) OMPNorvarClause(StartLoc, LParenLoc, EndLoc, VL.size()*3);
+  Clause->setVarSizePtrRefs(VL, SL,PL);
   return Clause;
 }
 
 OMPNorvarClause *OMPNorvarClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
-  return new (Mem) OMPNorvarClause(N*2);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*3));
+  return new (Mem) OMPNorvarClause(N*3);
 }
 
 OMPNovarClause *OMPNovarClause::Create(const ASTContext &C,
@@ -637,17 +643,18 @@ OMPNovarClause *OMPNovarClause::Create(const ASTContext &C,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc,
                                          ArrayRef<Expr *> VL,
-                                         ArrayRef<Expr *> SL) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*2));
+                                         ArrayRef<Expr *> SL,
+                                         ArrayRef<Expr *> PL) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()*3));
   OMPNovarClause *Clause =
-      new (Mem) OMPNovarClause(StartLoc, LParenLoc, EndLoc, VL.size()*2);
-  Clause->setVarSizeRefs(VL, SL);
+      new (Mem) OMPNovarClause(StartLoc, LParenLoc, EndLoc, VL.size()*3);
+  Clause->setVarSizePtrRefs(VL, SL,PL);
   return Clause;
 }
 
 OMPNovarClause *OMPNovarClause::CreateEmpty(const ASTContext &C, unsigned N) {
-  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*2));
-  return new (Mem) OMPNovarClause(N*2);
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N*3));
+  return new (Mem) OMPNovarClause(N*3);
 }
 // endif
 
@@ -2163,7 +2170,7 @@ void OMPClausePrinter::VisitOMPSharedClause(OMPSharedClause *Node) {
 // ifdef DK
 void OMPClausePrinter::VisitOMPVoteClause(OMPVoteClause *Node) {
   if (!Node->varlist_empty()) {
-    OS << "shared";
+    OS << "vote";
     VisitOMPClauseList(Node, '(');
     OS << ")";
   }

@@ -3074,6 +3074,19 @@ public:
     std::copy(TL.begin(), TL.end(),
               /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3084,7 +3097,7 @@ public:
   static OMPVarClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
   /// Creates an empty clause with \a N variables.
   ///
@@ -3151,6 +3164,19 @@ public:
     std::copy(TL.begin(), TL.end(),
               /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3161,7 +3187,7 @@ public:
   static OMPNovarClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
   /// Creates an empty clause with \a N variables.
   ///
@@ -3228,6 +3254,19 @@ public:
     std::copy(TL.begin(), TL.end(),
               /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3238,7 +3277,7 @@ public:
   static OMPRvarClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
   /// Creates an empty clause with \a N variables.
   ///
@@ -3305,6 +3344,19 @@ public:
     std::copy(TL.begin(), TL.end(),
               /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3315,7 +3367,7 @@ public:
   static OMPNorvarClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
   /// Creates an empty clause with \a N variables.
   ///
@@ -3382,6 +3434,19 @@ public:
     std::copy(TL.begin(), TL.end(),
               /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -3392,7 +3457,7 @@ public:
   static OMPNovoteClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
   /// Creates an empty clause with \a N variables.
   ///
@@ -5064,6 +5129,19 @@ public:
     std::copy(TL.begin(), TL.end(),
               /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
   }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
   /// Creates clause with a list of variables \a VL.
   ///
   /// \param C AST context.
@@ -5074,7 +5152,7 @@ public:
   static OMPVoteClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                                 ArrayRef<Expr *> SL);
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
   /// Creates an empty clause with \a N variables.
   ///

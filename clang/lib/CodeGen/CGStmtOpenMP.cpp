@@ -1561,23 +1561,41 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
 
 static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
-   for (int i = 0; i < (int)VarsSizes.size(); i+=2) {
+   for (int i = 0; i < (int)VarsSizes.size(); i+=3) {
      Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
      llvm::Value *TSize ;
+     llvm::Value *IndDepth;
      if (VarsSizes[i+1] == nullptr) {
        TSize = CGF.getTypeSize(VarsSizes[i]->getType());
      } else {
        TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
      }
+     if (VarsSizes[i+2] == nullptr) {
+       IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);
+     } else {
+       IndDepth = CGF.EmitScalarExpr(VarsSizes[i+2], /*IgnoreResultAssign=*/true);
+     }
      // emitFTVoteClause(CGF, Varaddr, TSize, Loc);
+#if 0
+     const DeclRefExpr * DR = cast<DeclRefExpr>(VarsSizes[i]);
+     const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+     llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getContext(), VD->getName());
+     llvm::PointerType* ptrType = llvm::PointerType::get(CGF.Int8Ty, 0);
+     llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGF.Builder.GetInsertBlock()->getParent(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
+     llvm::Value* ptr = CGF.Builder.CreatePointerCast(globalStr, ptrType);
+#endif     
      llvm::Value *Args[] = {
          Varaddr.getPointer(),
-         CGF.Builder.CreateIntCast(TSize, CGF.Int32Ty, /*isSigned*/ true)};
+         CGF.Builder.CreateIntCast(TSize, CGF.Int32Ty, /*isSigned*/ true),
+         CGF.Builder.CreateIntCast(IndDepth, CGF.Int32Ty, /*isSigned*/ true)
+//	 ,ptr
+         };
      if (!CGF.HaveInsertPoint())
        return;
      // Build call __ft_vote(&loc, var, size)
      const char *LibCallName = "__ft_vote";
-     llvm::Type *Params[] = {CGF.CGM.VoidPtrTy, CGF.CGM.Int32Ty};
+     llvm::Type *Params[] = {CGF.CGM.VoidPtrTy, CGF.CGM.Int32Ty, CGF.CGM.Int32Ty /*, CGF.CGM.Int8Ty */ };
+     // Type *strType = PointerType::getUnqual(CGF.CGM.Int8Ty);	// this is what ChatGPT taught. Is it correct?
      auto *FTy = llvm::FunctionType::get(CGF.CGM.VoidTy, Params, /*isVarArg=*/false);
      llvm::FunctionCallee Func = CGF.CGM.CreateRuntimeFunction(FTy, LibCallName);
      CGF.EmitRuntimeCall(Func, Args);
@@ -1736,19 +1754,34 @@ static bool isSameExpr(const Expr * E1, const Expr * E2) {
     else return false;
 }
 
-static void removeVars(SmallVector<const Expr *, 4> &VarSize, SmallVector<const Expr*, 4> &DeleteVars) {
+static void removeVars(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarSize, SmallVector<const Expr*, 4> &DeleteVars) {
   if (VarSize.size() == 0 || DeleteVars.size() == 0) return;
   SmallVector<int, 4> indices;
-  for (int i=0; i < (int)DeleteVars.size(); i+=2) {
-    for (int j=0; j < (int)VarSize.size(); j+=2) {
-      if (isSameExpr(DeleteVars[i], VarSize[j]))
+  for (int i=0; i < (int)DeleteVars.size(); i+=3) {
+    // pointer depth
+    int const1, const2;
+    if (DeleteVars[i+2] == nullptr) const1 = 0;
+    else { 
+      auto const_int1 = cast<llvm::ConstantInt>(CGF.EmitScalarExpr(DeleteVars[i+2]));
+      const1 = const_int1->getSExtValue();
+    }
+    for (int j=0; j < (int)VarSize.size(); j+=3) {
+      // pointer depth
+      if (VarSize[i+2] == nullptr) const2 = 0;
+      else {
+	auto const_int2 = cast<llvm::ConstantInt>(CGF.EmitScalarExpr(VarSize[i+2]));
+        const2 = const_int2->getSExtValue();
+      }
+      if (isSameExpr(DeleteVars[i], VarSize[j]) && const1 == const2)
+      // TODO: check if their othre fiels (size, ptr) are also the same
         indices.push_back(j);
     }
   }
   for (int i = indices.size() - 1; i >= 0; i--) {
+    VarSize.erase(VarSize.begin() + indices[i] + 2);
     VarSize.erase(VarSize.begin() + indices[i] + 1);
     VarSize.erase(VarSize.begin() + indices[i]);
-  } 
+  }
 }
 
 static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSize,
@@ -1758,7 +1791,7 @@ static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSiz
   if (SaveRef == nullptr) return;
   const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl());
   if (VD == nullptr) return;
-  for (int i=0; i < (int)VarSize.size(); i+=2) {
+  for (int i=0; i < (int)VarSize.size(); i+=3) {
     const DeclRefExpr * DR = cast<DeclRefExpr>(VarSize[i]);
     const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
     if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
@@ -1794,7 +1827,7 @@ static void visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
     return;
   case Stmt::UnaryOperatorClass: {
     const UnaryOperator * UO = cast<UnaryOperator>(S);
-    if (UO->isPrefix() || UO->isPostfix()) {
+    if (UO->isPrefix() || UO->isPostfix() || UO->getOpcode() == UO_AddrOf || UO->getOpcode() == UO_Deref) {
       if (lookforLHS) visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, true);
       // Should we include it as Rvalue, too.
       if (!lookforLHS) visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
@@ -1879,6 +1912,7 @@ void CodeGenFunction::EmitVarVote(CodeGenFunction &CGF, const Stmt* S, SmallVect
   for (int i=0; i < (int)VarsNameIndex.size(); i++) {
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]]);
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]+1]);
+    TVarsSizes.push_back(VarSize[VarsNameIndex[i]+2]);
   }
   emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
 }
@@ -1913,10 +1947,10 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
   if (NovoteClause)
     NovoteSize.append(NovoteClause->varlist_begin(), NovoteClause->varlist_end());
   // remove entries in (No) clauses
-  removeVars(LVarSize, NovarSize);
-  removeVars(LVarSize, NovoteSize);
-  removeVars(RVarSize, NorvarSize);
-  removeVars(RVarSize, NovoteSize);
+  removeVars(*this, LVarSize, NovarSize);
+  removeVars(*this, LVarSize, NovoteSize);
+  removeVars(*this, RVarSize, NorvarSize);
+  removeVars(*this, RVarSize, NovoteSize);
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(&S);
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());

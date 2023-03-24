@@ -17947,11 +17947,13 @@ OMPClause *Sema::ActOnOpenMPSharedClause(ArrayRef<Expr *> VarList,
 OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
 					 ArrayRef<Expr *> VarList,
 					 ArrayRef<Expr *> SizeList,
+					 ArrayRef<Expr *> PtrList,
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc) {
   SmallVector<Expr *, 4> Vars;
   SmallVector<Expr *, 4> SizeL;
+  SmallVector<Expr *, 4> Ptr;
   // DK TODO: recode with array index
   for (int i = 0; i < (int)VarList.size(); i++) {
     SourceLocation ELoc;
@@ -17962,6 +17964,7 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
       // It will be analyzed later.
       Vars.push_back(VarList[i]);
       SizeL.push_back(SizeList[i]);
+      Ptr.push_back(PtrList[i]);
     }
     ValueDecl *D = Res.first;
     if (!D)
@@ -17992,6 +17995,7 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
                        ? VarList[i]->IgnoreParens()
                        : Ref);
     SizeL.push_back(SizeList[i]);
+    Ptr.push_back(PtrList[i]);
   }
 
   if (Vars.empty())
@@ -17999,17 +18003,17 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
 
   switch(Kind){
     case OMPC_vote:
-      return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+      return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     case OMPC_rvar:
-      return OMPRvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+      return OMPRvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     case OMPC_var:
-      return OMPVarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+      return OMPVarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     case OMPC_novote:
-      return OMPNovoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+      return OMPNovoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     case OMPC_norvar:
-      return OMPNorvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+      return OMPNorvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     case OMPC_novar:
-      return OMPNovarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL);
+      return OMPNovarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     default:
       return nullptr;
   }
@@ -19821,13 +19825,14 @@ OMPClause *Sema::ActOnOpenMPCopyprivateClause(ArrayRef<Expr *> VarList,
 // #ifdef DK
 OMPClause *Sema::ActOnOpenMPVoteClause(ArrayRef<Expr *> VarList, 
 					ArrayRef<Expr *> SizeList,
+					ArrayRef<Expr *> PtrList,
                                         SourceLocation StartLoc,
                                         SourceLocation LParenLoc,
                                         SourceLocation EndLoc) {
   if (VarList.empty())
     return nullptr;
 
-  return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, VarList, SizeList);
+  return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, VarList, SizeList, PtrList);
 }
 
 // #endif

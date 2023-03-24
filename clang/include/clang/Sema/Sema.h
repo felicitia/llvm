@@ -11415,7 +11415,9 @@ public:
 
   // ifdef DK
   OMPClause *ActOnOpenMPVarSizeListClause(
-      OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, ArrayRef<Expr *> Sizes,
+      OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, 
+      					ArrayRef<Expr *> Sizes,
+      					ArrayRef<Expr *> Ptrs,
                                         SourceLocation StartLoc,
                                         SourceLocation LParenLoc,
                                         SourceLocation EndLoc);
@@ -11525,6 +11527,7 @@ public:
   /// ifdef DK
   OMPClause *ActOnOpenMPVoteClause( ArrayRef<Expr *> VarList,
 		  		    ArrayRef<Expr *> SizeList,
+		  		    ArrayRef<Expr *> PtrList,
                                     SourceLocation StartLoc,
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc);

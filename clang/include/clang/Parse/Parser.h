@@ -3320,9 +3320,10 @@ private:
   ///
   OMPClause *ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
-  // ifdef DK
+#if 0// ifdef DK
   OMPClause *ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
+#endif
   OMPClause *ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
   // endif

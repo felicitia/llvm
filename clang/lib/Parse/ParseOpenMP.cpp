@@ -5095,7 +5095,6 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
       Data.MotionModifiersLoc);
 }
 
-// ifdef DK
 OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
                                             OpenMPClauseKind Kind,
                                             bool ParseOnly) {
@@ -5103,6 +5102,7 @@ OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
   SourceLocation LOpen = ConsumeToken();
   SmallVector<Expr *, 4> Vars;
   SmallVector<Expr *, 4> Sizes;
+  SmallVector<Expr *, 4> Ptr;
   OpenMPVarListDataTy Data;
   OpenMPVarListDataTy DataSizes;
 
@@ -5127,6 +5127,7 @@ OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
     }
     // Skip ',' if any
     bool IsColon = Tok.is(tok::colon);
+    bool IsColonColon = Tok.is(tok::coloncolon);
     IsComma = Tok.is(tok::comma);
     if (IsColon) {  // size is specified explicitly
       DataSizes.ColonLoc = ConsumeToken();	// DK: we may not need this. It is overwritten anyway
@@ -5141,12 +5142,51 @@ OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
         return nullptr;
       } else {
         Sizes.push_back(Val.get());
-        SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_ft_end,
+        SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_ft_end, tok::colon,
                   StopBeforeMatch);
       }
       IsComma = Tok.is(tok::comma);
+      IsColon = Tok.is(tok::colon);
+      if (IsColon) { // ptr depth field
+        DataSizes.ColonLoc = ConsumeToken();	// DK: we may not need this. It is overwritten anyway
+        // Parse variable
+        SourceLocation ELoc = Tok.getLocation();
+        ExprResult LHS(
+            ParseCastExpression(AnyCastExpr, false, NotTypeCast));
+        ExprResult Val(ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+        Val = Actions.ActOnFinishFullExpr(Val.get(), ELoc, /*DiscardedValue*/ false);
+        // Parse variable
+        if (Val.isInvalid()) {
+          return nullptr;
+        } else {
+          Ptr.push_back(Val.get());
+          SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_ft_end,
+                    StopBeforeMatch);
+        }
+        IsComma = Tok.is(tok::comma);
+      }
     }  else { // use default value or size of the variable
         Sizes.push_back(nullptr);
+	if (IsColonColon) {
+          DataSizes.ColonLoc = ConsumeToken();	// DK: we may not need this. It is overwritten anyway
+          // Parse variable
+          SourceLocation ELoc = Tok.getLocation();
+          ExprResult LHS(
+              ParseCastExpression(AnyCastExpr, false, NotTypeCast));
+          ExprResult Val(ParseRHSOfBinaryExpression(LHS, prec::Conditional));
+          Val = Actions.ActOnFinishFullExpr(Val.get(), ELoc, /*DiscardedValue*/ false);
+          // Parse variable
+          if (Val.isInvalid()) {
+            return nullptr;
+          } else {
+            Ptr.push_back(Val.get());
+            SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_ft_end,
+                      StopBeforeMatch);
+          }
+          IsComma = Tok.is(tok::comma);
+	} else {
+		Ptr.push_back(nullptr);
+	}
     }
     if (IsComma)
       ConsumeToken();
@@ -5164,7 +5204,7 @@ OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
   SourceLocation LParenLoc = Locs.LParenLoc;
   SourceLocation EndLoc = Locs.EndLoc;
   return Actions.ActOnOpenMPVarSizeListClause(
-      Kind, Vars, Sizes, StartLoc, LParenLoc, EndLoc);
+      Kind, Vars, Sizes, Ptr, StartLoc, LParenLoc, EndLoc);
  /* 
   Data.DepModOrTailExpr, Locs, 
       
@@ -5175,7 +5215,7 @@ OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
       Data.MotionModifiersLoc);
 */
 }
-
+#if 0
 OMPClause *Parser::ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
                                             OpenMPClauseKind Kind,
                                             bool ParseOnly) {
@@ -5255,4 +5295,4 @@ OMPClause *Parser::ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
       Data.MotionModifiersLoc);
 */
 }
-// endif
+#endif
