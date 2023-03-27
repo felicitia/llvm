@@ -1576,25 +1576,25 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
        IndDepth = CGF.EmitScalarExpr(VarsSizes[i+2], /*IgnoreResultAssign=*/true);
      }
      // emitFTVoteClause(CGF, Varaddr, TSize, Loc);
-#if 0
+#if 1
      const DeclRefExpr * DR = cast<DeclRefExpr>(VarsSizes[i]);
      const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-     llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getContext(), VD->getName());
+     llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
      llvm::PointerType* ptrType = llvm::PointerType::get(CGF.Int8Ty, 0);
-     llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGF.Builder.GetInsertBlock()->getParent(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
+     llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGF.CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
      llvm::Value* ptr = CGF.Builder.CreatePointerCast(globalStr, ptrType);
 #endif     
      llvm::Value *Args[] = {
          Varaddr.getPointer(),
          CGF.Builder.CreateIntCast(TSize, CGF.Int32Ty, /*isSigned*/ true),
          CGF.Builder.CreateIntCast(IndDepth, CGF.Int32Ty, /*isSigned*/ true)
-//	 ,ptr
+	 ,ptr
          };
      if (!CGF.HaveInsertPoint())
        return;
      // Build call __ft_vote(&loc, var, size)
      const char *LibCallName = "__ft_vote";
-     llvm::Type *Params[] = {CGF.CGM.VoidPtrTy, CGF.CGM.Int32Ty, CGF.CGM.Int32Ty /*, CGF.CGM.Int8Ty */ };
+     llvm::Type *Params[] = {CGF.CGM.VoidPtrTy, CGF.CGM.Int32Ty, CGF.CGM.Int32Ty, CGF.CGM.VoidPtrTy};
      // Type *strType = PointerType::getUnqual(CGF.CGM.Int8Ty);	// this is what ChatGPT taught. Is it correct?
      auto *FTy = llvm::FunctionType::get(CGF.CGM.VoidTy, Params, /*isVarArg=*/false);
      llvm::FunctionCallee Func = CGF.CGM.CreateRuntimeFunction(FTy, LibCallName);
