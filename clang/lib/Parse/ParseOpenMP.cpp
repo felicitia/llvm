@@ -3619,16 +3619,44 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
                                                 T.getCloseLocation(), Data);
 }
 
+static bool isAllowedFTClauseForDirective(OpenMPDirectiveKind DKind, OpenMPClauseKind CKind) {
+
+  if (DKind == OMPD_nmr) {
+    switch (CKind) {
+      case OMPC_vote:
+      case OMPC_lvar:
+      case OMPC_rvar:
+      case OMPC_degree:
+      case OMPC_novote:
+      case OMPC_nolvar:
+      case OMPC_norvar:
+	return true;
+    }
+  } else if (DKind == OMPD_vote) {
+    if (CKind == OMPC_vote) {
+      return true;
+    }
+  }
+  return false;
+}
+
 OMPClause *Parser::ParseFTClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
   OMPClause *Clause = nullptr;
   bool ErrorFound = false;
   bool WrongDirective = false;
+  if (CKind == OMPC_unknown ||
+      !isAllowedFTClauseForDirective(DKind, CKind)) {
+    Diag(Tok, diag::err_omp_unexpected_clause)
+        << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
+    ErrorFound = true;
+    WrongDirective = true;
+  }
   switch (CKind) {
     case OMPC_vote:	/* vote now */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_var:	/* LVALUE */
+    case OMPC_lvar:	/* LVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
     case OMPC_rvar:	/* RVALUE */
@@ -3637,7 +3665,7 @@ OMPClause *Parser::ParseFTClause(OpenMPDirectiveKind DKind,
     case OMPC_novote:	/* LVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_novar:	/* LVALUE */
+    case OMPC_nolvar:	/* LVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
     case OMPC_norvar:	/* RVALUE */

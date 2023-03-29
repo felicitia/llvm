@@ -9954,7 +9954,7 @@ TreeTransform<Derived>::TransformOMPVarClause(OMPVarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildFTVarClause(OMPC_var, Vars, Sizes, Ptr, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_lvar, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
@@ -9973,7 +9973,7 @@ TreeTransform<Derived>::TransformOMPNovarClause(OMPNovarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildFTVarClause(OMPC_novar, Vars, Sizes, Ptr, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_nolvar, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 

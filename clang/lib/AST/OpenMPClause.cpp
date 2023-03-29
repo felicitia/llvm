@@ -2177,7 +2177,7 @@ void OMPClausePrinter::VisitOMPVoteClause(OMPVoteClause *Node) {
 }
 void OMPClausePrinter::VisitOMPVarClause(OMPVarClause *Node) {
   if (!Node->varlist_empty()) {
-    OS << "var";
+    OS << "lvar";
     VisitOMPClauseList(Node, '(');
     OS << ")";
   }

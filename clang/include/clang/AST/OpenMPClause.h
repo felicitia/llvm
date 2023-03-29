@@ -3051,14 +3051,14 @@ class OMPVarClause final
   /// \param N Number of the variables in the clause.
   OMPVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_var, StartLoc,
+      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_lvar, StartLoc,
                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPVarClause(unsigned N)
-      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_var,
+      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_lvar,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3123,7 +3123,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_var;
+    return T->getClauseKind() == llvm::omp::OMPC_lvar;
   }
 };
 
@@ -3141,14 +3141,14 @@ class OMPNovarClause final
   /// \param N Number of the variables in the clause.
   OMPNovarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_novar, StartLoc,
+      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_nolvar, StartLoc,
                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPNovarClause(unsigned N)
-      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_novar,
+      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_nolvar,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3213,7 +3213,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_novar;
+    return T->getClauseKind() == llvm::omp::OMPC_nolvar;
   }
 };
 

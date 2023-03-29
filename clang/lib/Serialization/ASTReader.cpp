@@ -11754,13 +11754,13 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_vote:
     C = OMPVoteClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_var:
+  case llvm::omp::OMPC_lvar:
     C = OMPVarClause::CreateEmpty(Context, Record.readInt());
     break;
   case llvm::omp::OMPC_rvar:
     C = OMPRvarClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_novar:
+  case llvm::omp::OMPC_nolvar:
     C = OMPNovarClause::CreateEmpty(Context, Record.readInt());
     break;
   case llvm::omp::OMPC_norvar:

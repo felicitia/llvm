@@ -83,7 +83,7 @@ def OMPC_Shared : Clause<"shared"> {
   let flangClass = "OmpObjectList";
 }
 // ifdef DK
-def OMPC_Var: Clause<"var"> {	/* DK: TODO */
+def OMPC_Lvar: Clause<"lvar"> {	/* DK: TODO */
   let clangClass = "OMPVarClause";
   let flangClass = "OmpObjectList";
 }
@@ -91,7 +91,7 @@ def OMPC_Rvar: Clause<"rvar"> {	/* DK: TODO */
   let clangClass = "OMPRvarClause";
   let flangClass = "OmpObjectList";
 }
-def OMPC_Novar: Clause<"novar"> {	/* DK: TODO */
+def OMPC_Nolvar: Clause<"nolvar"> {	/* DK: TODO */
   let clangClass = "OMPNovarClause";
   let flangClass = "OmpObjectList";
 }
@@ -418,9 +418,10 @@ def OMP_ThreadPrivate : Directive<"threadprivate"> {}
 // ifdef DK
 def OMP_Nmr : Directive<"nmr"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Var>,
+    VersionedClause<OMPC_Lvar>,
+    VersionedClause<OMPC_Vote>,
     VersionedClause<OMPC_Rvar>,
-    VersionedClause<OMPC_Novar>,
+    VersionedClause<OMPC_Nolvar>,
     VersionedClause<OMPC_Norvar>,
     VersionedClause<OMPC_Novote>,
     VersionedClause<OMPC_Degree>,
