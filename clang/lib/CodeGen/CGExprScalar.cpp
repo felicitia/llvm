@@ -144,6 +144,22 @@ struct BinOpInfo {
   }
 };
 
+#if 1
+static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
+  // DK: NEW vote after this (LHS)
+  if (CGF.EmitVarVote(E, CGF.RVarSize,  false)) {
+    llvm::Type * Type = RHS->getType();
+    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
+    if (Type->isPointerTy() && sizeInBytes != 0) {
+      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+    }
+    llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
+    llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
+    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr);
+  }
+}
+#endif
 static bool MustVisitNullValue(const Expr *E) {
   // If a null pointer expression's type is the C++0x nullptr_t, then
   // it's not necessarily a simple constant and it must be evaluated
@@ -287,8 +303,14 @@ public:
   /// value l-value, this method emits the address of the l-value, then loads
   /// and returns the result.
   Value *EmitLoadOfLValue(const Expr *E) {
+#if ORG
     Value *V = EmitLoadOfLValue(EmitCheckedLValue(E, CodeGenFunction::TCK_Load),
                                 E->getExprLoc());
+#else
+    LValue LV = EmitCheckedLValue(E, CodeGenFunction::TCK_Load);
+    emitVoteRValue(CGF, E, LV.getPointer(CGF));
+    Value *V = EmitLoadOfLValue(LV, E->getExprLoc());
+#endif
 
     EmitLValueAlignmentAssumption(E, V);
     return V;
@@ -609,13 +631,13 @@ public:
                                        bool isInc, bool isPre);
 
 
-  Value *VisitUnaryAddrOf(const UnaryOperator *E) {
+  Value *VisitUnaryAddrOf(const UnaryOperator *E) {	// DK NEW: decrease deref_depth?
     if (isa<MemberPointerType>(E->getType())) // never sugared
       return CGF.CGM.getMemberPointerConstant(E);
 
     return EmitLValue(E->getSubExpr()).getPointer(CGF);
   }
-  Value *VisitUnaryDeref(const UnaryOperator *E) {
+  Value *VisitUnaryDeref(const UnaryOperator *E) {	// DK NEW: increase deref_depth?
     if (E->getType()->isVoidType())
       return Visit(E->getSubExpr()); // the actual value should be unused
     return EmitLoadOfLValue(E);
@@ -874,6 +896,20 @@ public:
 //                                Utilities
 //===----------------------------------------------------------------------===//
 
+static void emitVote(CodeGenFunction &CGF, const Expr * E, LValue LHS) {
+  // DK: NEW vote after this (LHS)
+  if (CGF.EmitVarVote(E, CGF.LVarSize,  true)) {
+    llvm::Type * Type = CGF.ConvertType(LHS.getType());
+    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
+    if (Type->isPointerTy() && sizeInBytes != 0) {
+      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+    }
+    llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
+    llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
+    CGF.EmitVoteCall(LHS.getPointer(CGF), TSize, IndDepth, constStr);
+  }
+}
 /// EmitConversionToBool - Convert the specified expression value to a
 /// boolean (i1) truth value.  This is equivalent to "Val != 0".
 Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
@@ -2282,7 +2318,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_ToUnion:
     llvm_unreachable("scalar cast to non-scalar value");
 
-  case CK_LValueToRValue:
+  case CK_LValueToRValue:	// DK NEW: Lvalue becomes Rvalue
     assert(CGF.getContext().hasSameUnqualifiedType(E->getType(), DestTy));
     assert(E->isGLValue() && "lvalue-to-rvalue applied to r-value!");
     return Visit(const_cast<Expr*>(E));
@@ -2519,6 +2555,8 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
 
   int amount = (isInc ? 1 : -1);
   bool isSubtraction = !isInc;
+
+  emitVoteRValue(CGF, E->getSubExpr(), LV.getPointer(CGF));
 
   if (const AtomicType *atomicTy = type->getAs<AtomicType>()) {
     type = atomicTy->getValueType();
@@ -2806,12 +2844,14 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     return isPre ? value : input;
   }
 
+  
   // Store the updated result through the lvalue.
   if (LV.isBitField())
     CGF.EmitStoreThroughBitfieldLValue(RValue::get(value), LV, &value);
   else
     CGF.EmitStoreThroughLValue(RValue::get(value), LV);
 
+  emitVote(CGF, E->getSubExpr(), LV);
   // If this is a postinc, return the value read from memory, otherwise use the
   // updated value.
   return isPre ? value : input;
@@ -3177,7 +3217,13 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     Builder.SetInsertPoint(contBB);
     return LHSLV;
   }
-
+#if 0
+  if (!llvm::Constant::classof(OpInfo.RHS) == false && 
+    ((Stmt *)E->getRHS())->getStmtClass() == Stmt::DeclRefExprClass) {
+      auto RHSptr = CGF.EmitLValue(E->getRHS()).getPointer(CGF);
+      emitVoteRValue(CGF, E->getRHS(), RHSptr);
+  }
+#endif
   // Store the result value into the LHS lvalue. Bit-fields are handled
   // specially because the result is altered by the store, i.e., [C99 6.5.16p1]
   // 'An assignment expression has the value of the left operand after the
@@ -3186,6 +3232,8 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     CGF.EmitStoreThroughBitfieldLValue(RValue::get(Result), LHSLV, &Result);
   else
     CGF.EmitStoreThroughLValue(RValue::get(Result), LHSLV);
+
+  emitVote(CGF, E->getLHS(), LHSLV);
 
   if (CGF.getLangOpts().OpenMP)
     CGF.CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(CGF,
@@ -4253,6 +4301,10 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
                               E->getExprLoc());
 }
 
+// DK: NEW 
+// (check if binaryoperator == "=" and LHS has pointer of the proper dereferencing. If it does mark as to inject vote after the LHS store is done.
+// where to put LHS flag and RHS flag to distinguish variables for voting
+// question: Is here the right place to add the voting code? Maybe not
 Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
   bool Ignore = TestAndClearIgnoreResultAssign();
 
@@ -4284,6 +4336,13 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
 
+#if 0
+    if (llvm::Constant::classof(RHS) == false &&
+    ((Stmt *)E->getRHS())->getStmtClass() == Stmt::DeclRefExprClass) {
+      auto RHSptr = CGF.EmitLValue(E->getRHS()).getPointer(CGF);
+      emitVoteRValue(CGF, E->getRHS(), RHSptr);
+    }
+#endif
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after
@@ -4292,8 +4351,9 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
       CGF.EmitStoreThroughBitfieldLValue(RValue::get(RHS), LHS, &RHS);
     } else {
       CGF.EmitNullabilityCheck(LHS, RHS, E->getExprLoc());
-      CGF.EmitStoreThroughLValue(RValue::get(RHS), LHS);
+      CGF.EmitStoreThroughLValue(RValue::get(RHS), LHS);	
     }
+    emitVote(CGF, E->getLHS(), LHS);
   }
 
   // If the result is clearly ignored, return now.

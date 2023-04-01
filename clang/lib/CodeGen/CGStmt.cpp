@@ -118,9 +118,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm::BasicBlock *incoming = Builder.GetInsertBlock();
     assert(incoming && "expression emission must have an insertion point");
 
-    EmitVarVote(*this, S, RVarSize, false);
+//    EmitVarVote(S, RVarSize, false);
     EmitIgnoredExpr(cast<Expr>(S));
-    EmitVarVote(*this, S, LVarSize, true);
+//    EmitVarVote(S, LVarSize, true);
     llvm::BasicBlock *outgoing = Builder.GetInsertBlock();
     assert(outgoing && "expression emission cleared block!");
 

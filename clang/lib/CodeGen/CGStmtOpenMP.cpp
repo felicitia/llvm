@@ -1562,7 +1562,7 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
 static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
    for (int i = 0; i < (int)VarsSizes.size(); i+=3) {
-     Address Varaddr = CGF.EmitLValue(VarsSizes[i]).getAddress(CGF);
+     auto VarPtr = CGF.EmitLValue(VarsSizes[i]).getPointer(CGF);
      llvm::Value *TSize ;
      llvm::Value *IndDepth;
      if (VarsSizes[i+1] == nullptr) {
@@ -1575,31 +1575,32 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      } else {
        IndDepth = CGF.EmitScalarExpr(VarsSizes[i+2], /*IgnoreResultAssign=*/true);
      }
-     // emitFTVoteClause(CGF, Varaddr, TSize, Loc);
-#if 1
+     // to get the symbolic name of the variable
      const DeclRefExpr * DR = cast<DeclRefExpr>(VarsSizes[i]);
      const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
      llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-     llvm::PointerType* ptrType = llvm::PointerType::get(CGF.Int8Ty, 0);
-     llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGF.CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
-     llvm::Value* ptr = CGF.Builder.CreatePointerCast(globalStr, ptrType);
-#endif     
+     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr);
+  }
+}
+
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr) {
+     llvm::PointerType* ptrType = llvm::PointerType::get(Int8Ty, 0);
+     llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
+     llvm::Value* StrPtr = Builder.CreatePointerCast(globalStr, ptrType);
      llvm::Value *Args[] = {
-         Varaddr.getPointer(),
-         CGF.Builder.CreateIntCast(TSize, CGF.Int32Ty, /*isSigned*/ true),
-         CGF.Builder.CreateIntCast(IndDepth, CGF.Int32Ty, /*isSigned*/ true)
-	 ,ptr
+         AddrPtr,
+         Builder.CreateIntCast(TSize, Int32Ty, /*isSigned*/ true),
+         Builder.CreateIntCast(DerefDepth, Int32Ty, /*isSigned*/ true)
+	 , StrPtr
          };
-     if (!CGF.HaveInsertPoint())
+     if (!HaveInsertPoint())
        return;
      // Build call __ft_vote(&loc, var, size)
      const char *LibCallName = "__ft_vote";
-     llvm::Type *Params[] = {CGF.CGM.VoidPtrTy, CGF.CGM.Int32Ty, CGF.CGM.Int32Ty, CGF.CGM.VoidPtrTy};
-     // Type *strType = PointerType::getUnqual(CGF.CGM.Int8Ty);	// this is what ChatGPT taught. Is it correct?
-     auto *FTy = llvm::FunctionType::get(CGF.CGM.VoidTy, Params, /*isVarArg=*/false);
-     llvm::FunctionCallee Func = CGF.CGM.CreateRuntimeFunction(FTy, LibCallName);
-     CGF.EmitRuntimeCall(Func, Args);
-  }
+     llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.Int32Ty, CGM.VoidPtrTy};
+     auto *FTy = llvm::FunctionType::get(CGM.VoidTy, Params, /*isVarArg=*/false);
+     llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
+     EmitRuntimeCall(Func, Args);
 }
 
 static void emitCommonOMPParallelDirective(
@@ -1784,13 +1785,13 @@ static void removeVars(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarSi
   }
 }
 
-static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSize,
+static bool visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSize,
 		std::vector<int> &VarsSizesIndex, bool lookforLHS, bool canbeLHS) {
-  if (!E || VarSize.size() == 0 || (lookforLHS && !canbeLHS) || (!lookforLHS && canbeLHS)) return;
+  if (!E || VarSize.size() == 0 || (lookforLHS && !canbeLHS) || (!lookforLHS && canbeLHS)) return false;
   auto *SaveRef = cast<DeclRefExpr>(E->IgnoreImpCasts());
-  if (SaveRef == nullptr) return;
+  if (SaveRef == nullptr) return false;
   const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl());
-  if (VD == nullptr) return;
+  if (VD == nullptr) return false;
   for (int i=0; i < (int)VarSize.size(); i+=3) {
     const DeclRefExpr * DR = cast<DeclRefExpr>(VarSize[i]);
     const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
@@ -1806,17 +1807,18 @@ static void visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSiz
       break;
     }
   }
+  if (VarsSizesIndex.size() > 0 /* && lookforLHS */) return true;
+  return false;
 }
 
-static void visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
+static bool visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
 		std::vector<int> &VarsNameIndex, bool lookforLHS, bool canbeLHS) {
-
-  if (!S || VarSize.size() == 0) return;
+  bool found = false;
+  if (!S || VarSize.size() == 0) return false;
   switch (S->getStmtClass()) {
   case Stmt::ImplicitCastExprClass: {
     const ImplicitCastExpr * E = cast<ImplicitCastExpr>(S);
-    visitStmt(cast<Stmt>(E->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
-    return;
+    return visitStmt(cast<Stmt>(E->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
     }
   case Stmt::CompoundStmtClass: 
     for (auto *InnerStmt : cast<CompoundStmt>(S)->body()) {
@@ -1824,70 +1826,66 @@ static void visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
        std::vector<int> _VarsNameIndex;
        visitStmt(InnerStmt, VarSize, _VarsNameIndex, lookforLHS, false);
     }
-    return;
+    return false;
   case Stmt::UnaryOperatorClass: {
     const UnaryOperator * UO = cast<UnaryOperator>(S);
     if (UO->isPrefix() || UO->isPostfix() || UO->getOpcode() == UO_AddrOf || UO->getOpcode() == UO_Deref) {
-      if (lookforLHS) visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, true);
+      if (lookforLHS) return visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, true);
       // Should we include it as Rvalue, too.
-      if (!lookforLHS) visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
+      if (!lookforLHS) return visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
     }
     else { 
       if (!lookforLHS)
-        visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
+        return visitStmt(cast<Stmt>(UO->getSubExpr()), VarSize, VarsNameIndex, lookforLHS, false);
     }
-    return;
+    return false;
     }
   case Stmt::ArraySubscriptExprClass: 
     {
     const ArraySubscriptExpr * ARS = cast<ArraySubscriptExpr>(S);
-    visitStmt(cast<Stmt>(ARS->getLHS()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
-    visitStmt(cast<Stmt>(ARS->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
-    return;
+    found = visitStmt(cast<Stmt>(ARS->getLHS()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
+    found = found || visitStmt(cast<Stmt>(ARS->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    return found;
     }
   case Stmt::BinaryOperatorClass: {
     const BinaryOperator * BO = cast<BinaryOperator>(S);
     if (BO->getOpcode() == BO_Assign) {
-        visitStmt(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
-        visitStmt(cast<Stmt>(BO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+        found = visitStmt(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
+        found = found || visitStmt(cast<Stmt>(BO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
     } else {
-        visitStmt(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, false);
-        visitStmt(cast<Stmt>(BO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+        found = visitStmt(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, false);
+        found = found || visitStmt(cast<Stmt>(BO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
     }
-    return;
+    return found;
     }
   case Stmt::CompoundAssignOperatorClass: {
     const CompoundAssignOperator * CO = cast<CompoundAssignOperator>(S);
-    visitStmt(cast<Stmt>(CO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
-    visitStmt(cast<Stmt>(CO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
-    return;
+    found = visitStmt(cast<Stmt>(CO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
+    found = found || visitStmt(cast<Stmt>(CO->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    return found;
     }
-  case Stmt::DeclStmtClass: {
-    return;
-    }
+  case Stmt::DeclStmtClass: 
+    return false;
   case Stmt::DeclRefExprClass:
-    {
-    visitExpr(cast<DeclRefExpr>(S) , VarSize, VarsNameIndex, lookforLHS, canbeLHS);
-    }
-    return;
+    return visitExpr(cast<DeclRefExpr>(S) , VarSize, VarsNameIndex, lookforLHS, canbeLHS);
   case Stmt::NullStmtClass:
-    return;
+    return false;
   case Stmt::CaseStmtClass:
     {
-    if (lookforLHS) return;
+    if (lookforLHS) return false;
     const CaseStmt * CS = cast<CaseStmt>(S);
-    visitStmt(cast<Stmt>(CS->getLHS()), VarSize, VarsNameIndex, lookforLHS, false);
-    visitStmt(cast<Stmt>(CS->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
-    return;
+    found = visitStmt(cast<Stmt>(CS->getLHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    found = found || visitStmt(cast<Stmt>(CS->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    return found;
     }
   default: 
-    if (lookforLHS) return;
+    if (lookforLHS) return false;
     for (const Stmt *subStmt : S->children()) {
       if (!subStmt)
         continue;
-      visitStmt(subStmt, VarSize, VarsNameIndex, lookforLHS, false);
+      found = found || visitStmt(subStmt, VarSize, VarsNameIndex, lookforLHS, false);
     }
-    return;
+    return found;
   }
 }
 
@@ -1900,21 +1898,29 @@ void CodeGenFunction::EmitFTVoteDirective(const FTVoteDirective &S) {
   }
 }
 
-void CodeGenFunction::EmitVarVote(CodeGenFunction &CGF, const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS) {
+bool CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS) {
   std::vector<int> VarsNameIndex;
   SmallVector<const Expr *, 4> TVarsSizes;
+  bool found = false;
+  if (VarSize.size() == 0) return false;
 
-  if (VarSize.size() == 0) return;
-
-  visitStmt(S, VarSize, VarsNameIndex, lookforLHS, true);
-  if (VarsNameIndex.size() == 0) return;
+  found = visitStmt(S, VarSize, VarsNameIndex, lookforLHS, lookforLHS);
+  if (VarsNameIndex.size() == 0) return false;
 
   for (int i=0; i < (int)VarsNameIndex.size(); i++) {
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]]);
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]+1]);
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]+2]);
   }
-  emitVoteStmt(CGF, TVarsSizes, S->getBeginLoc());
+
+  return found;
+  if (!lookforLHS) {
+    emitVoteStmt(*this, TVarsSizes, S->getBeginLoc());
+    return false;
+  }
+  else
+
+    return found;
 }
 
 void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
