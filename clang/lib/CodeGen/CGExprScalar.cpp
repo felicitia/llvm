@@ -147,16 +147,29 @@ struct BinOpInfo {
 #if 1
 static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   // DK: NEW vote after this (LHS)
-  if (CGF.EmitVarVote(E, CGF.RVarSize,  false)) {
-    llvm::Type * Type = RHS->getType();
-    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
-    if (Type->isPointerTy() && sizeInBytes != 0) {
-      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false);
+  // TODO: Use size information given by the user
+  //       However, would it be meaningful? It can cause more confusion.
+  if (VoteVar != nullptr) {
+   // llvm::Type * Type = RHS->getType();
+   // uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
+    auto &Ctx = CGF.getContext();
+    uint64_t sizeInBytes = Ctx.getTypeSize(E->getType())/8;
+#if 0
+    if (Type->isPointerTy()) {
+      if (sizeInBytes != 0) 
+        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+      else
+        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(CGF.CGM.VoidPtrTy);
     }
+#endif
     llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
     llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
-    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
-    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr);
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
+//    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
+    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc());
   }
 }
 #endif
@@ -898,16 +911,23 @@ public:
 
 static void emitVote(CodeGenFunction &CGF, const Expr * E, LValue LHS) {
   // DK: NEW vote after this (LHS)
-  if (CGF.EmitVarVote(E, CGF.LVarSize,  true)) {
+  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.LVarSize,  true);
+  if (VoteVar != nullptr) {
     llvm::Type * Type = CGF.ConvertType(LHS.getType());
     uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
-    if (Type->isPointerTy() && sizeInBytes != 0) {
-      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+    if (Type->isPointerTy()) {
+      if (sizeInBytes != 0) 
+        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+      else
+        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(CGF.CGM.VoidPtrTy);
     }
-    llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
-    llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
-    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
-    CGF.EmitVoteCall(LHS.getPointer(CGF), TSize, IndDepth, constStr);
+    llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);
+    llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
+//    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
+    CGF.EmitVoteCall(LHS.getPointer(CGF), TSize, IndDepth, constStr, E->getExprLoc());
   }
 }
 /// EmitConversionToBool - Convert the specified expression value to a
