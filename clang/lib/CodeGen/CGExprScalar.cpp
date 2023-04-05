@@ -150,6 +150,8 @@ static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false);
   // TODO: Use size information given by the user
   //       However, would it be meaningful? It can cause more confusion.
+  llvm::Type * Type = CGF.ConvertType(E->getType());
+  if (Type->isPointerTy()) return;
   if (VoteVar != nullptr) {
    // llvm::Type * Type = RHS->getType();
    // uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
@@ -914,6 +916,7 @@ static void emitVote(CodeGenFunction &CGF, const Expr * E, LValue LHS) {
   const Expr * VoteVar = CGF.EmitVarVote(E, CGF.LVarSize,  true);
   if (VoteVar != nullptr) {
     llvm::Type * Type = CGF.ConvertType(LHS.getType());
+    if (Type->isPointerTy()) return;
     uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
     if (Type->isPointerTy()) {
       if (sizeInBytes != 0) 
