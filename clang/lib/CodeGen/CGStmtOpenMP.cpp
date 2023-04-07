@@ -1561,12 +1561,30 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
 
 static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
+   uint64_t sizeInBytes = 0;
    for (int i = 0; i < (int)VarsSizes.size(); i+=3) {
-     auto VarPtr = CGF.EmitLValue(VarsSizes[i]).getPointer(CGF);
+     llvm::Value * VarPtr;
+     if (VarsSizes[i]->getType()->isPointerType()) { // only (Basetype *) is allowed.
+       if (VarsSizes[i+1] == nullptr) return; // Not allowed! 
+       LValue LV = CGF.EmitCheckedLValue(VarsSizes[i], CodeGenFunction::TCK_Load);
+       llvm::Type * Type = CGF.ConvertType(LV.getType());
+//       sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+       RValue RV = CGF.EmitLoadOfLValue(LV, Loc);
+       VarPtr = RV.getScalarVal();
+       sizeInBytes = CGF.CGM.getDataLayout().getTypeSizeInBits(VarPtr->getType())/8; // FIXIT
+//       sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(VarPtr->getType()->getNonOpaquePointerElementType());
+     } else {
+       LValue LV = CGF.EmitLValue(VarsSizes[i]);
+       VarPtr = LV.getPointer(CGF);
+     }
+
      llvm::Value *TSize ;
      llvm::Value *IndDepth;
      if (VarsSizes[i+1] == nullptr) {
-       TSize = CGF.getTypeSize(VarsSizes[i]->getType());
+       if (sizeInBytes == 0) 
+         TSize = CGF.getTypeSize(VarsSizes[i]->getType());
+       else
+         TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);
      } else {
        TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
      }

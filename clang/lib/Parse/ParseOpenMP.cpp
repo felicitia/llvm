@@ -5192,7 +5192,8 @@ OMPClause *Parser::ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
                     StopBeforeMatch);
         }
         IsComma = Tok.is(tok::comma);
-      }
+      } else
+        Ptr.push_back(nullptr);
     }  else { // use default value or size of the variable
         Sizes.push_back(nullptr);
 	if (IsColonColon) {
