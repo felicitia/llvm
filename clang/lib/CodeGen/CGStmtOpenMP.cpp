@@ -1597,11 +1597,11 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      const DeclRefExpr * DR = cast<DeclRefExpr>(VarsSizes[i]);
      const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
      llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, Loc);
+     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, Loc, 9);
   }
 }
 
-void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc) {
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside) {
      llvm::PointerType* ptrType = llvm::PointerType::get(Int8Ty, 0);
      llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
      llvm::Value* StrPtr = Builder.CreatePointerCast(globalStr, ptrType);
@@ -1617,7 +1617,13 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, l
      if (!HaveInsertPoint())
        return;
      // Build call __ft_vote(&loc, var, size)
-     const char *LibCallName = "__ft_vote";
+     const char *LibCallName;
+     if (whichside == 0) // LHS 
+         LibCallName = "__ft_votel";
+     else if (whichside == 1) // RHS
+         LibCallName = "__ft_voter";
+     else 	// Vote
+         LibCallName = "__ft_vote";
      llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
      auto *FTy = llvm::FunctionType::get(CGM.VoidTy, Params, /*isVarArg=*/false);
      llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
@@ -1960,11 +1966,12 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
   SmallVector<const Expr *, 4> NorvarSize;
   SmallVector<const Expr *, 4> NovoteSize;
 
-  const auto *LvarClause = S.getSingleClause<OMPVarClause>();
-  const auto *RvarClause = S.getSingleClause<OMPRvarClause>();
-  const auto *NovarClause = S.getSingleClause<OMPNovarClause>();
-  const auto *NorvarClause = S.getSingleClause<OMPNorvarClause>();
+  const auto *LvarClause = S.getSingleClause<OMPLhsClause>();
+  const auto *RvarClause = S.getSingleClause<OMPRhsClause>();
+  const auto *NovarClause = S.getSingleClause<OMPNolhsClause>();
+  const auto *NorvarClause = S.getSingleClause<OMPNorhsClause>();
   const auto *NovoteClause = S.getSingleClause<OMPNovoteClause>();
+  const auto *AutoClause = S.getSingleClause<OMPAutoClause>();
   std::vector<int> LvarsIndex, RvarsIndex;
 
   SaveLVarSize = LVarSize;

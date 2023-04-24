@@ -6432,13 +6432,13 @@ void OMPClauseWriter::VisitOMPVoteClause(OMPVoteClause *C) {
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
-void OMPClauseWriter::VisitOMPVarClause(OMPVarClause *C) {
+void OMPClauseWriter::VisitOMPLhsClause(OMPLhsClause *C) {
   Record.push_back(C->varlist_size());
   Record.AddSourceLocation(C->getLParenLoc());
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
-void OMPClauseWriter::VisitOMPRvarClause(OMPRvarClause *C) {
+void OMPClauseWriter::VisitOMPRhsClause(OMPRhsClause *C) {
   Record.push_back(C->varlist_size());
   Record.AddSourceLocation(C->getLParenLoc());
   for (auto *VE : C->varlists())
@@ -6450,22 +6450,23 @@ void OMPClauseWriter::VisitOMPNovoteClause(OMPNovoteClause *C) {
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
-void OMPClauseWriter::VisitOMPNovarClause(OMPNovarClause *C) {
+void OMPClauseWriter::VisitOMPNolhsClause(OMPNolhsClause *C) {
   Record.push_back(C->varlist_size());
   Record.AddSourceLocation(C->getLParenLoc());
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
-void OMPClauseWriter::VisitOMPNorvarClause(OMPNorvarClause *C) {
+void OMPClauseWriter::VisitOMPNorhsClause(OMPNorhsClause *C) {
   Record.push_back(C->varlist_size());
   Record.AddSourceLocation(C->getLParenLoc());
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }
-void OMPClauseWriter::VisitOMPDegreeClause(OMPDegreeClause *C) {
-  VisitOMPClauseWithPreInit(C);
-  Record.AddStmt(C->getDegree());
+void OMPClauseWriter::VisitOMPAutoClause(OMPAutoClause *C) {
+  Record.push_back(C->varlist_size());
   Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
 }
 // endif
 //

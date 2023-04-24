@@ -645,25 +645,23 @@ void OMPClauseProfiler::VisitOMPSharedClause(const OMPSharedClause *C) {
 void OMPClauseProfiler::VisitOMPVoteClause(const OMPVoteClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseProfiler::VisitOMPVarClause(const OMPVarClause *C) {
+void OMPClauseProfiler::VisitOMPLhsClause(const OMPLhsClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseProfiler::VisitOMPRvarClause(const OMPRvarClause *C) {
+void OMPClauseProfiler::VisitOMPRhsClause(const OMPRhsClause *C) {
   VisitOMPClauseList(C);
 }
 void OMPClauseProfiler::VisitOMPNovoteClause(const OMPNovoteClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseProfiler::VisitOMPNovarClause(const OMPNovarClause *C) {
+void OMPClauseProfiler::VisitOMPNolhsClause(const OMPNolhsClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseProfiler::VisitOMPNorvarClause(const OMPNorvarClause *C) {
+void OMPClauseProfiler::VisitOMPNorhsClause(const OMPNorhsClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseProfiler::VisitOMPDegreeClause(const OMPDegreeClause *C) {
-  VistOMPClauseWithPreInit(C);
-  if (C->getDegree())
-    Profiler->VisitStmt(C->getDegree());
+void OMPClauseProfiler::VisitOMPAutoClause(const OMPAutoClause *C) {
+  VisitOMPClauseList(C);
 }
 // endif
 void OMPClauseProfiler::VisitOMPReductionClause(

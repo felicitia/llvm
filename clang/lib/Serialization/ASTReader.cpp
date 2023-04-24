@@ -11754,23 +11754,23 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_vote:
     C = OMPVoteClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_lvar:
-    C = OMPVarClause::CreateEmpty(Context, Record.readInt());
+  case llvm::omp::OMPC_lhs:
+    C = OMPLhsClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_rvar:
-    C = OMPRvarClause::CreateEmpty(Context, Record.readInt());
+  case llvm::omp::OMPC_rhs:
+    C = OMPRhsClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_nolvar:
-    C = OMPNovarClause::CreateEmpty(Context, Record.readInt());
+  case llvm::omp::OMPC_nolhs:
+    C = OMPNolhsClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_norvar:
-    C = OMPNorvarClause::CreateEmpty(Context, Record.readInt());
+  case llvm::omp::OMPC_norhs:
+    C = OMPNorhsClause::CreateEmpty(Context, Record.readInt());
     break;
   case llvm::omp::OMPC_novote:
     C = OMPNovoteClause::CreateEmpty(Context, Record.readInt());
     break;
-  case llvm::omp::OMPC_degree:
-    C = new (Context) OMPDegreeClause();
+  case llvm::omp::OMPC_auto:
+    C = OMPAutoClause::CreateEmpty(Context, Record.readInt());
     break;
   // endif
   case llvm::omp::OMPC_reduction: {
@@ -12246,7 +12246,7 @@ void OMPClauseReader::VisitOMPVoteClause(OMPVoteClause *C) {
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
 }
-void OMPClauseReader::VisitOMPVarClause(OMPVarClause *C) {
+void OMPClauseReader::VisitOMPLhsClause(OMPLhsClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
   unsigned NumVars = C->varlist_size();
   SmallVector<Expr *, 16> Vars;
@@ -12255,7 +12255,7 @@ void OMPClauseReader::VisitOMPVarClause(OMPVarClause *C) {
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
 }
-void OMPClauseReader::VisitOMPRvarClause(OMPRvarClause *C) {
+void OMPClauseReader::VisitOMPRhsClause(OMPRhsClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
   unsigned NumVars = C->varlist_size();
   SmallVector<Expr *, 16> Vars;
@@ -12273,7 +12273,7 @@ void OMPClauseReader::VisitOMPNovoteClause(OMPNovoteClause *C) {
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
 }
-void OMPClauseReader::VisitOMPNovarClause(OMPNovarClause *C) {
+void OMPClauseReader::VisitOMPNolhsClause(OMPNolhsClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
   unsigned NumVars = C->varlist_size();
   SmallVector<Expr *, 16> Vars;
@@ -12282,7 +12282,7 @@ void OMPClauseReader::VisitOMPNovarClause(OMPNovarClause *C) {
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
 }
-void OMPClauseReader::VisitOMPNorvarClause(OMPNorvarClause *C) {
+void OMPClauseReader::VisitOMPNorhsClause(OMPNorhsClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
   unsigned NumVars = C->varlist_size();
   SmallVector<Expr *, 16> Vars;
@@ -12291,10 +12291,14 @@ void OMPClauseReader::VisitOMPNorvarClause(OMPNorvarClause *C) {
     Vars.push_back(Record.readSubExpr());
   C->setVarRefs(Vars);
 }
-void OMPClauseReader::VisitOMPDegreeClause(OMPDegreeClause *C) {
-  VisitOMPClauseWithPreInit(C);
-  C->setDegree(Record.readSubExpr());
+void OMPClauseReader::VisitOMPAutoClause(OMPAutoClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
 }
 // endif
 //

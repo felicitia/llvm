@@ -3037,9 +3037,9 @@ public:
 /// \endcode
 /// In this example directive '#pragma omp parallel' has clause 'var'
 /// with the variables 'a' and 'b'.
-class OMPVarClause final
-    : public OMPVarListClause<OMPVarClause>,
-      private llvm::TrailingObjects<OMPVarClause, Expr *> {
+class OMPLhsClause final
+    : public OMPVarListClause<OMPLhsClause>,
+      private llvm::TrailingObjects<OMPLhsClause, Expr *> {
   friend OMPVarListClause;
   friend TrailingObjects;
 
@@ -3049,16 +3049,16 @@ class OMPVarClause final
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param N Number of the variables in the clause.
-  OMPVarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+  OMPLhsClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_lvar, StartLoc,
+      : OMPVarListClause<OMPLhsClause>(llvm::omp::OMPC_lhs, StartLoc,
                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
-  explicit OMPVarClause(unsigned N)
-      : OMPVarListClause<OMPVarClause>(llvm::omp::OMPC_lvar,
+  explicit OMPLhsClause(unsigned N)
+      : OMPVarListClause<OMPLhsClause>(llvm::omp::OMPC_lhs,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3094,7 +3094,7 @@ public:
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param VL List of references to the variables.
-  static OMPVarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+  static OMPLhsClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
                                  ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
@@ -3103,7 +3103,7 @@ public:
   ///
   /// \param C AST context.
   /// \param N The number of variables.
-  static OMPVarClause *CreateEmpty(const ASTContext &C, unsigned N);
+  static OMPLhsClause *CreateEmpty(const ASTContext &C, unsigned N);
 
   child_range children() {
     return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
@@ -3111,7 +3111,7 @@ public:
   }
 
   const_child_range children() const {
-    auto Children = const_cast<OMPVarClause *>(this)->children();
+    auto Children = const_cast<OMPLhsClause *>(this)->children();
     return const_child_range(Children.begin(), Children.end());
   }
 
@@ -3123,13 +3123,13 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_lvar;
+    return T->getClauseKind() == llvm::omp::OMPC_lhs;
   }
 };
 
-class OMPNovarClause final
-    : public OMPVarListClause<OMPNovarClause>,
-      private llvm::TrailingObjects<OMPNovarClause, Expr *> {
+class OMPNolhsClause final
+    : public OMPVarListClause<OMPNolhsClause>,
+      private llvm::TrailingObjects<OMPNolhsClause, Expr *> {
   friend OMPVarListClause;
   friend TrailingObjects;
 
@@ -3139,16 +3139,16 @@ class OMPNovarClause final
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param N Number of the variables in the clause.
-  OMPNovarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+  OMPNolhsClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_nolvar, StartLoc,
+      : OMPVarListClause<OMPNolhsClause>(llvm::omp::OMPC_nolhs, StartLoc,
                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
-  explicit OMPNovarClause(unsigned N)
-      : OMPVarListClause<OMPNovarClause>(llvm::omp::OMPC_nolvar,
+  explicit OMPNolhsClause(unsigned N)
+      : OMPVarListClause<OMPNolhsClause>(llvm::omp::OMPC_nolhs,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3184,7 +3184,7 @@ public:
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param VL List of references to the variables.
-  static OMPNovarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+  static OMPNolhsClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
                                  ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
@@ -3193,7 +3193,7 @@ public:
   ///
   /// \param C AST context.
   /// \param N The number of variables.
-  static OMPNovarClause *CreateEmpty(const ASTContext &C, unsigned N);
+  static OMPNolhsClause *CreateEmpty(const ASTContext &C, unsigned N);
 
   child_range children() {
     return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
@@ -3201,7 +3201,7 @@ public:
   }
 
   const_child_range children() const {
-    auto Children = const_cast<OMPNovarClause *>(this)->children();
+    auto Children = const_cast<OMPNolhsClause *>(this)->children();
     return const_child_range(Children.begin(), Children.end());
   }
 
@@ -3213,13 +3213,13 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_nolvar;
+    return T->getClauseKind() == llvm::omp::OMPC_nolhs;
   }
 };
 
-class OMPRvarClause final
-    : public OMPVarListClause<OMPRvarClause>,
-      private llvm::TrailingObjects<OMPRvarClause, Expr *> {
+class OMPRhsClause final
+    : public OMPVarListClause<OMPRhsClause>,
+      private llvm::TrailingObjects<OMPRhsClause, Expr *> {
   friend OMPVarListClause;
   friend TrailingObjects;
 
@@ -3229,16 +3229,16 @@ class OMPRvarClause final
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param N Number of the variables in the clause.
-  OMPRvarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+  OMPRhsClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_rvar, StartLoc,
+      : OMPVarListClause<OMPRhsClause>(llvm::omp::OMPC_rhs, StartLoc,
                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
-  explicit OMPRvarClause(unsigned N)
-      : OMPVarListClause<OMPRvarClause>(llvm::omp::OMPC_rvar,
+  explicit OMPRhsClause(unsigned N)
+      : OMPVarListClause<OMPRhsClause>(llvm::omp::OMPC_rhs,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3274,7 +3274,7 @@ public:
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param VL List of references to the variables.
-  static OMPRvarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+  static OMPRhsClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
                                  ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
@@ -3283,7 +3283,7 @@ public:
   ///
   /// \param C AST context.
   /// \param N The number of variables.
-  static OMPRvarClause *CreateEmpty(const ASTContext &C, unsigned N);
+  static OMPRhsClause *CreateEmpty(const ASTContext &C, unsigned N);
 
   child_range children() {
     return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
@@ -3291,7 +3291,7 @@ public:
   }
 
   const_child_range children() const {
-    auto Children = const_cast<OMPRvarClause *>(this)->children();
+    auto Children = const_cast<OMPRhsClause *>(this)->children();
     return const_child_range(Children.begin(), Children.end());
   }
 
@@ -3303,13 +3303,13 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_rvar;
+    return T->getClauseKind() == llvm::omp::OMPC_rhs;
   }
 };
 
-class OMPNorvarClause final
-    : public OMPVarListClause<OMPNorvarClause>,
-      private llvm::TrailingObjects<OMPNorvarClause, Expr *> {
+class OMPNorhsClause final
+    : public OMPVarListClause<OMPNorhsClause>,
+      private llvm::TrailingObjects<OMPNorhsClause, Expr *> {
   friend OMPVarListClause;
   friend TrailingObjects;
 
@@ -3319,16 +3319,16 @@ class OMPNorvarClause final
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param N Number of the variables in the clause.
-  OMPNorvarClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+  OMPNorhsClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPNorvarClause>(llvm::omp::OMPC_norvar, StartLoc,
+      : OMPVarListClause<OMPNorhsClause>(llvm::omp::OMPC_norhs, StartLoc,
                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
-  explicit OMPNorvarClause(unsigned N)
-      : OMPVarListClause<OMPNorvarClause>(llvm::omp::OMPC_norvar,
+  explicit OMPNorhsClause(unsigned N)
+      : OMPVarListClause<OMPNorhsClause>(llvm::omp::OMPC_norhs,
                                           SourceLocation(), SourceLocation(),
                                           SourceLocation(), N) {}
 
@@ -3364,7 +3364,7 @@ public:
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
   /// \param VL List of references to the variables.
-  static OMPNorvarClause *Create(const ASTContext &C, SourceLocation StartLoc,
+  static OMPNorhsClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc, ArrayRef<Expr *> VL,
                                  ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
@@ -3373,7 +3373,7 @@ public:
   ///
   /// \param C AST context.
   /// \param N The number of variables.
-  static OMPNorvarClause *CreateEmpty(const ASTContext &C, unsigned N);
+  static OMPNorhsClause *CreateEmpty(const ASTContext &C, unsigned N);
 
   child_range children() {
     return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
@@ -3381,7 +3381,7 @@ public:
   }
 
   const_child_range children() const {
-    auto Children = const_cast<OMPNorvarClause *>(this)->children();
+    auto Children = const_cast<OMPNorhsClause *>(this)->children();
     return const_child_range(Children.begin(), Children.end());
   }
 
@@ -3393,7 +3393,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_norvar;
+    return T->getClauseKind() == llvm::omp::OMPC_norhs;
   }
 };
 
@@ -3487,57 +3487,82 @@ public:
   }
 };
 
-class OMPDegreeClause: public OMPClause, public OMPClauseWithPreInit {
-  friend class OMPClauseReader;
+class OMPAutoClause final
+    : public OMPVarListClause<OMPAutoClause>,
+      private llvm::TrailingObjects<OMPAutoClause, Expr *> {
+  friend OMPVarListClause;
+  friend TrailingObjects;
 
-  /// Location of '('.
-  SourceLocation LParenLoc;
-
-  /// Condition of the 'num_threads' clause.
-  Stmt *Degree = nullptr;
-
-  /// Set condition.
-  void setDegree (Expr *NDegree ) { Degree = NDegree; }
-
-public:
-  /// Build 'degree' clause with condition \a Degree.
+  /// Build clause with number of variables \a N.
   ///
-  /// \param Degree degrees for the NMR.
-  /// \param HelperDegree Helper thread for the construct.
-  /// \param CaptureRegion Innermost OpenMP region where expressions in this
-  /// clause must be captured.
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
-  OMPDegreeClause(Expr *Degree, Stmt *HelperDegree,
-                      OpenMPDirectiveKind CaptureRegion,
-                      SourceLocation StartLoc, SourceLocation LParenLoc,
-                      SourceLocation EndLoc)
-      : OMPClause(llvm::omp::OMPC_degree, StartLoc, EndLoc),
-        OMPClauseWithPreInit(this), LParenLoc(LParenLoc),
-        Degree(Degree) {
-    setPreInitStmt(HelperDegree, CaptureRegion);
-  }
+  /// \param N Number of the variables in the clause.
+  OMPAutoClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                  SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPAutoClause>(llvm::omp::OMPC_auto, StartLoc,
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
-  OMPDegreeClause()
-      : OMPClause(llvm::omp::OMPC_degree, SourceLocation(),
-                  SourceLocation()),
-        OMPClauseWithPreInit(this) {}
+  ///
+  /// \param N Number of variables.
+  explicit OMPAutoClause(unsigned N)
+      : OMPVarListClause<OMPAutoClause>(llvm::omp::OMPC_auto,
+                                          SourceLocation(), SourceLocation(),
+                                          SourceLocation(), N) {}
 
-  /// Sets the location of '('.
-  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+public:
+  void setVarSizeRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
+  void setVarSizePtrRefs(ArrayRef<Expr *> VL, ArrayRef<Expr *> SL, ArrayRef<Expr *> PL) {
+    std::vector<Expr *> STL;
+    assert (VL.size() == SL.size() && "Variable and Size array length mismatch!!");
+    assert (VL.size() == PL.size() && "Variable and Size array length mismatch!!");
+    for (int i = 0; i < (int)VL.size(); i++) {
+      STL.push_back(VL[i]);
+      STL.push_back(SL[i]);
+      STL.push_back(PL[i]);
+    }
+    ArrayRef<Expr *> TL(STL);
+    std::copy(TL.begin(), TL.end(),
+              /* static_cast<T *>(this)->template */ getTrailingObjects<Expr *>());
+  }
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the variables.
+  static OMPAutoClause *Create(const ASTContext &C, SourceLocation StartLoc,
+                                 SourceLocation LParenLoc,
+                                 SourceLocation EndLoc, ArrayRef<Expr *> VL,
+                                 ArrayRef<Expr *> SL, ArrayRef<Expr *> PL);
 
-  /// Returns the location of '('.
-  SourceLocation getLParenLoc() const { return LParenLoc; }
+  /// Creates an empty clause with \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPAutoClause *CreateEmpty(const ASTContext &C, unsigned N);
 
-  /// Returns number of threads.
-  Expr *getDegree() const { return cast_or_null<Expr>(Degree); }
-
-  child_range children() { return child_range(&Degree , &Degree + 1); }
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
 
   const_child_range children() const {
-    return const_child_range(&Degree, &Degree + 1);
+    auto Children = const_cast<OMPAutoClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
   }
 
   child_range used_children() {
@@ -3548,7 +3573,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == llvm::omp::OMPC_degree;
+    return T->getClauseKind() == llvm::omp::OMPC_auto;
   }
 };
 // endif DK

@@ -83,28 +83,28 @@ def OMPC_Shared : Clause<"shared"> {
   let flangClass = "OmpObjectList";
 }
 // ifdef DK
-def OMPC_Lvar: Clause<"lvar"> {	/* DK: TODO */
-  let clangClass = "OMPVarClause";
+def OMPC_Lhs: Clause<"lhs"> {	/* DK: TODO */
+  let clangClass = "OMPLhsClause";
   let flangClass = "OmpObjectList";
 }
-def OMPC_Rvar: Clause<"rvar"> {	/* DK: TODO */
-  let clangClass = "OMPRvarClause";
+def OMPC_Rhs: Clause<"rhs"> {	/* DK: TODO */
+  let clangClass = "OMPRhsClause";
   let flangClass = "OmpObjectList";
 }
-def OMPC_Nolvar: Clause<"nolvar"> {	/* DK: TODO */
-  let clangClass = "OMPNovarClause";
+def OMPC_Nolhs: Clause<"nolhs"> {	/* DK: TODO */
+  let clangClass = "OMPNolhsClause";
   let flangClass = "OmpObjectList";
 }
-def OMPC_Norvar: Clause<"norvar"> {	/* DK: TODO */
-  let clangClass = "OMPNorvarClause";
+def OMPC_Norhs: Clause<"norhs"> {	/* DK: TODO */
+  let clangClass = "OMPNorhsClause";
   let flangClass = "OmpObjectList";
 }
 def OMPC_Novote: Clause<"novote"> {	/* DK: TODO */
   let clangClass = "OMPNovoteClause";
   let flangClass = "OmpObjectList";
 }
-def OMPC_Degree: Clause<"degree"> {	/* DK: TODO */
-  let clangClass = "OMPDegreeClause";
+def OMPC_Auto: Clause<"auto"> {	/* DK: TODO */
+  let clangClass = "OMPAutoClause";
   let flangClass = "OmpObjectList";
 }
 // endif
@@ -418,13 +418,13 @@ def OMP_ThreadPrivate : Directive<"threadprivate"> {}
 // ifdef DK
 def OMP_Nmr : Directive<"nmr"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Lvar>,
+    VersionedClause<OMPC_Lhs>,
     VersionedClause<OMPC_Vote>,
-    VersionedClause<OMPC_Rvar>,
-    VersionedClause<OMPC_Nolvar>,
-    VersionedClause<OMPC_Norvar>,
+    VersionedClause<OMPC_Rhs>,
+    VersionedClause<OMPC_Nolhs>,
+    VersionedClause<OMPC_Norhs>,
     VersionedClause<OMPC_Novote>,
-    VersionedClause<OMPC_Degree>,
+    VersionedClause<OMPC_Auto>,
   ];
 }
 def OMP_Vote : Directive<"vote"> {

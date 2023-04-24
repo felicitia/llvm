@@ -1610,16 +1610,6 @@ public:
                                             EndLoc);
   }
 
-  // ifdef DK
-  OMPClause *RebuildOMPDegreeClause(Expr *Degree,
-                                        SourceLocation StartLoc,
-                                        SourceLocation LParenLoc,
-                                        SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPDegreeClause(Degree, StartLoc,
-                                                 LParenLoc, EndLoc);
-  }
-  //
-
   /// Build a new OpenMP 'num_threads' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -9922,7 +9912,7 @@ TreeTransform<Derived>::TransformOMPVoteClause(OMPVoteClause *C) {
 
 template <typename Derived>
 OMPClause *
-TreeTransform<Derived>::TransformOMPRvarClause(OMPRvarClause *C) {
+TreeTransform<Derived>::TransformOMPRhsClause(OMPRhsClause *C) {
   llvm::SmallVector<Expr *, 16> Vars;
   Vars.reserve(C->varlist_size());
   llvm::SmallVector<Expr *, 16> Sizes;
@@ -9935,13 +9925,13 @@ TreeTransform<Derived>::TransformOMPRvarClause(OMPRvarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildFTVarClause(OMPC_rvar, Vars, Sizes, Ptr, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_rhs, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
 template <typename Derived>
 OMPClause *
-TreeTransform<Derived>::TransformOMPVarClause(OMPVarClause *C) {
+TreeTransform<Derived>::TransformOMPLhsClause(OMPLhsClause *C) {
   llvm::SmallVector<Expr *, 16> Vars;
   Vars.reserve(C->varlist_size());
   llvm::SmallVector<Expr *, 16> Sizes;
@@ -9954,13 +9944,13 @@ TreeTransform<Derived>::TransformOMPVarClause(OMPVarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildFTVarClause(OMPC_lvar, Vars, Sizes, Ptr, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_lhs, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
 template <typename Derived>
 OMPClause *
-TreeTransform<Derived>::TransformOMPNovarClause(OMPNovarClause *C) {
+TreeTransform<Derived>::TransformOMPNolhsClause(OMPNolhsClause *C) {
   llvm::SmallVector<Expr *, 16> Vars;
   Vars.reserve(C->varlist_size());
   llvm::SmallVector<Expr *, 16> Sizes;
@@ -9973,13 +9963,13 @@ TreeTransform<Derived>::TransformOMPNovarClause(OMPNovarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildFTVarClause(OMPC_nolvar, Vars, Sizes, Ptr, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_nolhs, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
 template <typename Derived>
 OMPClause *
-TreeTransform<Derived>::TransformOMPNorvarClause(OMPNorvarClause *C) {
+TreeTransform<Derived>::TransformOMPNorhsClause(OMPNorhsClause *C) {
   llvm::SmallVector<Expr *, 16> Vars;
   Vars.reserve(C->varlist_size());
   llvm::SmallVector<Expr *, 16> Sizes;
@@ -9992,7 +9982,7 @@ TreeTransform<Derived>::TransformOMPNorvarClause(OMPNorvarClause *C) {
       return nullptr;
     Vars.push_back(EVar.get());
   }
-  return getDerived().RebuildFTVarClause(OMPC_norvar, Vars, Sizes, Ptr, C->getBeginLoc(),
+  return getDerived().RebuildFTVarClause(OMPC_norhs, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 
@@ -10014,6 +10004,26 @@ TreeTransform<Derived>::TransformOMPNovoteClause(OMPNovoteClause *C) {
   return getDerived().RebuildFTVarClause(OMPC_novote, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPAutoClause(OMPAutoClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(OMPC_auto, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
 // endif DK
 
 template <typename Derived>
@@ -10235,19 +10245,6 @@ OMPClause *TreeTransform<Derived>::TransformOMPFlushClause(OMPFlushClause *C) {
   return getDerived().RebuildOMPFlushClause(Vars, C->getBeginLoc(),
                                             C->getLParenLoc(), C->getEndLoc());
 }
-
-//#ifdef DK
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPDegreeClause(OMPDegreeClause *C) {
-  ExprResult Degree = getDerived().TransformExpr(C->getDegree());
-  if (Degree.isInvalid())
-    return nullptr;
-  return getDerived().RebuildOMPDegreeClause(
-      Degree.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
-}
-
-//#endif
 
 template <typename Derived>
 OMPClause *

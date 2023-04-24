@@ -2433,24 +2433,23 @@ void OMPClauseEnqueue::VisitOMPSharedClause(const OMPSharedClause *C) {
 void OMPClauseEnqueue::VisitOMPVoteClause(const OMPVoteClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseEnqueue::VisitOMPVarClause(const OMPVarClause *C) {
+void OMPClauseEnqueue::VisitOMPLhsClause(const OMPLhsClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseEnqueue::VisitOMPRvarClause(const OMPRvarClause *C) {
+void OMPClauseEnqueue::VisitOMPRhsClause(const OMPRhsClause *C) {
   VisitOMPClauseList(C);
 }
 void OMPClauseEnqueue::VisitOMPNovoteClause(const OMPNovoteClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseEnqueue::VisitOMPNovarClause(const OMPNovarClause *C) {
+void OMPClauseEnqueue::VisitOMPNolhsClause(const OMPNolhsClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseEnqueue::VisitOMPNorvarClause(const OMPNorvarClause *C) {
+void OMPClauseEnqueue::VisitOMPNorhsClause(const OMPNorhsClause *C) {
   VisitOMPClauseList(C);
 }
-void OMPClauseEnqueue::VisitOMPDegreeClause(const OMPDegreeClause *C) {
-  VisitOMPClauseWithPreInit(C);
-  Visitor->AddStmt(C->getDegree());
+void OMPClauseEnqueue::VisitOMPAutoClause(const OMPAutoClause *C) {
+  VisitOMPClauseList(C);
 }
 // endif
 void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {

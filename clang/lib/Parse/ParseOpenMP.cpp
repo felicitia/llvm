@@ -3624,12 +3624,12 @@ static bool isAllowedFTClauseForDirective(OpenMPDirectiveKind DKind, OpenMPClaus
   if (DKind == OMPD_nmr) {
     switch (CKind) {
       case OMPC_vote:
-      case OMPC_lvar:
-      case OMPC_rvar:
-      case OMPC_degree:
+      case OMPC_lhs:
+      case OMPC_rhs:
+      case OMPC_auto:
       case OMPC_novote:
-      case OMPC_nolvar:
-      case OMPC_norvar:
+      case OMPC_nolhs:
+      case OMPC_norhs:
 	return true;
     }
   } else if (DKind == OMPD_vote) {
@@ -3656,22 +3656,23 @@ OMPClause *Parser::ParseFTClause(OpenMPDirectiveKind DKind,
     case OMPC_vote:	/* vote now */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_lvar:	/* LVALUE */
+    case OMPC_lhs:	/* LVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_rvar:	/* RVALUE */
+    case OMPC_rhs:	/* RVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
     case OMPC_novote:	/* LVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_nolvar:	/* LVALUE */
+    case OMPC_nolhs:	/* LVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_norvar:	/* RVALUE */
+    case OMPC_norhs:	/* RVALUE */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	break;
-    case OMPC_degree:	/* TODO: degree of NMR */
+    case OMPC_auto:	/* TODO: degree of NMR */
+        Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
 	  break;
     default:
 	  ErrorFound = true;

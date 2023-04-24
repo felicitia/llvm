@@ -171,7 +171,7 @@ static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
     const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
     llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
 //    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
-    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc());
+    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc(), 1);
   }
 }
 #endif
@@ -930,7 +930,7 @@ static void emitVote(CodeGenFunction &CGF, const Expr * E, LValue LHS) {
     const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
     llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
 //    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
-    CGF.EmitVoteCall(LHS.getPointer(CGF), TSize, IndDepth, constStr, E->getExprLoc());
+    CGF.EmitVoteCall(LHS.getPointer(CGF), TSize, IndDepth, constStr, E->getExprLoc(), 0);
   }
 }
 /// EmitConversionToBool - Convert the specified expression value to a

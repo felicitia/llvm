@@ -14663,9 +14663,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_num_threads:
     Res = ActOnOpenMPNumThreadsClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
-  case OMPC_degree:
-    Res = ActOnOpenMPDegreeClause(Expr, StartLoc, LParenLoc, EndLoc);
-    break;
   case OMPC_safelen:
     Res = ActOnOpenMPSafelenClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
@@ -15807,34 +15804,6 @@ isNonNegativeIntegerValue(Expr *&ValExpr, Sema &SemaRef, OpenMPClauseKind CKind,
   }
   return true;
 }
-
-OMPClause *Sema::ActOnOpenMPDegreeClause(Expr *Degree,
-                                             SourceLocation StartLoc,
-                                             SourceLocation LParenLoc,
-                                             SourceLocation EndLoc) {
-  Expr *ValExpr = Degree;
-  Stmt *HelperValStmt = nullptr;
-
-  // OpenMP [2.5, Restrictions]
-  //  The num_threads expression must evaluate to a positive integer value.
-  if (!isNonNegativeIntegerValue(ValExpr, *this, OMPC_degree,
-                                 /*StrictlyPositive=*/true))
-    return nullptr;
-
-  OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
-  OpenMPDirectiveKind CaptureRegion =
-      getOpenMPCaptureRegionForClause(DKind, OMPC_degree, LangOpts.OpenMP);
-  if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
-    ValExpr = MakeFullExpr(ValExpr).get();
-    llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
-    ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
-    HelperValStmt = buildPreInits(Context, Captures);
-  }
-
-  return new (Context) OMPDegreeClause(
-      ValExpr, HelperValStmt, CaptureRegion, StartLoc, LParenLoc, EndLoc);
-}
-
 
 OMPClause *Sema::ActOnOpenMPNumThreadsClause(Expr *NumThreads,
                                              SourceLocation StartLoc,
@@ -18004,16 +17973,18 @@ OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
   switch(Kind){
     case OMPC_vote:
       return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_rvar:
-      return OMPRvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_lvar:
-      return OMPVarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
+    case OMPC_rhs:
+      return OMPRhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
+    case OMPC_lhs:
+      return OMPLhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     case OMPC_novote:
       return OMPNovoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_norvar:
-      return OMPNorvarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_nolvar:
-      return OMPNovarClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
+    case OMPC_norhs:
+      return OMPNorhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
+    case OMPC_nolhs:
+      return OMPNolhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
+    case OMPC_auto:
+      return OMPAutoClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
     default:
       return nullptr;
   }

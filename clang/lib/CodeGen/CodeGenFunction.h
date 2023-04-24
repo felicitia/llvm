@@ -3506,7 +3506,7 @@ public:
   void EmitFTNmrDirective(const FTNmrDirective &S);
   const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS);
   void EmitFTVoteDirective(const FTVoteDirective &S);
-  void EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc);
+  void EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside);
 // endif
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);

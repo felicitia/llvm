@@ -3462,22 +3462,22 @@ bool RecursiveASTVisitor<Derived>::VisitOMPSharedClause(OMPSharedClause *C) {
 
 // ifdef DK
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPVarClause(OMPVarClause *C) {
+bool RecursiveASTVisitor<Derived>::VisitOMPLhsClause(OMPLhsClause *C) {
   TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPRvarClause(OMPRvarClause *C) {
+bool RecursiveASTVisitor<Derived>::VisitOMPRhsClause(OMPRhsClause *C) {
   TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPNovarClause(OMPNovarClause *C) {
+bool RecursiveASTVisitor<Derived>::VisitOMPNolhsClause(OMPNolhsClause *C) {
   TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPNorvarClause(OMPNorvarClause *C) {
+bool RecursiveASTVisitor<Derived>::VisitOMPNorhsClause(OMPNorhsClause *C) {
   TRY_TO(VisitOMPClauseList(C));
   return true;
 }
@@ -3487,9 +3487,8 @@ bool RecursiveASTVisitor<Derived>::VisitOMPNovoteClause(OMPNovoteClause *C) {
   return true;
 }
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPDegreeClause(OMPDegreeClause *C) {
-  TRY_TO(VisitOMPClauseWithPreInit(C));
-  TRY_TO(TraverseStmt(C->getDegree()));
+bool RecursiveASTVisitor<Derived>::VisitOMPAutoClause(OMPAutoClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
   return true;
 }
 // endif
