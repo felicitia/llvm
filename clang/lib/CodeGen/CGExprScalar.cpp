@@ -42,6 +42,8 @@
 #include "llvm/IR/MatrixBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/TypeSize.h"
+#include "clang/AST/RecursiveASTVisitor.h"
+
 #include <cstdarg>
 
 using namespace clang;
@@ -145,11 +147,68 @@ struct BinOpInfo {
 };
 
 #if 1
+class VariableVisitor: public RecursiveASTVisitor<VariableVisitor> {
+public:
+  explicit VariableVisitor(ASTContext *Context, llvm::SmallVector<const Expr *, 4> Varlist /* VarDecl *Var*/) : Context(Context), Varlist(Varlist) {}
+
+  bool VisitDeclRefExpr(DeclRefExpr *E) {
+    const DeclRefExpr * DR = cast<DeclRefExpr>(E);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    for (unsigned int i = 0; i < Varlist.size(); i+=3) {
+      const DeclRefExpr * DR2 = cast<DeclRefExpr>(Varlist[i]);
+      const VarDecl *VD2 = dyn_cast<VarDecl>(DR2->getDecl());
+      if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
+          && VD->getDeclContext() == VD2->getDeclContext()) 
+         return false;
+    }
+    return true;
+  }
+
+  bool TraverseStmt(Stmt *S) {
+    if (S) {
+      if (const CompoundStmt * CS = dyn_cast<CompoundStmt>(S)) {
+        for (auto * C: CS->children()) {
+          Stmt * Child = const_cast<clang::Stmt*>(dyn_cast<Stmt>(C));
+          if (TraverseStmt(Child) == false) return false;
+        }
+        return true;
+      }
+      return RecursiveASTVisitor::TraverseStmt(S);
+    }
+    return true;
+  }
+
+private:
+  ASTContext *Context;
+  llvm::SmallVector<const Expr *, 4>  Varlist;
+/* VarDecl *Var;*/
+};
+
+#if 0
+// DK: this doesn't work because instruction does not have the name of registers
+static bool VarInValueOp(clang::SmallVector<const Expr *, 4> &VarList, Value * V) {
+
+  // If the value is an instruction, check if it's a register and get its name
+  llvm::Instruction *I = cast<llvm::Instruction>(V);
+  for (unsigned int i =0; i < I->getNumOperands(); i++) {
+    std::string Opname = I->getOperand(i)->getName().str();
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VarList[i]);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    if (VD->getQualifiedNameAsString() == Opname) return true;
+  }
+  return false;
+}
+#endif
+
 static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   // DK: NEW vote after this (LHS)
   const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false);
-  // TODO: Use size information given by the user
-  //       However, would it be meaningful? It can cause more confusion.
+  ASTContext &Context = CGF.getContext();
+  if (CGF.RVarSize.size() == 0) return;
+  VariableVisitor VV(&Context, CGF.RVarSize);
+  Stmt * S = const_cast<clang::Stmt*>(dyn_cast<Stmt>(E));
+  if (VV.TraverseStmt(S) == true) return;
+//  if (!VarInValueOp(CGF.RVarSize, RHS)) return;
   llvm::Type * Type = CGF.ConvertType(E->getType());
   if (Type->isPointerTy()) return;
   if (VoteVar != nullptr) {
@@ -175,6 +234,7 @@ static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   }
 }
 #endif
+
 static bool MustVisitNullValue(const Expr *E) {
   // If a null pointer expression's type is the C++0x nullptr_t, then
   // it's not necessarily a simple constant and it must be evaluated
