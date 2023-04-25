@@ -202,35 +202,53 @@ static bool VarInValueOp(clang::SmallVector<const Expr *, 4> &VarList, Value * V
 
 static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   // DK: NEW vote after this (LHS)
-  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false);
-  ASTContext &Context = CGF.getContext();
   if (CGF.RVarSize.size() == 0) return;
+  ASTContext &Context = CGF.getContext();
   VariableVisitor VV(&Context, CGF.RVarSize);
   Stmt * S = const_cast<clang::Stmt*>(dyn_cast<Stmt>(E));
   if (VV.TraverseStmt(S) == true) return;
-//  if (!VarInValueOp(CGF.RVarSize, RHS)) return;
   llvm::Type * Type = CGF.ConvertType(E->getType());
-  if (Type->isPointerTy()) return;
-  if (VoteVar != nullptr) {
-   // llvm::Type * Type = RHS->getType();
-   // uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
-    auto &Ctx = CGF.getContext();
-    uint64_t sizeInBytes = Ctx.getTypeSize(E->getType())/8;
-#if 0
-    if (Type->isPointerTy()) {
-      if (sizeInBytes != 0) 
-        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
-      else
-        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(CGF.CGM.VoidPtrTy);
-    }
-#endif
-    llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
-    llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
-    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
-    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-//    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
+  // RHS must not be pointer type
+  if (Type->isPointerTy() && RHS) return;	
+  // if RHS is null, and E is not pointer, it is loaded first.
+  // When is it loaded, vote() is done before loading.
+  if (!Type->isPointerTy() && !RHS) return;	
+  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false);
+//  if (!VarInValueOp(CGF.RVarSize, RHS)) return;
+  if (VoteVar == nullptr) return;
+  uint64_t sizeInBytes = Context.getTypeSize(E->getType())/8;
+  llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
+  llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
+  if (Type->isPointerTy()) {
+     TSize = CGF.getTypeSize(VoteVar->getType());
+  }
+  const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+  const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+  llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
+  if (RHS)
     CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc(), 1);
+  else {
+     LValue LV = CGF.EmitLValue(VoteVar);
+     llvm::Value* VarPtr = LV.getPointer(CGF);
+    CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, E->getExprLoc(), 1);
+  }
+#if 0
+  if (Type->isPointerTy()) {
+    if (sizeInBytes != 0) 
+      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+    else
+      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(CGF.CGM.VoidPtrTy);
+  }
+#endif
+}
+
+static void emitVoteRValueCallExpr(CodeGenFunction &CGF, const CallExpr * E) {
+  if (!E) return;
+  if (CGF.RVarSize.size() == 0) return;
+  for (auto it = E->arg_begin(); it != E->arg_end(); ++it) {
+    const Expr *argExpr = *it;
+//    if (llvm::isa<llvm::Constant>(argExpr)) continue;
+    emitVoteRValue(CGF, argExpr, nullptr);
   }
 }
 #endif
@@ -669,6 +687,10 @@ public:
   Value *VisitCastExpr(CastExpr *E);
 
   Value *VisitCallExpr(const CallExpr *E) {
+/*    LValue LV = EmitCheckedLValue(E, CodeGenFunction::TCK_Load);
+    emitVoteRValue(CGF, E, LV.getPointer(CGF)); */
+    emitVoteRValueCallExpr(CGF, E);
+
     if (E->getCallReturnType(CGF.getContext())->isReferenceType())
       return EmitLoadOfLValue(E);
 
