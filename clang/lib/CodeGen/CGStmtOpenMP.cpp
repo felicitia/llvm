@@ -1601,6 +1601,29 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
   }
 }
 
+void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
+  // DK: NEW vote after this (LHS)
+  const Expr * VoteVar = EmitVarVote(E, LVarSize,  true, false);
+  if (VoteVar != nullptr) {
+    llvm::Type * Type = ConvertType(LHS.getType());
+    if (Type->isPointerTy()) return;
+    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
+    if (Type->isPointerTy()) {
+      if (sizeInBytes != 0) 
+        sizeInBytes = CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
+      else
+        sizeInBytes = CGM.getDataLayout().getTypeAllocSize(CGM.VoidPtrTy);
+    }
+    llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);
+    llvm::Value *IndDepth = llvm::ConstantInt::get(Int32Ty, 0);	
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
+//    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), "test");
+    EmitVoteCall(LHS.getPointer(*this), TSize, IndDepth, constStr, E->getExprLoc(), 0);
+  }
+}
+
 void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside) {
      llvm::PointerType* ptrType = llvm::PointerType::get(Int8Ty, 0);
      llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
@@ -1877,6 +1900,14 @@ static const Expr * visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSi
     if (FoundVar == nullptr) FoundVar = FoundVar2;
     return FoundVar;
     }
+  case Stmt::MemberExprClass: 
+    {
+    const MemberExpr * MES = cast<MemberExpr>(S);
+    FoundVar = visitStmt(cast<Stmt>(MES->getBase()), VarSize, VarsNameIndex, lookforLHS, canbeLHS);
+/*    const Expr * FoundVar2 = visitStmt(cast<Stmt>(MES->getRHS()), VarSize, VarsNameIndex, lookforLHS, false);
+    if (FoundVar == nullptr) FoundVar = FoundVar2; */
+    return FoundVar;
+    }
   case Stmt::BinaryOperatorClass: {
     const BinaryOperator * BO = cast<BinaryOperator>(S);
     if (BO->getOpcode() == BO_Assign) {
@@ -1933,7 +1964,7 @@ void CodeGenFunction::EmitFTVoteDirective(const FTVoteDirective &S) {
   }
 }
 
-const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS) {
+const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generate_vote) {
   std::vector<int> VarsNameIndex;
   SmallVector<const Expr *, 4> TVarsSizes;
   const Expr * FoundVar = nullptr;
@@ -1948,14 +1979,9 @@ const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr 
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]+2]);
   }
 
+  if (!generate_vote) return FoundVar;
+  else  emitVoteStmt(*this, TVarsSizes, S->getBeginLoc());
   return FoundVar;
-  if (!lookforLHS) {
-    emitVoteStmt(*this, TVarsSizes, S->getBeginLoc());
-    return nullptr;
-  }
-  else
-
-    return FoundVar;
 }
 
 void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {

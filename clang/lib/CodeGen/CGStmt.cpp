@@ -118,9 +118,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm::BasicBlock *incoming = Builder.GetInsertBlock();
     assert(incoming && "expression emission must have an insertion point");
 
-//    EmitVarVote(S, RVarSize, false);
+//    EmitVarVote(S, RVarSize, false, true);
     EmitIgnoredExpr(cast<Expr>(S));
-//    EmitVarVote(S, LVarSize, true);
+//    EmitVarVote(S, LVarSize, true, true);
     llvm::BasicBlock *outgoing = Builder.GetInsertBlock();
     assert(outgoing && "expression emission cleared block!");
 
@@ -1294,6 +1294,7 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   // rules about not jumping to statements following block literals with
   // non-trivial cleanups.
   SaveRetExprRAII SaveRetExpr(RV, *this);
+  // DK: Here
 
   RunCleanupsScope cleanupScope(*this);
   if (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(RV))

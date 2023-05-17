@@ -184,22 +184,6 @@ private:
 /* VarDecl *Var;*/
 };
 
-#if 0
-// DK: this doesn't work because instruction does not have the name of registers
-static bool VarInValueOp(clang::SmallVector<const Expr *, 4> &VarList, Value * V) {
-
-  // If the value is an instruction, check if it's a register and get its name
-  llvm::Instruction *I = cast<llvm::Instruction>(V);
-  for (unsigned int i =0; i < I->getNumOperands(); i++) {
-    std::string Opname = I->getOperand(i)->getName().str();
-    const DeclRefExpr * DR = cast<DeclRefExpr>(VarList[i]);
-    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-    if (VD->getQualifiedNameAsString() == Opname) return true;
-  }
-  return false;
-}
-#endif
-
 static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   // DK: NEW vote after this (LHS)
   if (CGF.RVarSize.size() == 0) return;
@@ -213,7 +197,7 @@ static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   // if RHS is null, and E is not pointer, it is loaded first.
   // When is it loaded, vote() is done before loading.
   if (!Type->isPointerTy() && !RHS) return;	
-  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false);
+  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false, false);
 //  if (!VarInValueOp(CGF.RVarSize, RHS)) return;
   if (VoteVar == nullptr) return;
   uint64_t sizeInBytes = Context.getTypeSize(E->getType())/8;
@@ -232,14 +216,6 @@ static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
      llvm::Value* VarPtr = LV.getPointer(CGF);
     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, E->getExprLoc(), 1);
   }
-#if 0
-  if (Type->isPointerTy()) {
-    if (sizeInBytes != 0) 
-      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
-    else
-      sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(CGF.CGM.VoidPtrTy);
-  }
-#endif
 }
 
 static void emitVoteRValueCallExpr(CodeGenFunction &CGF, const CallExpr * E) {
@@ -348,6 +324,10 @@ public:
   LValue EmitLValue(const Expr *E) { return CGF.EmitLValue(E); }
   LValue EmitCheckedLValue(const Expr *E, CodeGenFunction::TypeCheckKind TCK) {
     return CGF.EmitCheckedLValue(E, TCK);
+  }
+
+  void EmitVote(const Expr * E, LValue LHS) {
+    return CGF.EmitVote(E, LHS);
   }
 
   void EmitBinOpCheck(ArrayRef<std::pair<Value *, SanitizerMask>> Checks,
@@ -993,28 +973,6 @@ public:
 //                                Utilities
 //===----------------------------------------------------------------------===//
 
-static void emitVote(CodeGenFunction &CGF, const Expr * E, LValue LHS) {
-  // DK: NEW vote after this (LHS)
-  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.LVarSize,  true);
-  if (VoteVar != nullptr) {
-    llvm::Type * Type = CGF.ConvertType(LHS.getType());
-    if (Type->isPointerTy()) return;
-    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
-    if (Type->isPointerTy()) {
-      if (sizeInBytes != 0) 
-        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
-      else
-        sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(CGF.CGM.VoidPtrTy);
-    }
-    llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);
-    llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	
-    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
-    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-//    llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), "test");
-    CGF.EmitVoteCall(LHS.getPointer(CGF), TSize, IndDepth, constStr, E->getExprLoc(), 0);
-  }
-}
 /// EmitConversionToBool - Convert the specified expression value to a
 /// boolean (i1) truth value.  This is equivalent to "Val != 0".
 Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
@@ -2955,8 +2913,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     CGF.EmitStoreThroughBitfieldLValue(RValue::get(value), LV, &value);
   else
     CGF.EmitStoreThroughLValue(RValue::get(value), LV);
-
-  emitVote(CGF, E->getSubExpr(), LV);
+  EmitVote( E->getSubExpr(), LV);
   // If this is a postinc, return the value read from memory, otherwise use the
   // updated value.
   return isPre ? value : input;
@@ -3322,13 +3279,6 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     Builder.SetInsertPoint(contBB);
     return LHSLV;
   }
-#if 0
-  if (!llvm::Constant::classof(OpInfo.RHS) == false && 
-    ((Stmt *)E->getRHS())->getStmtClass() == Stmt::DeclRefExprClass) {
-      auto RHSptr = CGF.EmitLValue(E->getRHS()).getPointer(CGF);
-      emitVoteRValue(CGF, E->getRHS(), RHSptr);
-  }
-#endif
   // Store the result value into the LHS lvalue. Bit-fields are handled
   // specially because the result is altered by the store, i.e., [C99 6.5.16p1]
   // 'An assignment expression has the value of the left operand after the
@@ -3338,8 +3288,7 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   else
     CGF.EmitStoreThroughLValue(RValue::get(Result), LHSLV);
 
-  emitVote(CGF, E->getLHS(), LHSLV);
-
+  EmitVote(E->getLHS(), LHSLV);
   if (CGF.getLangOpts().OpenMP)
     CGF.CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(CGF,
                                                                   E->getLHS());
@@ -4433,6 +4382,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
     RHS = CGF.EmitARCStoreWeak(LHS.getAddress(CGF), RHS, Ignore);
+    EmitVote(E->getLHS(), LHS);	// verify!
     break;
 
   case Qualifiers::OCL_None:
@@ -4441,13 +4391,6 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
 
-#if 0
-    if (llvm::Constant::classof(RHS) == false &&
-    ((Stmt *)E->getRHS())->getStmtClass() == Stmt::DeclRefExprClass) {
-      auto RHSptr = CGF.EmitLValue(E->getRHS()).getPointer(CGF);
-      emitVoteRValue(CGF, E->getRHS(), RHSptr);
-    }
-#endif
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after
@@ -4458,7 +4401,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
       CGF.EmitNullabilityCheck(LHS, RHS, E->getExprLoc());
       CGF.EmitStoreThroughLValue(RValue::get(RHS), LHS);	
     }
-    emitVote(CGF, E->getLHS(), LHS);
+    EmitVote(E->getLHS(), LHS);	// verify!
   }
 
   // If the result is clearly ignored, return now.

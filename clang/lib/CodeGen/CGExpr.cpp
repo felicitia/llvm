@@ -5161,6 +5161,9 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
     if (getLangOpts().OpenMP)
       CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(*this,
                                                                 E->getLHS());
+#if 1
+    EmitVote(E->getLHS(), LV);
+#endif
     return LV;
   }
 

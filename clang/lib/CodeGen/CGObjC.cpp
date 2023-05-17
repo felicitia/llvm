@@ -3244,7 +3244,9 @@ Result ARCExprEmitter<Impl,Result>::
     CGF.EmitCheckedLValue(e->getLHS(), CodeGenFunction::TCK_Store);
   CGF.EmitStoreThroughLValue(RValue::get(asImpl().getValueOfResult(result)),
                              lvalue);
-
+#if 1
+    CGF.EmitVote(e->getLHS(), lvalue);
+#endif
   return result;
 }
 

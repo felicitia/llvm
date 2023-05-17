@@ -1196,6 +1196,9 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
                                      AggValueSlot::IsAliased,
                                      AggValueSlot::MayOverlap),
              Dest);
+#if 1
+    CGF.EmitVote(E->getLHS(), LHS);
+#endif
     return;
   }
 

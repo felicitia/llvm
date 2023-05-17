@@ -3292,6 +3292,8 @@ public:
                       llvm::Function *FinallyFunc);
   void startOutlinedSEHHelper(CodeGenFunction &ParentCGF, bool IsFilter,
                               const Stmt *OutlinedStmt);
+  
+  void EmitVote(const Expr * E, LValue LHS);
 
   llvm::Function *GenerateSEHFilterFunction(CodeGenFunction &ParentCGF,
                                             const SEHExceptStmt &Except);
@@ -3504,7 +3506,7 @@ public:
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
 // ifdef DK
   void EmitFTNmrDirective(const FTNmrDirective &S);
-  const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS);
+  const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generateVote);
   void EmitFTVoteDirective(const FTVoteDirective &S);
   void EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside);
 // endif
