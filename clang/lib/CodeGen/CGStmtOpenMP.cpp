@@ -1597,14 +1597,73 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      const DeclRefExpr * DR = cast<DeclRefExpr>(VarsSizes[i]);
      const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
      llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, Loc, 9);
+     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, Loc, 9, false);
   }
+}
+
+//
+// mode: 0 (LHS), 1 (RHS), 9 (both)
+void CodeGenFunction::CheckVote(const Expr *E, int mode) {
+  bool _VoteNow= VoteNow;
+  const Expr * _VoteVar = VoteVar;
+  VoteVar = nullptr;
+  VoteNow = false;
+  VoteLoc = E->getExprLoc();
+  if (mode == 0 || mode == 9)
+    VoteVar = EmitVarVote(E, LVarSize, true, false);
+  if (VoteVar != nullptr) { VoteNow = true; return; }
+  VoteNow = _VoteNow;
+  VoteVar = _VoteVar;
+  if (mode == 1 || mode == 9)
+    VoteVar = EmitVarVote(E, RVarSize, true, false);
+  if (VoteVar != nullptr) { VoteNow = true; return; }
+}
+
+void CodeGenFunction::EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode , bool keep_status) {
+    bool _VoteNow= VoteNow;
+    const Expr * _VoteVar = VoteVar;
+    EmitVote(addrR, dataTypeR, mode, true);
+    VoteNow = _VoteNow;
+    VoteVar = _VoteVar;
+    EmitVote(addrI, dataTypeI, mode, keep_status);
+}
+
+static bool isComplexType(CodeGenFunction &CGF, QualType dataType) {
+    llvm::Type * Type = CGF.ConvertType(dataType);
+    if (Type->isStructTy()) {
+      llvm::StructType* structType = llvm::cast<llvm::StructType>(Type);
+      if (structType->getNumElements() == 2) { 
+        llvm::Type* element1 = structType->getElementType(0);
+        llvm::Type* element2 = structType->getElementType(1);
+        if (element1 == element2) {
+          // Complex type has two identical elements
+          return true;
+        }
+      }
+    }
+    return false;
+}
+
+void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool keep_status) {
+    if (!VoteNow) return;
+    llvm::Type * Type = ConvertType(dataType);
+    if (isComplexType(*this, dataType)) {
+      llvm::StructType* structType = llvm::cast<llvm::StructType>(Type);
+      Type = structType->getElementType(0);
+    }
+    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
+    llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);
+    llvm::Value *IndDepth = llvm::ConstantInt::get(Int32Ty, 0);	
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
+    EmitVoteCall(addr.getPointer(), TSize, IndDepth, constStr, VoteLoc, mode, keep_status);
 }
 
 void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
   // DK: NEW vote after this (LHS)
-  const Expr * VoteVar = EmitVarVote(E, LVarSize,  true, false);
-  if (VoteVar != nullptr) {
+  const Expr * _VoteVar = EmitVarVote(E, LVarSize,  true, false);
+  if (_VoteVar != nullptr) {
     llvm::Type * Type = ConvertType(LHS.getType());
     if (Type->isPointerTy()) return;
     uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
@@ -1616,15 +1675,15 @@ void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
     }
     llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);
     llvm::Value *IndDepth = llvm::ConstantInt::get(Int32Ty, 0);	
-    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+    const DeclRefExpr * DR = cast<DeclRefExpr>(_VoteVar);
     const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
     llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
 //    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), "test");
-    EmitVoteCall(LHS.getPointer(*this), TSize, IndDepth, constStr, E->getExprLoc(), 0);
+    EmitVoteCall(LHS.getPointer(*this), TSize, IndDepth, constStr, E->getExprLoc(), 0, false);
   }
 }
 
-void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside) {
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside, bool keep_status) {
      llvm::PointerType* ptrType = llvm::PointerType::get(Int8Ty, 0);
      llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
      llvm::Value* StrPtr = Builder.CreatePointerCast(globalStr, ptrType);
@@ -1651,6 +1710,9 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, l
      auto *FTy = llvm::FunctionType::get(CGM.VoidTy, Params, /*isVarArg=*/false);
      llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
      EmitRuntimeCall(Func, Args);
+     if (keep_status) return;
+     VoteNow = false;
+     VoteVar = nullptr;
 }
 
 static void emitCommonOMPParallelDirective(

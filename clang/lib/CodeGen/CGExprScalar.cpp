@@ -210,11 +210,11 @@ static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
   llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
   if (RHS)
-    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc(), 1);
+    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc(), 1, false);
   else {
      LValue LV = CGF.EmitLValue(VoteVar);
      llvm::Value* VarPtr = LV.getPointer(CGF);
-    CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, E->getExprLoc(), 1);
+    CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, E->getExprLoc(), 1, false);
   }
 }
 

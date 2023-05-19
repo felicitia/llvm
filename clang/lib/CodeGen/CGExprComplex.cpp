@@ -72,6 +72,7 @@ public:
   /// value l-value, this method emits the address of the l-value, then loads
   /// and returns the result.
   ComplexPairTy EmitLoadOfLValue(const Expr *E) {
+    CheckVote(E, 1);
     return EmitLoadOfLValue(CGF.EmitLValue(E), E->getExprLoc());
   }
 
@@ -81,12 +82,24 @@ public:
   /// specified value pointer.
   void EmitStoreOfComplex(ComplexPairTy Val, LValue LV, bool isInit);
 
+  void EmitVoteComplex(Address addr, QualType complexType, int mode, bool keep_status) {
+    return CGF.EmitVote(addr, complexType, mode, keep_status);
+  }
+  void EmitVoteComplex(Address addrR, QualType complexTypeR, Address addrI, QualType complexTypeI, int mode, bool keep_status) {
+    return CGF.EmitVote(addrR, complexTypeR, addrI, complexTypeI, mode, keep_status);
+  }
   /// Emit a cast from complex value Val to DestType.
   ComplexPairTy EmitComplexToComplexCast(ComplexPairTy Val, QualType SrcType,
                                          QualType DestType, SourceLocation Loc);
   /// Emit a cast from scalar value Val to DestType.
   ComplexPairTy EmitScalarToComplexCast(llvm::Value *Val, QualType SrcType,
                                         QualType DestType, SourceLocation Loc);
+
+  // 
+  // mode: 0 (LHS), 1 (RHS), 9 (both)
+  void CheckVote(const Expr * E, int mode) {
+    CGF.CheckVote(E, mode);
+  }
 
   //===--------------------------------------------------------------------===//
   //                            Visitor Methods
@@ -151,7 +164,8 @@ public:
   ComplexPairTy VisitObjCMessageExpr(ObjCMessageExpr *E) {
     return CGF.EmitObjCMessageExpr(E).getComplexVal();
   }
-  ComplexPairTy VisitArraySubscriptExpr(Expr *E) { return EmitLoadOfLValue(E); }
+  ComplexPairTy VisitArraySubscriptExpr(Expr *E) { 
+    return EmitLoadOfLValue(E); }
   ComplexPairTy VisitMemberExpr(MemberExpr *ME) {
     if (CodeGenFunction::ConstantEmission Constant =
             CGF.tryEmitAsConstant(ME)) {
@@ -205,7 +219,8 @@ public:
   ComplexPairTy VisitUnaryPreInc(const UnaryOperator *E) {
     return VisitPrePostIncDec(E, true, true);
   }
-  ComplexPairTy VisitUnaryDeref(const Expr *E) { return EmitLoadOfLValue(E); }
+  ComplexPairTy VisitUnaryDeref(const Expr *E) { 
+    return EmitLoadOfLValue(E); }
   ComplexPairTy VisitUnaryPlus     (const UnaryOperator *E) {
     TestAndClearIgnoreReal();
     TestAndClearIgnoreImag();
@@ -359,14 +374,15 @@ ComplexPairTy ComplexExprEmitter::EmitLoadOfLValue(LValue lvalue,
 
   if (!IgnoreReal || isVolatile) {
     Address RealP = CGF.emitAddrOfRealComponent(SrcPtr, lvalue.getType());
+    EmitVoteComplex(RealP, lvalue.getType(), 1, true);
     Real = Builder.CreateLoad(RealP, isVolatile, SrcPtr.getName() + ".real");
   }
 
   if (!IgnoreImag || isVolatile) {
     Address ImagP = CGF.emitAddrOfImagComponent(SrcPtr, lvalue.getType());
+    EmitVoteComplex(ImagP, lvalue.getType(), 1, false);
     Imag = Builder.CreateLoad(ImagP, isVolatile, SrcPtr.getName() + ".imag");
   }
-
   return ComplexPairTy(Real, Imag);
 }
 
@@ -384,6 +400,8 @@ void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val, LValue lvalue,
 
   Builder.CreateStore(Val.first, RealPtr, lvalue.isVolatileQualified());
   Builder.CreateStore(Val.second, ImagPtr, lvalue.isVolatileQualified());
+
+  EmitVoteComplex(RealPtr, lvalue.getType(), ImagPtr, lvalue.getType(), 0, false);	// verify!
 }
 
 
@@ -418,8 +436,9 @@ ComplexPairTy ComplexExprEmitter::VisitStmtExpr(const StmtExpr *E) {
   CodeGenFunction::StmtExprEvaluation eval(CGF);
   Address RetAlloca = CGF.EmitCompoundStmt(*E->getSubStmt(), true);
   assert(RetAlloca.isValid() && "Expected complex return value");
-  return EmitLoadOfLValue(CGF.MakeAddrLValue(RetAlloca, E->getType()),
-                          E->getExprLoc());
+  LValue LV = CGF.MakeAddrLValue(RetAlloca, E->getType());
+  CheckVote(E, 1);
+  return EmitLoadOfLValue(LV, E->getExprLoc());
 }
 
 /// Emit a cast from complex value Val to DestType.
@@ -931,6 +950,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   // Load from the l-value and convert it.
   SourceLocation Loc = E->getExprLoc();
   if (LHSTy->isAnyComplexType()) {
+    CheckVote(E, 1);
     ComplexPairTy LHSVal = EmitLoadOfLValue(LHS, Loc);
     OpInfo.LHS = EmitComplexToComplexCast(LHSVal, LHSTy, OpInfo.Ty, Loc);
   } else {
@@ -953,6 +973,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   if (LHSTy->isAnyComplexType()) {
     ComplexPairTy ResVal =
         EmitComplexToComplexCast(Result, OpInfo.Ty, LHSTy, Loc);
+    CheckVote(E->getLHS(), 0);
     EmitStoreOfComplex(ResVal, LHS, /*isInit*/ false);
     Val = RValue::getComplex(ResVal);
   } else {
@@ -980,6 +1001,7 @@ EmitCompoundAssign(const CompoundAssignOperator *E,
   if (!LV.isVolatileQualified())
     return Val.getComplexVal();
 
+  CheckVote(E->getLHS(), 1);
   return EmitLoadOfLValue(LV, E->getExprLoc());
 }
 
@@ -998,6 +1020,7 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
   LValue LHS = CGF.EmitLValue(E->getLHS());
 
   // Store the result value into the LHS lvalue.
+  CheckVote(E->getLHS(), 0);
   EmitStoreOfComplex(Val, LHS, /*isInit*/ false);
 
   return LHS;
@@ -1015,6 +1038,7 @@ ComplexPairTy ComplexExprEmitter::VisitBinAssign(const BinaryOperator *E) {
   if (!LV.isVolatileQualified())
     return Val;
 
+  CheckVote(E->getLHS(), 0);
   return EmitLoadOfLValue(LV, E->getExprLoc());
 }
 
