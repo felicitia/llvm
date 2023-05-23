@@ -2165,6 +2165,7 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
 
   Address Addr = InputValue.getAddress(*this);
   ConstraintStr += '*';
+  EmitVote(Addr, InputType, 1, 0);
   return {Addr.getPointer(), Addr.getElementType()};
 }
 

@@ -4347,6 +4347,7 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
   if (const ObjCIndirectCopyRestoreExpr *CRE
         = dyn_cast<ObjCIndirectCopyRestoreExpr>(E)) {
     assert(getLangOpts().ObjCAutoRefCount);
+    // CheckVote(E, 1);  // DK: emitWritebackArg() calls EmitLoadOfLValue conditionally. For consistency, DK omitted CheckVote.
     return emitWritebackArg(*this, args, CRE);
   }
 

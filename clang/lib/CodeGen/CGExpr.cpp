@@ -1948,6 +1948,7 @@ static RValue EmitLoadOfMatrixLValue(LValue LV, SourceLocation Loc,
 /// method emits the address of the lvalue, then loads the result as an rvalue,
 /// returning the rvalue.
 RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
+  EmitVote(LV, 1, false);
   if (LV.isObjCWeak()) {
     // load of a __weak object.
     Address AddrWeakObj = LV.getAddress(*this);
@@ -1956,7 +1957,6 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
   }
   if (LV.getQuals().getObjCLifetime() == Qualifiers::OCL_Weak) {
 //    EmitVote(LV.getAddress(*this), LV.getType(), 1, false);
-    EmitVote(LV, 1, false);
     // In MRC mode, we do a load+autorelease.
     if (!getLangOpts().ObjCAutoRefCount) {
       return RValue::get(EmitARCLoadWeak(LV.getAddress(*this)));
@@ -1972,7 +1972,6 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
     assert(!LV.getType()->isFunctionType());
 
 //    EmitVote(LV.getAddress(*this), LV.getType(), 1, false);
-    EmitVote(LV, 1, false);
     if (LV.getType()->isConstantMatrixType())
       return EmitLoadOfMatrixLValue(LV, Loc, *this);
 
@@ -2015,10 +2014,12 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
 
 RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV,
                                                  SourceLocation Loc) {
+  EmitVote(LV, 1, false);
   const CGBitFieldInfo &Info = LV.getBitFieldInfo();
 
   // Get the output type.
   llvm::Type *ResLTy = ConvertType(LV.getType());
+
 
   Address Ptr = LV.getBitFieldAddress();
   llvm::Value *Val =
@@ -2051,6 +2052,7 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV,
 // If this is a reference to a subset of the elements of a vector, create an
 // appropriate shufflevector.
 RValue CodeGenFunction::EmitLoadOfExtVectorElementLValue(LValue LV) {
+  EmitVote(LV, 1, false);
   llvm::Value *Vec = Builder.CreateLoad(LV.getExtVectorAddress(),
                                         LV.isVolatileQualified());
 
