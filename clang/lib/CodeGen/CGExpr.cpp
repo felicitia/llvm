@@ -1918,6 +1918,8 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   }
 
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
+
+  EmitVote(Addr, Ty, 0, false);
 }
 
 void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
@@ -1953,6 +1955,8 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
                                                              AddrWeakObj));
   }
   if (LV.getQuals().getObjCLifetime() == Qualifiers::OCL_Weak) {
+//    EmitVote(LV.getAddress(*this), LV.getType(), 1, false);
+    EmitVote(LV, 1, false);
     // In MRC mode, we do a load+autorelease.
     if (!getLangOpts().ObjCAutoRefCount) {
       return RValue::get(EmitARCLoadWeak(LV.getAddress(*this)));
@@ -1967,6 +1971,8 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
   if (LV.isSimple()) {
     assert(!LV.getType()->isFunctionType());
 
+//    EmitVote(LV.getAddress(*this), LV.getType(), 1, false);
+    EmitVote(LV, 1, false);
     if (LV.getType()->isConstantMatrixType())
       return EmitLoadOfMatrixLValue(LV, Loc, *this);
 

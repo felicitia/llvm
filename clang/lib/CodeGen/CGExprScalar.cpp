@@ -184,6 +184,8 @@ private:
 /* VarDecl *Var;*/
 };
 
+
+#if 0
 static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
   // DK: NEW vote after this (LHS)
   if (CGF.RVarSize.size() == 0) return;
@@ -227,6 +229,7 @@ static void emitVoteRValueCallExpr(CodeGenFunction &CGF, const CallExpr * E) {
     emitVoteRValue(CGF, argExpr, nullptr);
   }
 }
+#endif
 #endif
 
 static bool MustVisitNullValue(const Expr *E) {
@@ -330,6 +333,11 @@ public:
     return CGF.EmitVote(E, LHS);
   }
 
+  // mode: 0 (LHS), 1 (RHS), 9 (both)
+  void CheckVote(const Expr * E, int mode) {
+    CGF.CheckVote(E, mode);
+  }
+
   void EmitBinOpCheck(ArrayRef<std::pair<Value *, SanitizerMask>> Checks,
                       const BinOpInfo &Info);
 
@@ -381,7 +389,8 @@ public:
                                 E->getExprLoc());
 #else
     LValue LV = EmitCheckedLValue(E, CodeGenFunction::TCK_Load);
-    emitVoteRValue(CGF, E, LV.getPointer(CGF));
+//    emitVoteRValue(CGF, E, LV.getPointer(CGF));
+    CheckVote(E, 1);
     Value *V = EmitLoadOfLValue(LV, E->getExprLoc());
 #endif
 
@@ -586,10 +595,11 @@ public:
   Value *VisitSYCLUniqueStableNameExpr(SYCLUniqueStableNameExpr *E);
 
   Value *VisitOpaqueValueExpr(OpaqueValueExpr *E) {
-    if (E->isGLValue())
+    if (E->isGLValue()) {
+      CheckVote(E, 1);
       return EmitLoadOfLValue(CGF.getOrCreateOpaqueLValueMapping(E),
                               E->getExprLoc());
-
+    }
     // Otherwise, assume the mapping is the scalar directly.
     return CGF.getOrCreateOpaqueRValueMapping(E).getScalarVal();
   }
@@ -612,13 +622,15 @@ public:
   }
   Value *VisitObjCMessageExpr(ObjCMessageExpr *E) {
     if (E->getMethodDecl() &&
-        E->getMethodDecl()->getReturnType()->isReferenceType())
+        E->getMethodDecl()->getReturnType()->isReferenceType()) {
       return EmitLoadOfLValue(E);
+    }
     return CGF.EmitObjCMessageExpr(E).getScalarVal();
   }
 
   Value *VisitObjCIsaExpr(ObjCIsaExpr *E) {
     LValue LV = CGF.EmitObjCIsaExpr(E);
+    CheckVote(E, 1);
     Value *V = CGF.EmitLoadOfLValue(LV, E->getExprLoc()).getScalarVal();
     return V;
   }
@@ -639,7 +651,8 @@ public:
   Value *VisitShuffleVectorExpr(ShuffleVectorExpr *E);
   Value *VisitConvertVectorExpr(ConvertVectorExpr *E);
   Value *VisitMemberExpr(MemberExpr *E);
-  Value *VisitExtVectorElementExpr(Expr *E) { return EmitLoadOfLValue(E); }
+  Value *VisitExtVectorElementExpr(Expr *E) { 
+    return EmitLoadOfLValue(E); }
   Value *VisitCompoundLiteralExpr(CompoundLiteralExpr *E) {
     // Strictly speaking, we shouldn't be calling EmitLoadOfLValue, which
     // transitively calls EmitCompoundLiteralLValue, here in C++ since compound
@@ -667,13 +680,10 @@ public:
   Value *VisitCastExpr(CastExpr *E);
 
   Value *VisitCallExpr(const CallExpr *E) {
-/*    LValue LV = EmitCheckedLValue(E, CodeGenFunction::TCK_Load);
-    emitVoteRValue(CGF, E, LV.getPointer(CGF)); */
-    emitVoteRValueCallExpr(CGF, E);
 
-    if (E->getCallReturnType(CGF.getContext())->isReferenceType())
+    if (E->getCallReturnType(CGF.getContext())->isReferenceType()) {
       return EmitLoadOfLValue(E);
-
+    }
     Value *V = CGF.EmitCallExpr(E).getScalarVal();
 
     EmitLValueAlignmentAssumption(E, V);
@@ -940,8 +950,10 @@ public:
   Value *VisitBinLOr        (const BinaryOperator *E);
   Value *VisitBinComma      (const BinaryOperator *E);
 
-  Value *VisitBinPtrMemD(const Expr *E) { return EmitLoadOfLValue(E); }
-  Value *VisitBinPtrMemI(const Expr *E) { return EmitLoadOfLValue(E); }
+  Value *VisitBinPtrMemD(const Expr *E) { 
+    return EmitLoadOfLValue(E); }
+  Value *VisitBinPtrMemI(const Expr *E) { 
+    return EmitLoadOfLValue(E); }
 
   Value *VisitCXXRewrittenBinaryOperator(CXXRewrittenBinaryOperator *E) {
     return Visit(E->getSemanticForm());
@@ -1867,9 +1879,9 @@ Value *ScalarExprEmitter::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   // careful, because the base of a vector subscript is occasionally an rvalue,
   // so we can't get it as an lvalue.
   if (!E->getBase()->getType()->isVectorType() &&
-      !E->getBase()->getType()->isVLSTBuiltinType())
+      !E->getBase()->getType()->isVLSTBuiltinType()) {
     return EmitLoadOfLValue(E);
-
+  }
   // Handle the vector case.  The base must be a vector, the index must be an
   // integer value.
   Value *Base = Visit(E->getBase());
@@ -2116,6 +2128,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     Address Addr = EmitLValue(E).getAddress(CGF);
     Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy));
     LValue LV = CGF.MakeAddrLValue(Addr, DestTy);
+    CheckVote(E, 1);	// OK
     return EmitLoadOfLValue(LV, CE->getExprLoc());
   }
 
@@ -2125,6 +2138,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
                                                 CGF.ConvertTypeForMem(DestTy));
     LValue DestLV = CGF.MakeAddrLValue(Addr, DestTy);
     DestLV.setTBAAInfo(TBAAAccessInfo::getMayAliasInfo());
+    CheckVote(E, 1);	// OK
     return EmitLoadOfLValue(DestLV, CE->getExprLoc());
   }
 
@@ -2243,11 +2257,13 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
          isa<llvm::FixedVectorType>(DstTy))) {
       Address Addr = CGF.CreateDefaultAlignTempAlloca(SrcTy, "saved-value");
       LValue LV = CGF.MakeAddrLValue(Addr, E->getType());
+      CheckVote(E, 0);
       CGF.EmitStoreOfScalar(Src, LV);
       Addr = Builder.CreateElementBitCast(Addr, CGF.ConvertTypeForMem(DestTy),
                                           "castFixedSve");
       LValue DestLV = CGF.MakeAddrLValue(Addr, DestTy);
       DestLV.setTBAAInfo(TBAAAccessInfo::getMayAliasInfo());
+      CheckVote(E, 1);	// OK
       return EmitLoadOfLValue(DestLV, CE->getExprLoc());
     }
     return Builder.CreateBitCast(Src, DstTy);
@@ -2619,7 +2635,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   int amount = (isInc ? 1 : -1);
   bool isSubtraction = !isInc;
 
-  emitVoteRValue(CGF, E->getSubExpr(), LV.getPointer(CGF));
+//  emitVoteRValue(CGF, E->getSubExpr(), LV.getPointer(CGF));
 
   if (const AtomicType *atomicTy = type->getAs<AtomicType>()) {
     type = atomicTy->getValueType();
@@ -2655,6 +2671,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
                                   llvm::AtomicOrdering::SequentiallyConsistent);
       return isPre ? Builder.CreateBinOp(op, old, amt) : old;
     }
+    CheckVote(E, 1);	// OK
     value = EmitLoadOfLValue(LV, E->getExprLoc());
     input = value;
     // For every other atomic operation, we need to emit a load-op-cmpxchg loop
@@ -2667,6 +2684,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     atomicPHI->addIncoming(value, startBB);
     value = atomicPHI;
   } else {
+    CheckVote(E, 1);	// OK
     value = EmitLoadOfLValue(LV, E->getExprLoc());
     input = value;
   }
@@ -2909,11 +2927,12 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
 
   
   // Store the updated result through the lvalue.
+  CheckVote(E->getSubExpr(), 0);
   if (LV.isBitField())
     CGF.EmitStoreThroughBitfieldLValue(RValue::get(value), LV, &value);
   else
     CGF.EmitStoreThroughLValue(RValue::get(value), LV);
-  EmitVote( E->getSubExpr(), LV);
+//  EmitVote(E->getSubExpr(), LV);
   // If this is a postinc, return the value read from memory, otherwise use the
   // updated value.
   return isPre ? value : input;
@@ -3114,10 +3133,11 @@ Value *ScalarExprEmitter::VisitUnaryReal(const UnaryOperator *E) {
     // If it's an l-value, load through the appropriate subobject l-value.
     // Note that we have to ask E because Op might be an l-value that
     // this won't work for, e.g. an Obj-C property.
-    if (E->isGLValue())
+    if (E->isGLValue()) {
+      CheckVote(E, 1);
       return CGF.EmitLoadOfLValue(CGF.EmitLValue(E),
                                   E->getExprLoc()).getScalarVal();
-
+    }
     // Otherwise, calculate and project.
     return CGF.EmitComplexExpr(Op, false, true).first;
   }
@@ -3131,10 +3151,11 @@ Value *ScalarExprEmitter::VisitUnaryImag(const UnaryOperator *E) {
     // If it's an l-value, load through the appropriate subobject l-value.
     // Note that we have to ask E because Op might be an l-value that
     // this won't work for, e.g. an Obj-C property.
-    if (Op->isGLValue())
+    if (Op->isGLValue()) {
+      CheckVote(E, 1);
       return CGF.EmitLoadOfLValue(CGF.EmitLValue(E),
                                   E->getExprLoc()).getScalarVal();
-
+    }
     // Otherwise, calculate and project.
     return CGF.EmitComplexExpr(Op, true, false).second;
   }
@@ -3243,6 +3264,7 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     // floating point environment in the loop.
     llvm::BasicBlock *startBB = Builder.GetInsertBlock();
     llvm::BasicBlock *opBB = CGF.createBasicBlock("atomic_op", CGF.CurFn);
+    CheckVote(E->getLHS(), 1);
     OpInfo.LHS = EmitLoadOfLValue(LHSLV, E->getExprLoc());
     OpInfo.LHS = CGF.EmitToMemory(OpInfo.LHS, type);
     Builder.CreateBr(opBB);
@@ -3251,9 +3273,10 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     atomicPHI->addIncoming(OpInfo.LHS, startBB);
     OpInfo.LHS = atomicPHI;
   }
-  else
+  else {
+    CheckVote(E->getLHS(), 1);
     OpInfo.LHS = EmitLoadOfLValue(LHSLV, E->getExprLoc());
-
+  }
   CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, OpInfo.FPFeatures);
   SourceLocation Loc = E->getExprLoc();
   OpInfo.LHS =
@@ -3283,12 +3306,13 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   // specially because the result is altered by the store, i.e., [C99 6.5.16p1]
   // 'An assignment expression has the value of the left operand after the
   // assignment...'.
+  CheckVote(E->getLHS(), 0);
   if (LHSLV.isBitField())
     CGF.EmitStoreThroughBitfieldLValue(RValue::get(Result), LHSLV, &Result);
   else
     CGF.EmitStoreThroughLValue(RValue::get(Result), LHSLV);
 
-  EmitVote(E->getLHS(), LHSLV);
+//  EmitVote(E->getLHS(), LHSLV);
   if (CGF.getLangOpts().OpenMP)
     CGF.CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(CGF,
                                                                   E->getLHS());
@@ -3314,6 +3338,7 @@ Value *ScalarExprEmitter::EmitCompoundAssign(const CompoundAssignOperator *E,
     return RHS;
 
   // Otherwise, reload the value.
+  CheckVote(E->getLHS(), 1);
   return EmitLoadOfLValue(LHS, E->getExprLoc());
 }
 
@@ -4382,7 +4407,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
     RHS = CGF.EmitARCStoreWeak(LHS.getAddress(CGF), RHS, Ignore);
-    EmitVote(E->getLHS(), LHS);	// verify!
+//    EmitVote(E->getLHS(), LHS);	// verify!
     break;
 
   case Qualifiers::OCL_None:
@@ -4395,13 +4420,14 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after
     // the assignment...'.
+    CheckVote(E->getLHS(), 0);
     if (LHS.isBitField()) {
       CGF.EmitStoreThroughBitfieldLValue(RValue::get(RHS), LHS, &RHS);
     } else {
       CGF.EmitNullabilityCheck(LHS, RHS, E->getExprLoc());
       CGF.EmitStoreThroughLValue(RValue::get(RHS), LHS);	
     }
-    EmitVote(E->getLHS(), LHS);	// verify!
+//    EmitVote(E->getLHS(), LHS);	// verify!
   }
 
   // If the result is clearly ignored, return now.
@@ -4417,6 +4443,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     return RHS;
 
   // Otherwise, reload the value.
+  CheckVote(E->getLHS(), 1);
   return EmitLoadOfLValue(LHS, E->getExprLoc());
 }
 

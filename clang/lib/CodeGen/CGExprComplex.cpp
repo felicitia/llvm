@@ -487,6 +487,7 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
     return Visit(Op);
 
   case CK_LValueBitCast: {
+    CheckVote(Op, 1);
     LValue origLV = CGF.EmitLValue(Op);
     Address V = origLV.getAddress(CGF);
     V = Builder.CreateElementBitCast(V, CGF.ConvertType(DestTy));
@@ -494,6 +495,7 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
   }
 
   case CK_LValueToRValueBitCast: {
+    CheckVote(Op, 1);
     LValue SourceLVal = CGF.EmitLValue(Op);
     Address Addr = Builder.CreateElementBitCast(SourceLVal.getAddress(CGF),
                                                 CGF.ConvertTypeForMem(DestTy));
@@ -949,8 +951,8 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
 
   // Load from the l-value and convert it.
   SourceLocation Loc = E->getExprLoc();
+  CheckVote(E->getLHS(), 1);
   if (LHSTy->isAnyComplexType()) {
-    CheckVote(E, 1);
     ComplexPairTy LHSVal = EmitLoadOfLValue(LHS, Loc);
     OpInfo.LHS = EmitComplexToComplexCast(LHSVal, LHSTy, OpInfo.Ty, Loc);
   } else {
@@ -970,10 +972,10 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   ComplexPairTy Result = (this->*Func)(OpInfo);
 
   // Truncate the result and store it into the LHS lvalue.
+  CheckVote(E->getLHS(), 0);
   if (LHSTy->isAnyComplexType()) {
     ComplexPairTy ResVal =
         EmitComplexToComplexCast(Result, OpInfo.Ty, LHSTy, Loc);
-    CheckVote(E->getLHS(), 0);
     EmitStoreOfComplex(ResVal, LHS, /*isInit*/ false);
     Val = RValue::getComplex(ResVal);
   } else {
@@ -1130,7 +1132,7 @@ ComplexPairTy ComplexExprEmitter::VisitVAArgExpr(VAArgExpr *E) {
     llvm::Value *U = llvm::UndefValue::get(EltTy);
     return ComplexPairTy(U, U);
   }
-
+  CheckVote(E, 1);
   return EmitLoadOfLValue(CGF.MakeAddrLValue(ArgPtr, E->getType()),
                           E->getExprLoc());
 }

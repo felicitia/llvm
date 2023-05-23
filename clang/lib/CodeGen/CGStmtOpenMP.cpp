@@ -1604,7 +1604,7 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
 //
 // mode: 0 (LHS), 1 (RHS), 9 (both)
 void CodeGenFunction::CheckVote(const Expr *E, int mode) {
-  bool _VoteNow= VoteNow;
+  bool _VoteNow = VoteNow;
   const Expr * _VoteVar = VoteVar;
   VoteVar = nullptr;
   VoteNow = false;
@@ -1612,15 +1612,26 @@ void CodeGenFunction::CheckVote(const Expr *E, int mode) {
   if (mode == 0 || mode == 9)
     VoteVar = EmitVarVote(E, LVarSize, true, false);
   if (VoteVar != nullptr) { VoteNow = true; return; }
-  VoteNow = _VoteNow;
-  VoteVar = _VoteVar;
+  VoteNow = false;
+  VoteVar = nullptr;
   if (mode == 1 || mode == 9)
     VoteVar = EmitVarVote(E, RVarSize, true, false);
   if (VoteVar != nullptr) { VoteNow = true; return; }
 }
 
+void CodeGenFunction::EmitVote(LValue LV, int mode , bool keep_status) {
+    bool _VoteNow = VoteNow;
+    const Expr * _VoteVar = VoteVar;
+    Address addr = LV.getAddress(*this);
+    QualType dataType = LV.getType();
+    llvm::Type *Type = ConvertType(dataType);
+    if (Type->isPointerTy() && LV.getPointer(*this)) return;
+    if (!Type->isPointerTy() && !(LV.getPointer(*this))) return;
+    EmitVote(addr, dataType, mode, keep_status);
+}
+
 void CodeGenFunction::EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode , bool keep_status) {
-    bool _VoteNow= VoteNow;
+    bool _VoteNow = VoteNow;
     const Expr * _VoteVar = VoteVar;
     EmitVote(addrR, dataTypeR, mode, true);
     VoteNow = _VoteNow;
@@ -1650,6 +1661,11 @@ void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool k
     if (isComplexType(*this, dataType)) {
       llvm::StructType* structType = llvm::cast<llvm::StructType>(Type);
       Type = structType->getElementType(0);
+    }
+    if (Type->isPointerTy()) { 
+      VoteVar = nullptr;
+      VoteNow = false;
+      return;
     }
     uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
     llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);

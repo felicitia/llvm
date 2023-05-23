@@ -3296,6 +3296,7 @@ public:
                               const Stmt *OutlinedStmt);
   
   void EmitVote(const Expr * E, LValue LHS);
+  void EmitVote(LValue LHS, int mode, bool keep_status);
   void EmitVote(Address addr, QualType dataType, int mode, bool keep_status);
   void EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode, bool keep_status);
   void CheckVote(const Expr * E, int mode);

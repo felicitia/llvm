@@ -2191,6 +2191,7 @@ CodeGenFunction::EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
               nullptr};
   }
 
+  CheckVote(InputExpr, 1);
   if (Info.allowsRegister() || !Info.allowsMemory())
     if (CodeGenFunction::hasScalarEvaluationKind(InputExpr->getType()))
       return {EmitScalarExpr(InputExpr), nullptr};
@@ -2352,6 +2353,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   // It can be marked readnone if it doesn't have any input memory constraints
   // in addition to meeting the conditions listed above.
   bool ReadOnly = true, ReadNone = true;
+  std::vector<const Expr *> OutExprVote;
+  std::vector<const Expr *> InputExprVote;
+  std::vector<CodeGen::LValue> OutLValueVote;
 
   for (unsigned i = 0, e = S.getNumOutputs(); i != e; i++) {
     TargetInfo::ConstraintInfo &Info = OutputConstraintInfos[i];
@@ -2375,6 +2379,10 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
     OutputConstraints.push_back(OutputConstraint);
     LValue Dest = EmitLValue(OutExpr);
+
+    OutExprVote.push_back(OutExpr);
+    OutLValueVote.push_back(Dest);
+
     if (!Constraints.empty())
       Constraints += ',';
 
@@ -2463,6 +2471,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       const Expr *InputExpr = S.getOutputExpr(i);
       llvm::Value *Arg;
       llvm::Type *ArgElemType;
+      CheckVote(InputExpr, 1);
       std::tie(Arg, ArgElemType) = EmitAsmInputLValue(
           Info, Dest, InputExpr->getType(), InOutConstraints,
           InputExpr->getExprLoc());
@@ -2505,6 +2514,8 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
   for (unsigned i = 0, e = S.getNumInputs(); i != e; i++) {
     const Expr *InputExpr = S.getInputExpr(i);
+
+    InputExprVote.push_back(InputExpr);
 
     TargetInfo::ConstraintInfo &Info = InputConstraintInfos[i];
 
@@ -2705,6 +2716,12 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                       ResultRegTypes, ArgElemTypes, *this, RegResults);
   }
 
+  // DK: vote for LHS
+  for (unsigned i = 0, e = OutExprVote.size(); i != e; ++i) {
+    CheckVote(OutExprVote[i], 0);
+    EmitVote(OutLValueVote[i], 0, false);
+  }
+
   assert(RegResults.size() == ResultRegTypes.size());
   assert(RegResults.size() == ResultTruncRegTypes.size());
   assert(RegResults.size() == ResultRegDests.size());
@@ -2761,7 +2778,11 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       }
       Dest = MakeAddrLValue(A, Ty);
     }
+    CheckVote(OutExprVote[i], 0);
     EmitStoreThroughLValue(RValue::get(Tmp), Dest);
+  }
+  for (unsigned i = 0, e = OutExprVote.size(); i != e; ++i) {
+    CheckVote(OutExprVote[i], 0);
   }
 }
 
