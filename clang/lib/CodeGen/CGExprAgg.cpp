@@ -227,6 +227,7 @@ public:
 void AggExprEmitter::EmitAggLoadOfLValue(const Expr *E) {
   LValue LV = CGF.EmitLValue(E);
 
+  CGF.CheckVote(E, 1);
   // If the type of the l-value is atomic, then do an atomic load.
   if (LV.getType()->isAtomicType() || CGF.LValueIsSuitableForInlineAtomic(LV)) {
     CGF.EmitAtomicLoad(LV, E->getExprLoc(), Dest);
@@ -421,6 +422,7 @@ AggExprEmitter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E) {
   llvm::Value *IdxStart[] = { Zero, Zero };
   llvm::Value *ArrayStart = Builder.CreateInBoundsGEP(
       ArrayPtr.getElementType(), ArrayPtr.getPointer(), IdxStart, "arraystart");
+  CGF.CheckVote(E,0);
   CGF.EmitStoreThroughLValue(RValue::get(ArrayStart), Start);
   ++Field;
 
@@ -438,9 +440,11 @@ AggExprEmitter::VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E) {
     llvm::Value *IdxEnd[] = { Zero, Size };
     llvm::Value *ArrayEnd = Builder.CreateInBoundsGEP(
         ArrayPtr.getElementType(), ArrayPtr.getPointer(), IdxEnd, "arrayend");
+    CGF.CheckVote(E, 0);
     CGF.EmitStoreThroughLValue(RValue::get(ArrayEnd), EndOrLength);
   } else if (Ctx.hasSameType(Field->getType(), Ctx.getSizeType())) {
     // Length.
+    CGF.CheckVote(E, 0);
     CGF.EmitStoreThroughLValue(RValue::get(Size), EndOrLength);
   } else {
     CGF.ErrorUnsupported(E, "weird std::initializer_list");
@@ -1079,6 +1083,7 @@ void AggExprEmitter::VisitBinCmp(const BinaryOperator *E) {
   // type, and initialize it from the constant integer value selected above.
   LValue FieldLV = CGF.EmitLValueForFieldInitialization(
       DestLV, *CmpInfo.Record->field_begin());
+  CGF.CheckVote(E, 0);
   CGF.EmitStoreThroughLValue(RValue::get(Select), FieldLV, /*IsInit*/ true);
 
   // All done! The result is in the Dest slot.
@@ -1189,15 +1194,20 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
       CGF.EmitAtomicStore(Dest.asRValue(), LHS, /*isInit*/ false);
       return;
     }
-
-    EmitCopy(E->getLHS()->getType(),
-             AggValueSlot::forLValue(LHS, CGF, AggValueSlot::IsDestructed,
+#if 1
+    CGF.CheckVote(E->getRHS(), 1);
+    CGF.EmitVote(Dest.getAddress(), E->getLHS()->getType(), 1, false);
+#endif
+    const AggValueSlot dest = AggValueSlot::forLValue(LHS, CGF, AggValueSlot::IsDestructed,
                                      needsGC(E->getLHS()->getType()),
                                      AggValueSlot::IsAliased,
-                                     AggValueSlot::MayOverlap),
+                                     AggValueSlot::MayOverlap);
+    EmitCopy(E->getLHS()->getType(),
+             dest,
              Dest);
 #if 1
-    CGF.EmitVote(E->getLHS(), LHS);
+    CGF.CheckVote(E->getLHS(), 0);
+    CGF.EmitVote(dest.getAddress(), E->getLHS()->getType(), 0, false);
 #endif
     return;
   }
@@ -1542,6 +1552,7 @@ AggExprEmitter::EmitInitializationToLValue(Expr *E, LValue LV) {
     return;
   } else if (type->isReferenceType()) {
     RValue RV = CGF.EmitReferenceBindingToExpr(E);
+    CGF.CheckVote(E,0);
     return CGF.EmitStoreThroughLValue(RV, LV);
   }
 
@@ -1560,6 +1571,7 @@ AggExprEmitter::EmitInitializationToLValue(Expr *E, LValue LV) {
     if (LV.isSimple()) {
       CGF.EmitScalarInit(E, /*D=*/nullptr, LV, /*Captured=*/false);
     } else {
+      CGF.CheckVote(E,0);
       CGF.EmitStoreThroughLValue(RValue::get(CGF.EmitScalarExpr(E)), LV);
     }
     return;

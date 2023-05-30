@@ -35,6 +35,8 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/AtomicOrdering.h"
 
+#include "clang/AST/RecursiveASTVisitor.h"	// by DK
+
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 using namespace clang;
 using namespace CodeGen;
@@ -280,6 +282,46 @@ public:
     }
     (void)InlinedShareds.Privatize();
   }
+};
+
+// DK's addition
+class PointerChecker : public clang::RecursiveASTVisitor<PointerChecker> {
+public:
+  bool hasPointer(const QualType Ty) {
+    if (const auto *RT = Ty->getAs<RecordType>()) {
+      hasPointer(RT->getDecl());
+    }
+    return true;
+  }
+  bool hasPointer(const clang::RecordDecl *recordDecl) {
+    return TraverseRecordDecl(const_cast<clang::RecordDecl *>(recordDecl));
+  }
+
+  bool VisitPointerType(const clang::PointerType *pointerType) {
+    hasPointer_ = true;
+    return false;
+  }
+
+private:
+  bool TraverseRecordDecl(clang::RecordDecl *recordDecl) {
+    for (auto field : recordDecl->fields()) {
+      if (field->getType()->isPointerType()) {
+        hasPointer_ = true;
+        return false;
+      }
+      const auto * RT = field->getType()->getAs<RecordType>();
+      clang::RecordDecl * RD = RT->getDecl();
+      if (RD) {
+        TraverseRecordDecl(RD);
+      } 
+    }
+    return true;
+  }
+
+  bool hasPointer_ = false;
+
+public:
+  bool hasPointer() const { return hasPointer_; }
 };
 
 } // namespace
@@ -1615,7 +1657,7 @@ void CodeGenFunction::CheckVote(const Expr *E, int mode) {
   VoteNow = false;
   VoteVar = nullptr;
   if (mode == 1 || mode == 9)
-    VoteVar = EmitVarVote(E, RVarSize, true, false);
+    VoteVar = EmitVarVote(E, RVarSize, false, false);
   if (VoteVar != nullptr) { VoteNow = true; return; }
 }
 
@@ -1657,6 +1699,7 @@ static bool isComplexType(CodeGenFunction &CGF, QualType dataType) {
 
 void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool keep_status) {
     if (!VoteNow) return;
+#if 0
     llvm::Type * Type = ConvertType(dataType);
     if (isComplexType(*this, dataType)) {
       llvm::StructType* structType = llvm::cast<llvm::StructType>(Type);
@@ -1668,6 +1711,27 @@ void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool k
       return;
     }
     uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
+    if (!is32Or64BitBasicType(Type, getLLVMContext())) {
+      const clang::Type * cType = dataType.getTypePtr();
+      sizeInBytes = getLLVMContext().getTypeSizeInChars(cType).getQuantity();
+    }
+#else  // DK: borrowed from is32Or64BitBasicType in TargetInfo.cpp
+    uint64_t sizeInBytes;
+    if (const ComplexType *CTy = dataType->getAs<ComplexType>())
+      dataType = CTy->getElementType();
+    if (dataType->isPointerType()) return;	// no vote for pointer type
+    if (!dataType->getAs<BuiltinType>() && !dataType->hasPointerRepresentation() &&
+        !dataType->isEnumeralType() && !dataType->isBlockPointerType()) {
+      // aggregate: if there is a pointer in it, do not vote
+      PointerChecker checker;
+      if (checker.hasPointer(dataType)) return;
+      const clang::Type * Type = dataType.getTypePtr();
+      sizeInBytes = getContext().getTypeSizeInChars(Type).getQuantity();
+    } else {
+      // basic type 
+      sizeInBytes = getContext().getTypeSize(dataType)/8;
+    }
+#endif
     llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);
     llvm::Value *IndDepth = llvm::ConstantInt::get(Int32Ty, 0);	
     const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
@@ -1699,6 +1763,7 @@ void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
   }
 }
 
+// whichside: 0 (LHS), 1 (RHS), 2 (LHS atomic), 3 (RHS atomic), 9 (VOTE)
 void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside, bool keep_status) {
      llvm::PointerType* ptrType = llvm::PointerType::get(Int8Ty, 0);
      llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
@@ -1720,6 +1785,10 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, l
          LibCallName = "__ft_votel";
      else if (whichside == 1) // RHS
          LibCallName = "__ft_voter";
+     else if (whichside == 2) // LHS 
+         LibCallName = "__ft_votel_atomic";
+     else if (whichside == 3) // RHS
+         LibCallName = "__ft_voter_atomic";
      else 	// Vote
          LibCallName = "__ft_vote";
      llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
@@ -1941,6 +2010,68 @@ static const Expr * visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4>
   return FoundExpr;
 }
 
+static const Expr * searchVoteVar(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
+		std::vector<int> &VarsNameIndex, bool lookforLHS, bool canbeLHS) {
+
+  const Expr * FoundVar = nullptr;
+  bool canbeLHS2 = canbeLHS;
+
+  if (!S || VarSize.size() == 0) return nullptr;
+
+  switch (S->getStmtClass()) {
+    case Stmt::DeclRefExprClass: {
+      auto *SaveRef = cast<DeclRefExpr>((cast<DeclRefExpr>(S))->IgnoreImpCasts());
+      if (SaveRef == nullptr || (lookforLHS && !canbeLHS)) return nullptr;
+      const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl());
+      if (VD == nullptr) return FoundVar;
+      for (int i=0; i < (int)VarSize.size(); i+=3) {
+        const DeclRefExpr * DR = cast<DeclRefExpr>(VarSize[i]);
+        const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
+        if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
+            && VD->getDeclContext() == VD2->getDeclContext()) {
+          for (int j = 0; j < (int)VarsNameIndex.size(); j++) {
+            if (VarsNameIndex[j] == i) // already included
+              return VarSize[i];
+          }
+          VarsNameIndex.push_back(i);
+          return VarSize[i];
+        }
+      }
+      return nullptr;
+    }
+    case Stmt::UnaryOperatorClass: {
+      const UnaryOperator * UO = cast<UnaryOperator>(S);
+      if (UO->isPrefix() || UO->isPostfix()) {
+        canbeLHS2 = (lookforLHS ? true : false );
+      } 
+      if (UO->getOpcode() == UO_AddrOf || UO->getOpcode() == UO_Deref) {
+      }
+      break;
+    }
+    case Stmt::BinaryOperatorClass: {
+      const BinaryOperator * BO = cast<BinaryOperator>(S);
+      if (BO->getOpcode() == BO_Assign) {
+        FoundVar = searchVoteVar(cast<Stmt>(BO->getLHS()), VarSize, VarsNameIndex, lookforLHS, true);
+        if (FoundVar != nullptr) return FoundVar;
+        canbeLHS2 = false;
+      }
+      break;
+    }
+    case Stmt::AtomicExprClass: {	// For atomic, assume all variables can be LHS
+      canbeLHS2 = (lookforLHS ? true : canbeLHS);	
+      break;
+    }
+    default:
+      break;
+  }
+  for (const Stmt *subStmt : S->children()) {
+    if (!subStmt) continue;
+    FoundVar = searchVoteVar(subStmt, VarSize, VarsNameIndex, lookforLHS, canbeLHS2);
+    if (FoundVar) return FoundVar;
+  }
+  return nullptr;
+}
+
 static const Expr * visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSize,
 		std::vector<int> &VarsNameIndex, bool lookforLHS, bool canbeLHS) {
   const Expr * FoundVar = nullptr;
@@ -2049,6 +2180,10 @@ const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr 
   if (VarSize.size() == 0) return FoundVar;
 
   FoundVar = visitStmt(S, VarSize, VarsNameIndex, lookforLHS, lookforLHS);
+  const Expr * FoundVar2 = searchVoteVar(S, VarSize, VarsNameIndex, lookforLHS, lookforLHS);
+  if (FoundVar != FoundVar2)
+    printf("Different!\n");
+
   if (VarsNameIndex.size() == 0) return nullptr;
 
   for (int i=0; i < (int)VarsNameIndex.size(); i++) {
@@ -2057,9 +2192,9 @@ const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr 
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]+2]);
   }
 
-  if (!generate_vote) return FoundVar;
+  if (!generate_vote) return FoundVar2;
   else  emitVoteStmt(*this, TVarsSizes, S->getBeginLoc());
-  return FoundVar;
+  return FoundVar2;
 }
 
 void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
