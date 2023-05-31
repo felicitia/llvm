@@ -1609,7 +1609,7 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      if (VarsSizes[i]->getType()->isPointerType()) { // only (Basetype *) is allowed.
        if (VarsSizes[i+1] == nullptr) return; // Not allowed! 
        LValue LV = CGF.EmitCheckedLValue(VarsSizes[i], CodeGenFunction::TCK_Load);
-       llvm::Type * Type = CGF.ConvertType(LV.getType());
+//       llvm::Type * Type = CGF.ConvertType(LV.getType());
 //       sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
        RValue RV = CGF.EmitLoadOfLValue(LV, Loc);
        VarPtr = RV.getScalarVal();
@@ -1646,8 +1646,8 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
 //
 // mode: 0 (LHS), 1 (RHS), 9 (both)
 void CodeGenFunction::CheckVote(const Expr *E, int mode) {
-  bool _VoteNow = VoteNow;
-  const Expr * _VoteVar = VoteVar;
+//  bool _VoteNow = VoteNow;
+//  const Expr * _VoteVar = VoteVar;
   VoteVar = nullptr;
   VoteNow = false;
   VoteLoc = E->getExprLoc();
@@ -1662,8 +1662,8 @@ void CodeGenFunction::CheckVote(const Expr *E, int mode) {
 }
 
 void CodeGenFunction::EmitVote(LValue LV, int mode , bool keep_status) {
-    bool _VoteNow = VoteNow;
-    const Expr * _VoteVar = VoteVar;
+//    bool _VoteNow = VoteNow;
+//    const Expr * _VoteVar = VoteVar;
     Address addr = LV.getAddress(*this);
     QualType dataType = LV.getType();
     llvm::Type *Type = ConvertType(dataType);
@@ -1720,7 +1720,7 @@ void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool k
     if (const ComplexType *CTy = dataType->getAs<ComplexType>())
       dataType = CTy->getElementType();
     if (dataType->isPointerType()) return;	// no vote for pointer type
-    if (!dataType->getAs<BuiltinType>() && !dataType->hasPointerRepresentation() &&
+    if (!dataType->isVectorType() && !dataType->getAs<BuiltinType>() && !dataType->hasPointerRepresentation() &&
         !dataType->isEnumeralType() && !dataType->isBlockPointerType()) {
       // aggregate: if there is a pointer in it, do not vote
       PointerChecker checker;
