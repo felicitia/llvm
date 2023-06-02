@@ -705,7 +705,7 @@ static Expr *findPeephole(Expr *op, CastKind kind, const ASTContext &ctx) {
 void AggExprEmitter::VisitCastExpr(CastExpr *E) {
   if (const auto *ECE = dyn_cast<ExplicitCastExpr>(E))
     CGF.CGM.EmitExplicitCastExprType(ECE, &CGF);
-  CGF.CheckVote(E, 1);
+  CGF.CheckVote(E->getSubExpr(), 1);
   switch (E->getCastKind()) {
   case CK_Dynamic: {
     // FIXME: Can this actually happen? We have no test coverage for it.

@@ -1657,36 +1657,21 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
 #endif
      CGF.VoteVar = VarsSizes[i];
      CGF.VoteNow = true;
+     CGF.VoteLoc = Loc;
      CGF.EmitVoteCall(VarPtr, sizeInBytes, 9, false);
   }
 }
 
-//
-static bool isComplexType(CodeGenFunction &CGF, QualType dataType) {
-    llvm::Type * Type = CGF.ConvertType(dataType);
-    if (Type->isStructTy()) {
-      llvm::StructType* structType = llvm::cast<llvm::StructType>(Type);
-      if (structType->getNumElements() == 2) { 
-        llvm::Type* element1 = structType->getElementType(0);
-        llvm::Type* element2 = structType->getElementType(1);
-        if (element1 == element2) {
-          // Complex type has two identical elements
-          return true;
-        }
-      }
-    }
-    return false;
-}
-
-// mode: 0 (LHS), 1 (RHS), 9 (both)
+// mode: 0 (LHS), 1 (RHS), 9 (both), mode | 0x100 (ignore pointer)
 void CodeGenFunction::CheckVote(const Expr *E, int mode) {
 //  bool _VoteNow = VoteNow;
 //  const Expr * _VoteVar = VoteVar;
   VoteVar = nullptr;
   VoteNow = false;
-  if (E->getType()->isPointerType() /* && mode == 0 */) return;
+  if ((mode & 0x100) == 0 && E->getType()->isPointerType() /* && mode == 0 */) return;
   VoteLoc = E->getExprLoc();
   VoteExp = E;
+  mode = mode & 0xff;
   if (mode == 0 || mode == 9)
     VoteVar = EmitVarVote(E, LVarSize, true, false);
   if (VoteVar != nullptr) { VoteNow = true; return; }
@@ -1723,9 +1708,11 @@ void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool k
 
 void CodeGenFunction::EmitVote(int mode, bool keep_status) {
 // TODO:    need to generage TCK_load
-   if (VoteVar == nullptr) return; 
+   if (VoteVar == nullptr || VoteNow == false) return; 
    LValue LV = EmitCheckedLValue(VoteVar, CodeGenFunction::TCK_Load);
-   EmitVote(LV, mode, keep_status);
+   llvm::Value * VarPtr = LV.getPointer(*this);
+   uint64_t sizeInBytes = _getTypeSize(*this, VoteVar->getType());
+   EmitVoteCall(VarPtr, sizeInBytes, mode, keep_status);
 }
 
 void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {

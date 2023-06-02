@@ -4409,9 +4409,11 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return;
   }
 
-#if 0	// EmitAnyExprToTemp(E) handles any load.
-  CheckVote(E,1);
-  EmitVote(1,false);
+#if 1	// EmitAnyExprToTemp(E) handles any load.
+  if (type->isPointerType()) {	// vote now
+    CheckVote(E, 9 | 0x100);
+    EmitVote(9,false);
+  }
 #endif
   args.add(EmitAnyExprToTemp(E), type);
 }
