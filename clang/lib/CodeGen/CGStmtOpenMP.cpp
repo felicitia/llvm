@@ -1601,8 +1601,30 @@ checkForLastprivateConditionalUpdate(CodeGenFunction &CGF,
       CGF, S, PrivateDecls);
 }
 
+static uint64_t _getTypeSize(CodeGenFunction &CGF, QualType dataType) {
+    uint64_t sizeInBytes = 0;
+
+    if (const ComplexType *CTy = dataType->getAs<ComplexType>())
+      dataType = CTy->getElementType();
+    if (const AtomicType *ATy = dataType->getAs<AtomicType>())
+      dataType = ATy->getValueType();
+    if (!dataType->isAggregateType() && !dataType->isConstantMatrixType() && !dataType->isVectorType() && !dataType->getAs<BuiltinType>() && !dataType->hasPointerRepresentation() &&
+        !dataType->isEnumeralType() && !dataType->isBlockPointerType()) {
+      // aggregate: if there is a pointer in it, do not vote
+      PointerChecker checker;
+      if (checker.hasPointer(dataType)) return 0;
+      const clang::Type * Type = dataType.getTypePtr();
+      sizeInBytes = CGF.CGM.getContext().getTypeSizeInChars(Type).getQuantity();
+    } else {
+      // basic type 
+      sizeInBytes = CGF.CGM.getContext().getTypeSize(dataType)/8;
+    }
+    return sizeInBytes;
+}
+
 static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarsSizes, SourceLocation Loc) {
    if (VarsSizes.size() == 0) return;
+   CGF.VoteNow = true;
    uint64_t sizeInBytes = 0;
    for (int i = 0; i < (int)VarsSizes.size(); i+=3) {
      llvm::Value * VarPtr;
@@ -1620,67 +1642,26 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
        VarPtr = LV.getPointer(CGF);
      }
 
-     llvm::Value *TSize ;
-     llvm::Value *IndDepth;
      if (VarsSizes[i+1] == nullptr) {
        if (sizeInBytes == 0) 
-         TSize = CGF.getTypeSize(VarsSizes[i]->getType());
-       else
-         TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);
+         sizeInBytes = _getTypeSize(CGF, VarsSizes[i]->getType());
      } else {
-       TSize = CGF.EmitScalarExpr(VarsSizes[i+1], /*IgnoreResultAssign=*/true);
+         auto const_int1 = cast<llvm::ConstantInt>(CGF.EmitScalarExpr(VarsSizes[i+1]));
+         sizeInBytes = const_int1->getSExtValue();
      }
-     if (VarsSizes[i+2] == nullptr) {
-       IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);
-     } else {
-       IndDepth = CGF.EmitScalarExpr(VarsSizes[i+2], /*IgnoreResultAssign=*/true);
-     }
+#if 0
      // to get the symbolic name of the variable
      const DeclRefExpr * DR = cast<DeclRefExpr>(VarsSizes[i]);
      const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
      llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-     CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, Loc, 9, false);
+#endif
+     CGF.VoteVar = VarsSizes[i];
+     CGF.VoteNow = true;
+     CGF.EmitVoteCall(VarPtr, sizeInBytes, 9, false);
   }
 }
 
 //
-// mode: 0 (LHS), 1 (RHS), 9 (both)
-void CodeGenFunction::CheckVote(const Expr *E, int mode) {
-//  bool _VoteNow = VoteNow;
-//  const Expr * _VoteVar = VoteVar;
-  VoteVar = nullptr;
-  VoteNow = false;
-  VoteLoc = E->getExprLoc();
-  if (mode == 0 || mode == 9)
-    VoteVar = EmitVarVote(E, LVarSize, true, false);
-  if (VoteVar != nullptr) { VoteNow = true; return; }
-  VoteNow = false;
-  VoteVar = nullptr;
-  if (mode == 1 || mode == 9)
-    VoteVar = EmitVarVote(E, RVarSize, false, false);
-  if (VoteVar != nullptr) { VoteNow = true; return; }
-}
-
-void CodeGenFunction::EmitVote(LValue LV, int mode , bool keep_status) {
-//    bool _VoteNow = VoteNow;
-//    const Expr * _VoteVar = VoteVar;
-    Address addr = LV.getAddress(*this);
-    QualType dataType = LV.getType();
-    llvm::Type *Type = ConvertType(dataType);
-    if (Type->isPointerTy() && LV.getPointer(*this)) return;
-    if (!Type->isPointerTy() && !(LV.getPointer(*this))) return;
-    EmitVote(addr, dataType, mode, keep_status);
-}
-
-void CodeGenFunction::EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode , bool keep_status) {
-    bool _VoteNow = VoteNow;
-    const Expr * _VoteVar = VoteVar;
-    EmitVote(addrR, dataTypeR, mode, true);
-    VoteNow = _VoteNow;
-    VoteVar = _VoteVar;
-    EmitVote(addrI, dataTypeI, mode, keep_status);
-}
-
 static bool isComplexType(CodeGenFunction &CGF, QualType dataType) {
     llvm::Type * Type = CGF.ConvertType(dataType);
     if (Type->isStructTy()) {
@@ -1697,53 +1678,62 @@ static bool isComplexType(CodeGenFunction &CGF, QualType dataType) {
     return false;
 }
 
+// mode: 0 (LHS), 1 (RHS), 9 (both)
+void CodeGenFunction::CheckVote(const Expr *E, int mode) {
+//  bool _VoteNow = VoteNow;
+//  const Expr * _VoteVar = VoteVar;
+  VoteVar = nullptr;
+  VoteNow = false;
+  if (E->getType()->isPointerType() /* && mode == 0 */) return;
+  VoteLoc = E->getExprLoc();
+  VoteExp = E;
+  if (mode == 0 || mode == 9)
+    VoteVar = EmitVarVote(E, LVarSize, true, false);
+  if (VoteVar != nullptr) { VoteNow = true; return; }
+  VoteNow = false;
+  VoteVar = nullptr;
+  if (mode == 1 || mode == 9)
+    VoteVar = EmitVarVote(E, RVarSize, false, false);
+  if (VoteVar != nullptr) { VoteNow = true; return; }
+}
+
+void CodeGenFunction::EmitVote(LValue LV, int mode , bool keep_status) {
+//    bool _VoteNow = VoteNow;
+//    const Expr * _VoteVar = VoteVar;
+    Address addr = LV.getAddress(*this);
+    QualType dataType = LV.getType();
+//    llvm::Type *Type = ConvertType(dataType);
+    if (dataType->isPointerType() && LV.getPointer(*this)) return;
+    if (!dataType->isPointerType() && !(LV.getPointer(*this))) return;
+    EmitVote(addr, dataType, mode, keep_status);
+}
+
+void CodeGenFunction::EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode , bool keep_status) {
+    bool _VoteNow = VoteNow;
+    const Expr * _VoteVar = VoteVar;
+    EmitVote(addrR, dataTypeR, mode, true);
+    VoteNow = _VoteNow;
+    VoteVar = _VoteVar;
+    EmitVote(addrI, dataTypeI, mode, keep_status);
+}
+
 void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool keep_status) {
-    if (!VoteNow) return;
-#if 0
-    llvm::Type * Type = ConvertType(dataType);
-    if (isComplexType(*this, dataType)) {
-      llvm::StructType* structType = llvm::cast<llvm::StructType>(Type);
-      Type = structType->getElementType(0);
-    }
-    if (Type->isPointerTy()) { 
-      VoteVar = nullptr;
-      VoteNow = false;
-      return;
-    }
-    uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
-    if (!is32Or64BitBasicType(Type, getLLVMContext())) {
-      const clang::Type * cType = dataType.getTypePtr();
-      sizeInBytes = getLLVMContext().getTypeSizeInChars(cType).getQuantity();
-    }
-#else  // DK: borrowed from is32Or64BitBasicType in TargetInfo.cpp
-    uint64_t sizeInBytes;
-    if (const ComplexType *CTy = dataType->getAs<ComplexType>())
-      dataType = CTy->getElementType();
-    if (dataType->isPointerType()) return;	// no vote for pointer type
-    if (!dataType->isVectorType() && !dataType->getAs<BuiltinType>() && !dataType->hasPointerRepresentation() &&
-        !dataType->isEnumeralType() && !dataType->isBlockPointerType()) {
-      // aggregate: if there is a pointer in it, do not vote
-      PointerChecker checker;
-      if (checker.hasPointer(dataType)) return;
-      const clang::Type * Type = dataType.getTypePtr();
-      sizeInBytes = getContext().getTypeSizeInChars(Type).getQuantity();
-    } else {
-      // basic type 
-      sizeInBytes = getContext().getTypeSize(dataType)/8;
-    }
-#endif
-    llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);
-    llvm::Value *IndDepth = llvm::ConstantInt::get(Int32Ty, 0);	
-    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
-    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
-    EmitVoteCall(addr.getPointer(), TSize, IndDepth, constStr, VoteLoc, mode, keep_status);
+    EmitVoteCall(addr.getPointer(), _getTypeSize(*this, dataType), mode, keep_status);
+}
+
+void CodeGenFunction::EmitVote(int mode, bool keep_status) {
+// TODO:    need to generage TCK_load
+   if (VoteVar == nullptr) return; 
+   LValue LV = EmitCheckedLValue(VoteVar, CodeGenFunction::TCK_Load);
+   EmitVote(LV, mode, keep_status);
 }
 
 void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
   // DK: NEW vote after this (LHS)
-  const Expr * _VoteVar = EmitVarVote(E, LVarSize,  true, false);
-  if (_VoteVar != nullptr) {
+  CheckVote(E, 0);
+  EmitVoteCall(LHS.getPointer(*this), _getTypeSize(*this, LHS.getType()), 0, false);
+#if 0
+  if (VoteVar != nullptr) {
     llvm::Type * Type = ConvertType(LHS.getType());
     if (Type->isPointerTy()) return;
     uint64_t sizeInBytes = Type->getPrimitiveSizeInBits()/8;
@@ -1754,28 +1744,47 @@ void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
         sizeInBytes = CGM.getDataLayout().getTypeAllocSize(CGM.VoidPtrTy);
     }
     llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeInBytes);
-    llvm::Value *IndDepth = llvm::ConstantInt::get(Int32Ty, 0);	
     const DeclRefExpr * DR = cast<DeclRefExpr>(_VoteVar);
     const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
     llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
 //    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), "test");
-    EmitVoteCall(LHS.getPointer(*this), TSize, IndDepth, constStr, E->getExprLoc(), 0, false);
+    EmitVoteCall(LHS.getPointer(*this), E->getExprLoc(), 0, false);
   }
+#endif
 }
 
 // whichside: 0 (LHS), 1 (RHS), 2 (LHS atomic), 3 (RHS atomic), 9 (VOTE)
-void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside, bool keep_status) {
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status) {
+    uint64_t sizeOfType = _getTypeSize(*this, dataType);
+    if (whichside == 1) // store
+      sizeOfType = _getTypeSize(*this, VoteExp->getType());
+    EmitVoteCall(AddrPtr, sizeOfType, whichside, keep_status);
+}
+
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, int whichside, bool keep_status) {
+
+    if (VoteVar == nullptr || VoteNow == false) return;
+    if (sizeOfType == 0) {
+      printf("Warning: Size of type is 0\n"); 
+      VoteNow = false;
+      VoteVar = nullptr;
+      return;
+    }
+    llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeOfType);
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
+    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
+    llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
+     
      llvm::PointerType* ptrType = llvm::PointerType::get(Int8Ty, 0);
      llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
      llvm::Value* StrPtr = Builder.CreatePointerCast(globalStr, ptrType);
      SourceManager &SM = CGM.getContext().getSourceManager();
-     int line_no = SM.getPresumedLoc(Loc).getLine();
+     int line_no = SM.getPresumedLoc(VoteLoc).getLine();
      llvm::Value *Args[] = {
          AddrPtr,
          Builder.CreateIntCast(TSize, Int32Ty, /*isSigned*/ true),
-         Builder.CreateIntCast(DerefDepth, Int32Ty, /*isSigned*/ true)
-	 , StrPtr
-         , Builder.CreateIntCast(llvm::ConstantInt::get(Int32Ty, line_no), Int32Ty, /*isSigned*/ true)
+	 StrPtr,
+         Builder.CreateIntCast(llvm::ConstantInt::get(Int32Ty, line_no), Int32Ty, /*isSigned*/ true)
          };
      if (!HaveInsertPoint())
        return;
@@ -1791,7 +1800,7 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, l
          LibCallName = "__ft_voter_atomic";
      else 	// Vote
          LibCallName = "__ft_vote";
-     llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
+     llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
      auto *FTy = llvm::FunctionType::get(CGM.VoidTy, Params, /*isVarArg=*/false);
      llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
      EmitRuntimeCall(Func, Args);

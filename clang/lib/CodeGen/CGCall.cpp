@@ -4347,7 +4347,7 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
   if (const ObjCIndirectCopyRestoreExpr *CRE
         = dyn_cast<ObjCIndirectCopyRestoreExpr>(E)) {
     assert(getLangOpts().ObjCAutoRefCount);
-    // CheckVote(E, 1);  // DK: emitWritebackArg() calls EmitLoadOfLValue conditionally. For consistency, DK omitted CheckVote.
+    // CheckVote(E, 1);  // DK: emitWritebackArg() calls EmitLoadOfLValue conditionally. For consistency, DK omitted CheckVote. (ObjC is not supported)
     return emitWritebackArg(*this, args, CRE);
   }
 
@@ -4409,6 +4409,10 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     return;
   }
 
+#if 0	// EmitAnyExprToTemp(E) handles any load.
+  CheckVote(E,1);
+  EmitVote(1,false);
+#endif
   args.add(EmitAnyExprToTemp(E), type);
 }
 

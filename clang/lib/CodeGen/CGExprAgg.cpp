@@ -233,7 +233,7 @@ void AggExprEmitter::EmitAggLoadOfLValue(const Expr *E) {
     CGF.EmitAtomicLoad(LV, E->getExprLoc(), Dest);
     return;
   }
-
+  CGF.EmitVote(LV, 1, false);
   EmitFinalDestCopy(E->getType(), LV);
 }
 
@@ -705,6 +705,7 @@ static Expr *findPeephole(Expr *op, CastKind kind, const ASTContext &ctx) {
 void AggExprEmitter::VisitCastExpr(CastExpr *E) {
   if (const auto *ECE = dyn_cast<ExplicitCastExpr>(E))
     CGF.CGM.EmitExplicitCastExprType(ECE, &CGF);
+  CGF.CheckVote(E, 1);
   switch (E->getCastKind()) {
   case CK_Dynamic: {
     // FIXME: Can this actually happen? We have no test coverage for it.
@@ -1191,17 +1192,18 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     // That copy is an atomic copy if the LHS is atomic.
     if (LHS.getType()->isAtomicType() ||
         CGF.LValueIsSuitableForInlineAtomic(LHS)) {
+      CGF.CheckVote(E->getLHS(), 0);
       CGF.EmitAtomicStore(Dest.asRValue(), LHS, /*isInit*/ false);
       return;
     }
-#if 1
-    CGF.CheckVote(E->getRHS(), 1);
-    CGF.EmitVote(Dest.getAddress(), E->getLHS()->getType(), 1, false);
-#endif
     const AggValueSlot dest = AggValueSlot::forLValue(LHS, CGF, AggValueSlot::IsDestructed,
                                      needsGC(E->getLHS()->getType()),
                                      AggValueSlot::IsAliased,
                                      AggValueSlot::MayOverlap);
+#if 1
+    CGF.CheckVote(E->getRHS(), 1);
+    CGF.EmitVote(Dest.getAddress(), E->getLHS()->getType(), 1, false);
+#endif
     EmitCopy(E->getLHS()->getType(),
              dest,
              Dest);
@@ -1220,6 +1222,7 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
       CGF.LValueIsSuitableForInlineAtomic(LHS)) {
     EnsureDest(E->getRHS()->getType());
     Visit(E->getRHS());
+    CGF.CheckVote(E->getLHS(), 0);
     CGF.EmitAtomicStore(Dest.asRValue(), LHS, /*isInit*/ false);
     return;
   }
@@ -1237,6 +1240,10 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
 
   // Copy into the destination if the assignment isn't ignored.
   EmitFinalDestCopy(E->getType(), LHS);
+#if 1
+    CGF.CheckVote(E->getLHS(), 0);
+    CGF.EmitVote(LHS, 0, false);
+#endif
 
   if (!Dest.isIgnored() && !Dest.isExternallyDestructed() &&
       E->getType().isDestructedType() == QualType::DK_nontrivial_c_struct)

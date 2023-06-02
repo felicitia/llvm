@@ -262,6 +262,7 @@ public:
   SmallVector<const Expr *, 4> RVarSize ;
   bool VoteNow = false;
   const Expr * VoteVar;
+  const Expr * VoteExp;
   SourceLocation VoteLoc;
 
   CodeGenModule &CGM;  // Per-module state.
@@ -3295,6 +3296,7 @@ public:
   void startOutlinedSEHHelper(CodeGenFunction &ParentCGF, bool IsFilter,
                               const Stmt *OutlinedStmt);
   
+  void EmitVote(int mode, bool keep_status);
   void EmitVote(const Expr * E, LValue LHS);
   void EmitVote(LValue LHS, int mode, bool keep_status);
   void EmitVote(Address addr, QualType dataType, int mode, bool keep_status);
@@ -3514,7 +3516,8 @@ public:
   void EmitFTNmrDirective(const FTNmrDirective &S);
   const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generateVote);
   void EmitFTVoteDirective(const FTVoteDirective &S);
-  void EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * TSize, llvm::Value *DerefDepth, llvm::Constant* constStr, SourceLocation Loc, int whichside, bool keep_status);
+  void EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeInBytes, int whichside, bool keep_status);
+  void EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status);
 // endif
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
