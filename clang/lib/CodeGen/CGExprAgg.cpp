@@ -1200,17 +1200,13 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
                                      needsGC(E->getLHS()->getType()),
                                      AggValueSlot::IsAliased,
                                      AggValueSlot::MayOverlap);
-#if 1
     CGF.CheckVote(E->getRHS(), 1);
     CGF.EmitVote(Dest.getAddress(), E->getLHS()->getType(), 1, false);
-#endif
     EmitCopy(E->getLHS()->getType(),
              dest,
              Dest);
-#if 1
     CGF.CheckVote(E->getLHS(), 0);
     CGF.EmitVote(dest.getAddress(), E->getLHS()->getType(), 0, false);
-#endif
     return;
   }
 
@@ -1240,10 +1236,8 @@ void AggExprEmitter::VisitBinAssign(const BinaryOperator *E) {
 
   // Copy into the destination if the assignment isn't ignored.
   EmitFinalDestCopy(E->getType(), LHS);
-#if 1
-    CGF.CheckVote(E->getLHS(), 0);
-    CGF.EmitVote(LHS, 0, false);
-#endif
+  CGF.CheckVote(E->getLHS(), 0);
+  CGF.EmitVote(LHS, 0, false);
 
   if (!Dest.isIgnored() && !Dest.isExternallyDestructed() &&
       E->getType().isDestructedType() == QualType::DK_nontrivial_c_struct)

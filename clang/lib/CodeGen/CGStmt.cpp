@@ -2719,13 +2719,6 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                       ReadOnly, ReadNone, InNoMergeAttributedStmt, S,
                       ResultRegTypes, ArgElemTypes, *this, RegResults);
   }
-#if 0
-  // DK: vote for LHS
-  for (unsigned i = 0, e = OutExprVote.size(); i != e; ++i) {
-    CheckVote(OutExprVote[i], 0);
-    EmitVote(OutLValueVote[i], 0, false);
-  }
-#endif
   assert(RegResults.size() == ResultRegTypes.size());
   assert(RegResults.size() == ResultTruncRegTypes.size());
   assert(RegResults.size() == ResultRegDests.size());
@@ -2785,12 +2778,10 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     CheckVote(OutExprRegVote[i], 0);
     EmitStoreThroughLValue(RValue::get(Tmp), Dest);
   }
-#if 1	// DK: TODO: This may duplicate vote when RegResults.size() > 0.
   for (unsigned i = 0, e = OutExprVote.size(); i != e; ++i) {
     CheckVote(OutExprVote[i], 0);
     EmitVote(OutLValueVote[i], 0, false);
   }
-#endif
 }
 
 LValue CodeGenFunction::InitCapturedStruct(const CapturedStmt &S) {

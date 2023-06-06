@@ -146,92 +146,6 @@ struct BinOpInfo {
   }
 };
 
-#if 1
-class VariableVisitor: public RecursiveASTVisitor<VariableVisitor> {
-public:
-  explicit VariableVisitor(ASTContext *Context, llvm::SmallVector<const Expr *, 4> Varlist /* VarDecl *Var*/) : Context(Context), Varlist(Varlist) {}
-
-  bool VisitDeclRefExpr(DeclRefExpr *E) {
-    const DeclRefExpr * DR = cast<DeclRefExpr>(E);
-    const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-    for (unsigned int i = 0; i < Varlist.size(); i+=3) {
-      const DeclRefExpr * DR2 = cast<DeclRefExpr>(Varlist[i]);
-      const VarDecl *VD2 = dyn_cast<VarDecl>(DR2->getDecl());
-      if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
-          && VD->getDeclContext() == VD2->getDeclContext()) 
-         return false;
-    }
-    return true;
-  }
-
-  bool TraverseStmt(Stmt *S) {
-    if (S) {
-      if (const CompoundStmt * CS = dyn_cast<CompoundStmt>(S)) {
-        for (auto * C: CS->children()) {
-          Stmt * Child = const_cast<clang::Stmt*>(dyn_cast<Stmt>(C));
-          if (TraverseStmt(Child) == false) return false;
-        }
-        return true;
-      }
-      return RecursiveASTVisitor::TraverseStmt(S);
-    }
-    return true;
-  }
-
-private:
-  ASTContext *Context;
-  llvm::SmallVector<const Expr *, 4>  Varlist;
-/* VarDecl *Var;*/
-};
-
-
-#if 0
-static void emitVoteRValue(CodeGenFunction &CGF, const Expr * E, Value * RHS) {
-  // DK: NEW vote after this (LHS)
-  if (CGF.RVarSize.size() == 0) return;
-  ASTContext &Context = CGF.getContext();
-  VariableVisitor VV(&Context, CGF.RVarSize);
-  Stmt * S = const_cast<clang::Stmt*>(dyn_cast<Stmt>(E));
-  if (VV.TraverseStmt(S) == true) return;
-  llvm::Type * Type = CGF.ConvertType(E->getType());
-  // RHS must not be pointer type
-  if (Type->isPointerTy() && RHS) return;	
-  // if RHS is null, and E is not pointer, it is loaded first.
-  // When is it loaded, vote() is done before loading.
-  if (!Type->isPointerTy() && !RHS) return;	
-  const Expr * VoteVar = CGF.EmitVarVote(E, CGF.RVarSize,  false, false);
-//  if (!VarInValueOp(CGF.RVarSize, RHS)) return;
-  if (VoteVar == nullptr) return;
-  uint64_t sizeInBytes = Context.getTypeSize(E->getType())/8;
-  llvm::Value *TSize = llvm::ConstantInt::get(CGF.Int32Ty, sizeInBytes);	// FIXIT
-  llvm::Value *IndDepth = llvm::ConstantInt::get(CGF.Int32Ty, 0);	// FIXIT
-  if (Type->isPointerTy()) {
-     TSize = CGF.getTypeSize(VoteVar->getType());
-  }
-  const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
-  const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
-  llvm::Constant* constStr = llvm::ConstantDataArray::getString(CGF.getLLVMContext(), VD->getQualifiedNameAsString());
-  if (RHS)
-    CGF.EmitVoteCall(RHS, TSize, IndDepth, constStr, E->getExprLoc(), 1, false);
-  else {
-     LValue LV = CGF.EmitLValue(VoteVar);
-     llvm::Value* VarPtr = LV.getPointer(CGF);
-    CGF.EmitVoteCall(VarPtr, TSize, IndDepth, constStr, E->getExprLoc(), 1, false);
-  }
-}
-
-static void emitVoteRValueCallExpr(CodeGenFunction &CGF, const CallExpr * E) {
-  if (!E) return;
-  if (CGF.RVarSize.size() == 0) return;
-  for (auto it = E->arg_begin(); it != E->arg_end(); ++it) {
-    const Expr *argExpr = *it;
-//    if (llvm::isa<llvm::Constant>(argExpr)) continue;
-    emitVoteRValue(CGF, argExpr, nullptr);
-  }
-}
-#endif
-#endif
-
 static bool MustVisitNullValue(const Expr *E) {
   // If a null pointer expression's type is the C++0x nullptr_t, then
   // it's not necessarily a simple constant and it must be evaluated
@@ -389,7 +303,6 @@ public:
                                 E->getExprLoc());
 #else
     LValue LV = EmitCheckedLValue(E, CodeGenFunction::TCK_Load);
-//    emitVoteRValue(CGF, E, LV.getPointer(CGF));
     CheckVote(E, 1);
     Value *V = EmitLoadOfLValue(LV, E->getExprLoc());
 #endif
@@ -2634,8 +2547,6 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
 
   int amount = (isInc ? 1 : -1);
   bool isSubtraction = !isInc;
-
-//  emitVoteRValue(CGF, E->getSubExpr(), LV.getPointer(CGF));
 
   if (const AtomicType *atomicTy = type->getAs<AtomicType>()) {
     type = atomicTy->getValueType();
