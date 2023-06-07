@@ -473,6 +473,7 @@ void CodeGenFunction::CheckVote(const Expr *E, int mode) {
 void CodeGenFunction::EmitVote(LValue LV, int mode , bool keep_status) {
 //    bool _VoteNow = VoteNow;
 //    const Expr * _VoteVar = VoteVar;
+    if (VoteVar == nullptr || VoteNow == false) return; 
     Address addr = LV.getAddress(*this);
     QualType dataType = LV.getType();
 //    llvm::Type *Type = ConvertType(dataType);
@@ -482,6 +483,7 @@ void CodeGenFunction::EmitVote(LValue LV, int mode , bool keep_status) {
 }
 
 void CodeGenFunction::EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode , bool keep_status) {
+    if (VoteVar == nullptr || VoteNow == false) return; 
     bool _VoteNow = VoteNow;
     const Expr * _VoteVar = VoteVar;
     EmitVote(addrR, dataTypeR, mode, true);
@@ -491,6 +493,7 @@ void CodeGenFunction::EmitVote(Address addrR, QualType dataTypeR, Address addrI,
 }
 
 void CodeGenFunction::EmitVote(Address addr, QualType dataType, int mode, bool keep_status) {
+    if (VoteVar == nullptr || VoteNow == false) return; 
     EmitVoteCall(addr.getPointer(), _getTypeSize(*this, dataType), mode, keep_status);
 }
 
@@ -506,11 +509,13 @@ void CodeGenFunction::EmitVote(int mode, bool keep_status) {
 void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
   // DK: NEW vote after this (LHS)
   CheckVote(E, 0);
+  if (VoteVar == nullptr || VoteNow == false) return; 
   EmitVoteCall(LHS.getPointer(*this), _getTypeSize(*this, LHS.getType()), 0, false);
 }
 
 // whichside: 0 (LHS), 1 (RHS), 2 (LHS atomic), 3 (RHS atomic), 9 (VOTE)
 void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status) {
+    if (VoteVar == nullptr || VoteNow == false) return; 
     uint64_t sizeOfType = _getTypeSize(*this, dataType);
     if (whichside == 1) // store
       sizeOfType = _getTypeSize(*this, VoteExp->getType());

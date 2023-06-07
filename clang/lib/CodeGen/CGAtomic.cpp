@@ -1481,10 +1481,13 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
               SeqCstBB);
 
   CheckVote(E,0);
+
+  if (Dest.isValid()) {
   if (E->getVal1()->getType()->isPointerType())
     EmitVote(Dest, E->getVal1()->getType()->getPointeeType(), 2, false);
   else
     EmitVote(Dest, E->getVal1()->getType(), 2, false);
+  }
  
   // Cleanup and return
   Builder.SetInsertPoint(ContBB);

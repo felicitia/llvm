@@ -2612,7 +2612,7 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelGenericLoopDirective = 298,
 
-  // ifdef DK
+  /* ifdef DK */
   /** OpenMP ft directive.
    */
 
