@@ -119,31 +119,35 @@ static void removeVars(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &VarSi
   }
 }
 
+static int isVarIncluded(const Expr * E,  SmallVector<const Expr *, 4> &VarList) {
+  auto *SaveRef = cast<DeclRefExpr>(E->IgnoreImpCasts());
+  if (SaveRef == nullptr) return -1;
+  const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl());
+  if (VD == nullptr) return -1;
+  for (int i=0; i < (int)VarList.size(); i+=3) {
+    const DeclRefExpr * DR = cast<DeclRefExpr>(VarList[i]);
+    const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
+    if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
+        && VD->getDeclContext() == VD2->getDeclContext()) 
+        return i;
+  }
+  return -1;
+}
+
 static const Expr * visitExpr(const DeclRefExpr *E, SmallVector<const Expr *, 4> &VarSize,
 		std::vector<int> &VarsSizesIndex, bool lookforLHS, bool canbeLHS) {
   const Expr * FoundExpr = nullptr;
   if (!E || VarSize.size() == 0 || (lookforLHS && !canbeLHS) || (!lookforLHS && canbeLHS)) return FoundExpr;
-  auto *SaveRef = cast<DeclRefExpr>(E->IgnoreImpCasts());
-  if (SaveRef == nullptr) return FoundExpr;
-  const VarDecl *VD = dyn_cast<VarDecl>(SaveRef->getDecl());
-  if (VD == nullptr) return FoundExpr;
-  for (int i=0; i < (int)VarSize.size(); i+=3) {
-    const DeclRefExpr * DR = cast<DeclRefExpr>(VarSize[i]);
-    const VarDecl *VD2 = dyn_cast<VarDecl>(DR->getDecl());
-    if (VD->getQualifiedNameAsString() == VD2->getQualifiedNameAsString()
-        && VD->getDeclContext() == VD2->getDeclContext()) {
-      int j = 0;
-      for (j = 0; j < (int)VarsSizesIndex.size(); j++) {
-        if (VarsSizesIndex[j] == i) // already included
-	  break;
-      }
-      if (j >= (int)VarsSizesIndex.size()) 
-        VarsSizesIndex.push_back(i);
-      FoundExpr = VarSize[i];
+  int i = isVarIncluded(E, VarSize);
+  if (i < 0) return nullptr;
+  int j;
+  FoundExpr = VarSize[i];
+  for (j = 0; j < (int)VarsSizesIndex.size(); j++) {
+    if (VarsSizesIndex[j] == i) // already included
       break;
-    }
   }
-  if (VarsSizesIndex.size() > 0 /* && lookforLHS */) return FoundExpr;
+  if (j >= (int)VarsSizesIndex.size()) 
+    VarsSizesIndex.push_back(i);
   return FoundExpr;
 }
 
@@ -409,6 +413,7 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
 
   SmallVector<const Expr *, 4> SaveLVarSize;
   SmallVector<const Expr *, 4> SaveRVarSize;
+  SmallVector<const Expr *, 4> SaveAutoSize;
   SmallVector<const Expr *, 4> NovarSize;
   SmallVector<const Expr *, 4> NorvarSize;
   SmallVector<const Expr *, 4> NovoteSize;
@@ -423,6 +428,7 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
 
   SaveLVarSize = LVarSize;
   SaveRVarSize = RVarSize;
+  SaveAutoSize = AutoSize;
 
   // inherit outer NMR region's var, rvar and add local ones
   if (LvarClause)  // lvar
@@ -435,11 +441,15 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
     NorvarSize.append(NorvarClause->varlist_begin(), NorvarClause->varlist_end());
   if (NovoteClause)
     NovoteSize.append(NovoteClause->varlist_begin(), NovoteClause->varlist_end());
+  if (AutoClause)
+    AutoSize.append(AutoClause->varlist_begin(), AutoClause->varlist_end());
   // remove entries in (No) clauses
   removeVars(*this, LVarSize, NovarSize);
   removeVars(*this, LVarSize, NovoteSize);
   removeVars(*this, RVarSize, NorvarSize);
   removeVars(*this, RVarSize, NovoteSize);
+  // remove entries in (No) votes from Auto: TODO?: noauto?
+  removeVars(*this, AutoSize, NovoteSize);
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(&S);
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());
@@ -447,6 +457,7 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
 
   LVarSize = SaveLVarSize;
   RVarSize = SaveRVarSize;
+  AutoSize = SaveAutoSize;
 }
 
 
@@ -457,9 +468,13 @@ void CodeGenFunction::CheckVote(const Expr *E, int mode) {
   VoteVar = nullptr;
   VoteNow = false;
   if ((mode & 0x100) == 0 && E->getType()->isPointerType() /* && mode == 0 */) return;
+  mode = mode & 0xff;
   VoteLoc = E->getExprLoc();
   VoteExp = E;
-  mode = mode & 0xff;
+  VoteVar = EmitVarVote(E, AutoSize, false, false);
+  if (VoteVar != nullptr) { VoteNow = true; return; }
+  VoteNow = false;
+  VoteVar = nullptr;
   if (mode == 0 || mode == 9)
     VoteVar = EmitVarVote(E, LVarSize, true, false);
   if (VoteVar != nullptr) { VoteNow = true; return; }
@@ -550,17 +565,21 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, i
      if (!HaveInsertPoint())
        return;
      // Build call __ft_vote(&loc, var, size)
-     const char *LibCallName;
+     std::string str("__ft_vote");
      if (whichside == 0) // LHS 
-         LibCallName = "__ft_votel";
+         str += "l";
      else if (whichside == 1) // RHS
-         LibCallName = "__ft_voter";
+         str += "r";
      else if (whichside == 2) // LHS 
-         LibCallName = "__ft_votel_atomic";
+         str += "l_atomic";
      else if (whichside == 3) // RHS
-         LibCallName = "__ft_voter_atomic";
-     else 	// Vote
-         LibCallName = "__ft_vote";
+         str += "r_atomic";
+     else if (whichside == 9) // Vote
+         str += "";
+     if (isVarIncluded(VoteVar, AutoSize) >= 0)
+       str += "_auto";
+     const char *LibCallName = str.c_str();
+     
      llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
      auto *FTy = llvm::FunctionType::get(CGM.VoidTy, Params, /*isVarArg=*/false);
      llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);

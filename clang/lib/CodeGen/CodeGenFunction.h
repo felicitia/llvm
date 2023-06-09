@@ -260,6 +260,7 @@ public:
 
   SmallVector<const Expr *, 4> LVarSize ;
   SmallVector<const Expr *, 4> RVarSize ;
+  SmallVector<const Expr *, 4> AutoSize ;
   bool VoteNow = false;
   const Expr * VoteVar;
   const Expr * VoteExp;
