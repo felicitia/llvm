@@ -356,7 +356,7 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
      CGF.VoteVar = VarsSizes[i];
      CGF.VoteNow = true;
      CGF.VoteLoc = Loc;
-     CGF.EmitVoteCall(VarPtr, sizeInBytes, 9, false);
+     CGF.EmitVoteCall(VarPtr, sizeInBytes, 0x8, false);
   }
 }
 
@@ -528,7 +528,7 @@ void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
   EmitVoteCall(LHS.getPointer(*this), _getTypeSize(*this, LHS.getType()), 0, false);
 }
 
-// whichside: 0 (LHS), 1 (RHS), 2 (LHS atomic), 3 (RHS atomic), 9 (VOTE)
+// whichside: 0 (LHS), 1 (RHS), 0x2 (atomic), 0x3 (auto), 8 (vote now)
 void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status) {
     if (VoteVar == nullptr || VoteNow == false) return; 
     uint64_t sizeOfType = _getTypeSize(*this, dataType);
@@ -566,18 +566,12 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, i
        return;
      // Build call __ft_vote(&loc, var, size)
      std::string str("__ft_vote");
-     if (whichside == 0) // LHS 
-         str += "l";
-     else if (whichside == 1) // RHS
-         str += "r";
-     else if (whichside == 2) // LHS 
-         str += "l_atomic";
-     else if (whichside == 3) // RHS
-         str += "r_atomic";
-     else if (whichside == 9) // Vote
-         str += "";
+     if (whichside & 0x1) str += "r";
+     else str += "l";
+     if (whichside & 0x2) str += "_atomic";
      if (isVarIncluded(VoteVar, AutoSize) >= 0)
        str += "_auto";
+     if (whichside & 0x8) str = "__ft_votenow";
      const char *LibCallName = str.c_str();
      
      llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
