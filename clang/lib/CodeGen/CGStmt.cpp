@@ -204,14 +204,14 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPCanonicalLoopClass:
     EmitOMPCanonicalLoop(cast<OMPCanonicalLoop>(S));
     break;
-  case Stmt::FTTVoteDirectiveClass:
-    EmitFTTVoteDirective(cast<FTTVoteDirective>(*S));
+  case Stmt::FTVoteDirectiveClass:
+    EmitFTVoteDirective(cast<FTVoteDirective>(*S));
     break;
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
-  case Stmt::FTTNmrDirectiveClass:
-    EmitFTTNmrDirective(cast<FTTNmrDirective>(*S));
+  case Stmt::FTNmrDirectiveClass:
+    EmitFTNmrDirective(cast<FTNmrDirective>(*S));
     break;
   case Stmt::OMPSimdDirectiveClass:
     EmitOMPSimdDirective(cast<OMPSimdDirective>(*S));

@@ -13132,7 +13132,7 @@ void ASTRecordReader::readOMPChildren(OMPChildren *Data) {
     Data->getChildren()[I] = readStmt();
 }
 
-void ASTRecordReader::readFTTChildren(FTTChildren *Data) {
+void ASTRecordReader::readFTChildren(FTChildren *Data) {
   if (!Data)
     return;
   if (Reader->ReadingKind == ASTReader::Read_Stmt) {

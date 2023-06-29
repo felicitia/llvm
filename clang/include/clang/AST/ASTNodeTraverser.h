@@ -703,7 +703,7 @@ public:
       Visit(C);
   }
 
-  void VisitFTTExecutableDirective(const FTTExecutableDirective *Node) {
+  void VisitFTExecutableDirective(const FTExecutableDirective *Node) {
     for (const auto *C : Node->clauses())
       Visit(C);
   }

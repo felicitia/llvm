@@ -291,7 +291,7 @@ public:
   void VisitCallExpr(CallExpr *CE);
   void VisitCastExpr(CastExpr *CE);
   void VisitOMPExecutableDirective(OMPExecutableDirective *ED);
-  void VisitFTTExecutableDirective(FTTExecutableDirective *ED);
+  void VisitFTExecutableDirective(FTExecutableDirective *ED);
 
   void operator()(Stmt *S) { Visit(S); }
 
@@ -402,8 +402,8 @@ void ClassifyRefs::VisitOMPExecutableDirective(OMPExecutableDirective *ED) {
     classify(cast<Expr>(S), Use);
 }
 
-void ClassifyRefs::VisitFTTExecutableDirective(FTTExecutableDirective *ED) {
-  for (Stmt *S : FTTExecutableDirective::used_clauses_children(ED->clauses()))
+void ClassifyRefs::VisitFTExecutableDirective(FTExecutableDirective *ED) {
+  for (Stmt *S : FTExecutableDirective::used_clauses_children(ED->clauses()))
     classify(cast<Expr>(S), Use);
 }
 
@@ -498,7 +498,7 @@ public:
   void VisitObjCForCollectionStmt(ObjCForCollectionStmt *FS);
   void VisitObjCMessageExpr(ObjCMessageExpr *ME);
   void VisitOMPExecutableDirective(OMPExecutableDirective *ED);
-  void VisitFTTExecutableDirective(FTTExecutableDirective *ED);
+  void VisitFTExecutableDirective(FTExecutableDirective *ED);
 
   bool isTrackedVar(const VarDecl *vd) {
     return ::isTrackedVar(vd, cast<DeclContext>(ac.getDecl()));
@@ -712,9 +712,9 @@ void TransferFunctions::VisitOMPExecutableDirective(
     Visit(ED->getStructuredBlock());
 }
 
-void TransferFunctions::VisitFTTExecutableDirective(
-    FTTExecutableDirective *ED) {
-  for (Stmt *S : FTTExecutableDirective::used_clauses_children(ED->clauses())) {
+void TransferFunctions::VisitFTExecutableDirective(
+    FTExecutableDirective *ED) {
+  for (Stmt *S : FTExecutableDirective::used_clauses_children(ED->clauses())) {
     assert(S && "Expected non-null used-in-clause child.");
     Visit(S);
   }

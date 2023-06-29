@@ -129,7 +129,7 @@ namespace {
     void PrintRawSEHFinallyStmt(SEHFinallyStmt *S);
     void PrintOMPExecutableDirective(OMPExecutableDirective *S,
                                      bool ForceNoStmt = false);
-    void PrintFTTExecutableDirective(FTTExecutableDirective *S,
+    void PrintFTExecutableDirective(FTExecutableDirective *S,
                                      bool ForceNoStmt = false);
 
     void PrintExpr(Expr *E) {
@@ -670,7 +670,7 @@ void StmtPrinter::PrintOMPExecutableDirective(OMPExecutableDirective *S,
     PrintStmt(S->getRawStmt());
 }
 
-void StmtPrinter::PrintFTTExecutableDirective(FTTExecutableDirective *S,
+void StmtPrinter::PrintFTExecutableDirective(FTExecutableDirective *S,
                                               bool ForceNoStmt) {
   FTClausePrinter Printer(OS, Policy);
   ArrayRef<FTClause *> Clauses = S->clauses();
@@ -695,9 +695,9 @@ void StmtPrinter::VisitOMPParallelDirective(OMPParallelDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
-void StmtPrinter::VisitFTTNmrDirective(FTTNmrDirective *Node) {
+void StmtPrinter::VisitFTNmrDirective(FTNmrDirective *Node) {
   Indent() << "#pragma ft nmr";
-  PrintFTTExecutableDirective(Node);
+  PrintFTExecutableDirective(Node);
 }
 
 void StmtPrinter::VisitOMPSimdDirective(OMPSimdDirective *Node) {
@@ -808,9 +808,9 @@ void StmtPrinter::VisitOMPFlushDirective(OMPFlushDirective *Node) {
   PrintOMPExecutableDirective(Node);
 }
 
-void StmtPrinter::VisitFTTVoteDirective(FTTVoteDirective *Node) {
+void StmtPrinter::VisitFTVoteDirective(FTVoteDirective *Node) {
   Indent() << "#pragma ft vote";
-  PrintFTTExecutableDirective(Node);
+  PrintFTExecutableDirective(Node);
 }
 
 void StmtPrinter::VisitOMPDepobjDirective(OMPDepobjDirective *Node) {

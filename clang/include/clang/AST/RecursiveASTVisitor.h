@@ -501,7 +501,7 @@ private:
   bool TraverseFunctionHelper(FunctionDecl *D);
   bool TraverseVarHelper(VarDecl *D);
   bool TraverseOMPExecutableDirective(OMPExecutableDirective *S);
-  bool TraverseFTTExecutableDirective(FTTExecutableDirective *S);
+  bool TraverseFTExecutableDirective(FTExecutableDirective *S);
   bool TraverseOMPLoopDirective(OMPLoopDirective *S);
   bool TraverseOMPClause(OMPClause *C);
 #define GEN_CLANG_CLAUSE_CLASS
@@ -2889,8 +2889,8 @@ bool RecursiveASTVisitor<Derived>::TraverseOMPExecutableDirective(
 }
 
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::TraverseFTTExecutableDirective(
-    FTTExecutableDirective *S) {
+bool RecursiveASTVisitor<Derived>::TraverseFTExecutableDirective(
+    FTExecutableDirective *S) {
   for (auto *C : S->clauses()) {
     TRY_TO(TraverseFTClause(C));
   }
@@ -2917,8 +2917,8 @@ DEF_TRAVERSE_STMT(OMPMetaDirective,
 DEF_TRAVERSE_STMT(OMPParallelDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
-DEF_TRAVERSE_STMT(FTTNmrDirective,
-                  { TRY_TO(TraverseFTTExecutableDirective(S)); })
+DEF_TRAVERSE_STMT(FTNmrDirective,
+                  { TRY_TO(TraverseFTExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
@@ -2988,8 +2988,8 @@ DEF_TRAVERSE_STMT(OMPCancelDirective,
 DEF_TRAVERSE_STMT(OMPFlushDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
-DEF_TRAVERSE_STMT(FTTVoteDirective,
-                  { TRY_TO(TraverseFTTExecutableDirective(S)); })
+DEF_TRAVERSE_STMT(FTVoteDirective,
+                  { TRY_TO(TraverseFTExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPDepobjDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })

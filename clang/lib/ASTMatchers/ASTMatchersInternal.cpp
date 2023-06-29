@@ -1078,12 +1078,6 @@ const internal::VariadicDynCastAllOfMatcher<Stmt, OMPExecutableDirective>
     ompExecutableDirective;
 const internal::VariadicDynCastAllOfMatcher<OMPClause, OMPDefaultClause>
     ompDefaultClause;
-#if 0
-const internal::VariadicDynCastAllOfMatcher<Stmt, FTTExecutableDirective>
-    ftExecutableDirective;
-const internal::VariadicDynCastAllOfMatcher<FTClause, FTDefaultClause>
-    ftDefaultClause;
-#endif
 const internal::VariadicDynCastAllOfMatcher<Decl, CXXDeductionGuideDecl>
     cxxDeductionGuideDecl;
 

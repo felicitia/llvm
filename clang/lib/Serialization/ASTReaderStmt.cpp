@@ -2265,21 +2265,21 @@ void ASTStmtReader::VisitAsTypeExpr(AsTypeExpr *E) {
 // FaultTolerance Directives.
 //===----------------------------------------------------------------------===//
 
-void ASTStmtReader::VisitFTTExecutableDirective(FTTExecutableDirective *E) {
-  Record.readFTTChildren(E->Data);
+void ASTStmtReader::VisitFTExecutableDirective(FTExecutableDirective *E) {
+  Record.readFTChildren(E->Data);
   E->setLocStart(readSourceLocation());
   E->setLocEnd(readSourceLocation());
 }
 
-void ASTStmtReader::VisitFTTNmrDirective(FTTNmrDirective *D) {
+void ASTStmtReader::VisitFTNmrDirective(FTNmrDirective *D) {
   VisitStmt(D);
-  VisitFTTExecutableDirective(D);
+  VisitFTExecutableDirective(D);
   D->setHasCancel(Record.readBool());
 }
 
-void ASTStmtReader::VisitFTTVoteDirective(FTTVoteDirective *D) {
+void ASTStmtReader::VisitFTVoteDirective(FTVoteDirective *D) {
   VisitStmt(D);
-  VisitFTTExecutableDirective(D);
+  VisitFTExecutableDirective(D);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3220,13 +3220,13 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                               nullptr);
       break;
 
-    case STMT_FTT_VOTE_DIRECTIVE:
-      S = FTTVoteDirective::CreateEmpty(
+    case STMT_FT_VOTE_DIRECTIVE:
+      S = FTVoteDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 
-    case STMT_FTT_NMR_DIRECTIVE:
-      S = FTTNmrDirective::CreateEmpty(
+    case STMT_FT_NMR_DIRECTIVE:
+      S = FTNmrDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 

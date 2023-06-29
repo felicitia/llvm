@@ -80,7 +80,7 @@ class OMPUseDevicePtrClause;
 class OMPUseDeviceAddrClause;
 class SVETypeFlags;
 class OMPExecutableDirective;
-class FTTExecutableDirective;
+class FTExecutableDirective;
 
 namespace analyze_os_log {
 class OSLogBufferLayout;
@@ -3515,9 +3515,9 @@ public:
                                        OMPTargetDataInfo &InputInfo);
 
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
-  void EmitFTTNmrDirective(const FTTNmrDirective &S);
+  void EmitFTNmrDirective(const FTNmrDirective &S);
   const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generateVote);
-  void EmitFTTVoteDirective(const FTTVoteDirective &S);
+  void EmitFTVoteDirective(const FTVoteDirective &S);
   void EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeInBytes, int whichside, bool keep_status);
   void EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status);
   void EmitOMPParallelDirective(const OMPParallelDirective &S);

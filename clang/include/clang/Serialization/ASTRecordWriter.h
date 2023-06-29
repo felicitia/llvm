@@ -283,7 +283,7 @@ public:
 
   /// Writes data related to the OpenMP directives.
   void writeFTClause(FTClause *C);
-  void writeFTTChildren(FTTChildren *Data);
+  void writeFTChildren(FTChildren *Data);
 
   /// Emit a string.
   void AddString(StringRef Str) {

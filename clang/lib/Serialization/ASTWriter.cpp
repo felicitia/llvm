@@ -7002,7 +7002,7 @@ void ASTRecordWriter::writeOMPChildren(OMPChildren *Data) {
     AddStmt(Data->getChildren()[I]);
 }
 
-void ASTRecordWriter::writeFTTChildren(FTTChildren *Data) {
+void ASTRecordWriter::writeFTChildren(FTChildren *Data) {
   if (!Data)
     return;
   writeUInt32(Data->getNumClauses());

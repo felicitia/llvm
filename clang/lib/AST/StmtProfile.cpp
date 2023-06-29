@@ -954,7 +954,7 @@ StmtProfiler::VisitOMPExecutableDirective(const OMPExecutableDirective *S) {
 }
 
 void
-StmtProfiler::VisitFTTExecutableDirective(const FTTExecutableDirective *S) {
+StmtProfiler::VisitFTExecutableDirective(const FTExecutableDirective *S) {
   VisitStmt(S);
   FTClauseProfiler P(this);
   ArrayRef<FTClause *> Clauses = S->clauses();
@@ -984,8 +984,8 @@ void StmtProfiler::VisitOMPParallelDirective(const OMPParallelDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-void StmtProfiler::VisitFTTNmrDirective(const FTTNmrDirective *S) {
-  VisitFTTExecutableDirective(S);
+void StmtProfiler::VisitFTNmrDirective(const FTNmrDirective *S) {
+  VisitFTExecutableDirective(S);
 }
 
 void StmtProfiler::VisitOMPSimdDirective(const OMPSimdDirective *S) {
@@ -1080,8 +1080,8 @@ void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-void StmtProfiler::VisitFTTVoteDirective(const FTTVoteDirective *S) {
-  VisitFTTExecutableDirective(S);
+void StmtProfiler::VisitFTVoteDirective(const FTVoteDirective *S) {
+  VisitFTExecutableDirective(S);
 }
 //
 void StmtProfiler::VisitOMPDepobjDirective(const OMPDepobjDirective *S) {

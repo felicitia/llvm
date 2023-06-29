@@ -2177,23 +2177,23 @@ void ASTStmtWriter::VisitSEHLeaveStmt(SEHLeaveStmt *S) {
 // FaultTolerance Directives.
 //===----------------------------------------------------------------------===//
 
-void ASTStmtWriter::VisitFTTExecutableDirective(FTTExecutableDirective *E) {
-  Record.writeFTTChildren(E->Data);
+void ASTStmtWriter::VisitFTExecutableDirective(FTExecutableDirective *E) {
+  Record.writeFTChildren(E->Data);
   Record.AddSourceLocation(E->getBeginLoc());
   Record.AddSourceLocation(E->getEndLoc());
 }
 
-void ASTStmtWriter::VisitFTTNmrDirective(FTTNmrDirective *D) {
+void ASTStmtWriter::VisitFTNmrDirective(FTNmrDirective *D) {
   VisitStmt(D);
-  VisitFTTExecutableDirective(D);
+  VisitFTExecutableDirective(D);
   Record.writeBool(D->hasCancel());
-  Code = serialization::STMT_FTT_NMR_DIRECTIVE;
+  Code = serialization::STMT_FT_NMR_DIRECTIVE;
 }
 
-void ASTStmtWriter::VisitFTTVoteDirective(FTTVoteDirective *D) {
+void ASTStmtWriter::VisitFTVoteDirective(FTVoteDirective *D) {
   VisitStmt(D);
-  VisitFTTExecutableDirective(D);
-  Code = serialization::STMT_FTT_VOTE_DIRECTIVE;
+  VisitFTExecutableDirective(D);
+  Code = serialization::STMT_FT_VOTE_DIRECTIVE;
 }
 
 //===----------------------------------------------------------------------===//

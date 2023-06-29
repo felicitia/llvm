@@ -361,7 +361,7 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
   }
 }
 
-void CodeGenFunction::EmitFTTVoteDirective(const FTTVoteDirective &S) {
+void CodeGenFunction::EmitFTVoteDirective(const FTVoteDirective &S) {
 	// no associated statement
   if (const auto *FtvarClause = S.getSingleClause<FTVoteClause>()) {
     SmallVector<const Expr *, 4> VarsSizes;
@@ -394,7 +394,7 @@ const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr 
   return FoundVar2;
 }
 
-void CodeGenFunction::EmitFTTNmrDirective(const FTTNmrDirective &S) {
+void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
 
   SmallVector<const Expr *, 4> SaveLVarSize;
   SmallVector<const Expr *, 4> SaveRVarSize;

@@ -10802,14 +10802,14 @@ public:
       OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
       OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
       Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
-  StmtResult ActOnFTTExecutableDirective(
+  StmtResult ActOnFTExecutableDirective(
       FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
       ArrayRef<FTClause *> Clauses,
       Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
-  StmtResult ActOnFTTVoteDirective(ArrayRef<FTClause *> Clauses,
+  StmtResult ActOnFTVoteDirective(ArrayRef<FTClause *> Clauses,
                                           SourceLocation StartLoc,
                                           SourceLocation EndLoc);
-  StmtResult ActOnFTTNmrDirective(ArrayRef<FTClause *> Clauses,
+  StmtResult ActOnFTNmrDirective(ArrayRef<FTClause *> Clauses,
                                           Stmt *AStmt,
                                           SourceLocation StartLoc,
                                           SourceLocation EndLoc);

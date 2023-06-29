@@ -721,7 +721,7 @@ public:
       TypeSourceInfo **RecoveryTSI);
 
   StmtResult TransformOMPExecutableDirective(OMPExecutableDirective *S);
-  StmtResult TransformFTTExecutableDirective(FTTExecutableDirective *S);
+  StmtResult TransformFTExecutableDirective(FTExecutableDirective *S);
 
 // FIXME: We use LLVM_ATTRIBUTE_NOINLINE because inlining causes a ridiculous
 // amount of stack usage with clang.
@@ -1585,13 +1585,13 @@ public:
         Kind, DirName, CancelRegion, Clauses, AStmt, StartLoc, EndLoc);
   }
 
-  StmtResult RebuildFTTExecutableDirective(FTDirectiveKind Kind,
+  StmtResult RebuildFTExecutableDirective(FTDirectiveKind Kind,
                                            DeclarationNameInfo DirName,
              //                              OpenMPDirectiveKind CancelRegion,
                                            ArrayRef<FTClause *> Clauses,
                                            Stmt *AStmt, SourceLocation StartLoc,
                                            SourceLocation EndLoc) {
-    return getSema().ActOnFTTExecutableDirective(
+    return getSema().ActOnFTExecutableDirective(
         Kind, DirName, Clauses, AStmt, StartLoc, EndLoc);
   }
 
@@ -8650,8 +8650,8 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
 }
 
 template <typename Derived>
-StmtResult TreeTransform<Derived>::TransformFTTExecutableDirective(
-    FTTExecutableDirective *D) {
+StmtResult TreeTransform<Derived>::TransformFTExecutableDirective(
+    FTExecutableDirective *D) {
 
   // Transform the clauses
   llvm::SmallVector<FTClause *, 16> TClauses;
@@ -8697,7 +8697,7 @@ StmtResult TreeTransform<Derived>::TransformFTTExecutableDirective(
   // Transform directive name for 'omp critical' directive.
   DeclarationNameInfo DirName;
 
-  return getDerived().RebuildFTTExecutableDirective(
+  return getDerived().RebuildFTExecutableDirective(
       D->getDirectiveKind(), DirName, TClauses ,
       AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc());
 }
@@ -8725,21 +8725,21 @@ TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
 //ifdef DK
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformFTTNmrDirective(FTTNmrDirective *D) {
+TreeTransform<Derived>::TransformFTNmrDirective(FTNmrDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartFTDSABlock(FTTD_nmr, DirName, nullptr,
+  getDerived().getSema().StartFTDSABlock(FTD_nmr, DirName, nullptr,
                                              D->getBeginLoc());
-  StmtResult Res = getDerived().TransformFTTExecutableDirective(D);
+  StmtResult Res = getDerived().TransformFTExecutableDirective(D);
   getDerived().getSema().EndFTDSABlock(Res.get());
   return Res;
 }
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformFTTVoteDirective(FTTVoteDirective *D) {
+TreeTransform<Derived>::TransformFTVoteDirective(FTVoteDirective *D) {
   DeclarationNameInfo DirName;
-  getDerived().getSema().StartFTDSABlock(FTTD_vote, DirName, nullptr,
+  getDerived().getSema().StartFTDSABlock(FTD_vote, DirName, nullptr,
                                              D->getBeginLoc());
-  StmtResult Res = getDerived().TransformFTTExecutableDirective(D);
+  StmtResult Res = getDerived().TransformFTExecutableDirective(D);
   getDerived().getSema().EndFTDSABlock(Res.get());
   return Res;
 }

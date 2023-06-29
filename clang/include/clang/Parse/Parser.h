@@ -3208,8 +3208,8 @@ private:
                             SourceLocation FoundLoc,
                             bool SkipUntilOpenMPEnd);
 
-  /// Parses declarative FTT directives.
-  DeclGroupPtrTy ParseFTTDeclarativeDirectiveWithExtDecl(
+  /// Parses declarative FT directives.
+  DeclGroupPtrTy ParseFTDeclarativeDirectiveWithExtDecl(
       AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
       DeclSpec::TST TagType = DeclSpec::TST_unspecified,
       Decl *TagDecl = nullptr);
@@ -3249,7 +3249,7 @@ private:
       bool AllowScopeSpecifier);
 
   // ifdef DK
-  StmtResult ParseFTTDeclarativeOrExecutableDirective(
+  StmtResult ParseFTDeclarativeOrExecutableDirective(
       ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
   FTClause *ParseFTClause(FTDirectiveKind mDKind,
                                FTClauseKind CKind, bool FirstClause);

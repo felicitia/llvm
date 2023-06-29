@@ -2616,8 +2616,8 @@ enum CXCursorKind {
   /** OpenMP ft directive.
    */
 
-  CXCursor_FTTNmrDirective = 301,
-  CXCursor_FTTVoteDirective = 302,	/* from flush */
+  CXCursor_FTNmrDirective = 301,
+  CXCursor_FTVoteDirective = 302,	/* from flush */
   // endif
   /** OpenMP target parallel loop directive.
    */

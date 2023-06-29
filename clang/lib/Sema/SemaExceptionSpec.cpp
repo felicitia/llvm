@@ -1425,6 +1425,8 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::DefaultStmtClass:
   case Stmt::DoStmtClass:
   case Stmt::ForStmtClass:
+  case Stmt::FTNmrDirectiveClass:
+  case Stmt::FTVoteDirectiveClass:
   case Stmt::GCCAsmStmtClass:
   case Stmt::GotoStmtClass:
   case Stmt::IndirectGotoStmtClass:
@@ -1457,8 +1459,6 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::OMPOrderedDirectiveClass:
   case Stmt::OMPCanonicalLoopClass:
   case Stmt::OMPParallelDirectiveClass:
-  case Stmt::FTTNmrDirectiveClass:
-  case Stmt::FTTVoteDirectiveClass:
   case Stmt::OMPParallelForDirectiveClass:
   case Stmt::OMPParallelForSimdDirectiveClass:
   case Stmt::OMPParallelMasterDirectiveClass:

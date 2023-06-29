@@ -217,9 +217,9 @@ def MSDependentExistsStmt : StmtNode<Stmt>;
 def AsTypeExpr : StmtNode<Expr>;
 
 // FT Extension
-def FTTExecutableDirective : StmtNode<Stmt, 1>;
-def FTTNmrDirective : StmtNode<FTTExecutableDirective>;
-def FTTVoteDirective : StmtNode<FTTExecutableDirective>;
+def FTExecutableDirective : StmtNode<Stmt, 1>;
+def FTNmrDirective : StmtNode<FTExecutableDirective>;
+def FTVoteDirective : StmtNode<FTExecutableDirective>;
 
 // OpenMP Directives.
 def OMPCanonicalLoop : StmtNode<Stmt>;
