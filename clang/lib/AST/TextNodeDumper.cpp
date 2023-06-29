@@ -13,6 +13,7 @@
 #include "clang/AST/TextNodeDumper.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/DeclFriend.h"
+#include "clang/AST/DeclFT.h"
 #include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/LocInfoType.h"
@@ -22,6 +23,7 @@
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TypeTraits.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Frontend/FT/FTConstants.h"
 
 #include <algorithm>
 #include <utility>
@@ -337,6 +339,24 @@ void TextNodeDumper::Visit(const OMPClause *C) {
     ColorScope Color(OS, ShowColors, AttrColor);
     StringRef ClauseName(llvm::omp::getOpenMPClauseName(C->getClauseKind()));
     OS << "OMP" << ClauseName.substr(/*Start=*/0, /*N=*/1).upper()
+       << ClauseName.drop_front() << "Clause";
+  }
+  dumpPointer(C);
+  dumpSourceRange(SourceRange(C->getBeginLoc(), C->getEndLoc()));
+  if (C->isImplicit())
+    OS << " <implicit>";
+}
+
+void TextNodeDumper::Visit(const FTClause *C) {
+  if (!C) {
+    ColorScope Color(OS, ShowColors, NullColor);
+    OS << "<<<NULL>>> OMPClause";
+    return;
+  }
+  {
+    ColorScope Color(OS, ShowColors, AttrColor);
+    StringRef ClauseName(llvm::ft::getFTClauseName(C->getClauseKind()));
+    OS << "FT" << ClauseName.substr(/*Start=*/0, /*N=*/1).upper()
        << ClauseName.drop_front() << "Clause";
   }
   dumpPointer(C);
@@ -1857,6 +1877,12 @@ void TextNodeDumper::VisitFTExecutableDirective(
     const FTExecutableDirective *D) {
   if (D->isStandaloneDirective())
     OS << " openmp_standalone_directive";
+}
+
+void TextNodeDumper::VisitFTTExecutableDirective(
+    const FTTExecutableDirective *D) {
+  if (D->isStandaloneDirective())
+    OS << " ft_standalone_directive";
 }
 
 void TextNodeDumper::VisitOMPDeclareReductionDecl(

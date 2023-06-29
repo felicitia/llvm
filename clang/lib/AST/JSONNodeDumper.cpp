@@ -171,6 +171,7 @@ void JSONNodeDumper::Visit(const CXXCtorInitializer *Init) {
 }
 
 void JSONNodeDumper::Visit(const OMPClause *C) {}
+void JSONNodeDumper::Visit(const FTClause *C) {}
 
 void JSONNodeDumper::Visit(const BlockDecl::Capture &C) {
   JOS.attribute("kind", "Capture");

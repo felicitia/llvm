@@ -2529,14 +2529,6 @@ void Sema::finalizeOpenMPDelayedAnalysis(const FunctionDecl *Caller,
   }
 }
 
-void Sema::StartFTDSABlock(OpenMPDirectiveKind DKind,
-                               const DeclarationNameInfo &DirName,
-                               Scope *CurScope, SourceLocation Loc) {
-  DSAStack->push(DKind, DirName, CurScope, Loc);
-  PushExpressionEvaluationContext(
-      ExpressionEvaluationContext::PotentiallyEvaluated);
-}
-
 void Sema::StartOpenMPDSABlock(OpenMPDirectiveKind DKind,
                                const DeclarationNameInfo &DirName,
                                Scope *CurScope, SourceLocation Loc) {
@@ -3968,8 +3960,6 @@ static void handleDeclareVariantConstructTrait(DSAStackTy *Stack,
 
 void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   switch (DKind) {
-/*  case OMPD_vote:
-  case OMPD_nmr: */
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:
@@ -6031,6 +6021,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
 
   llvm::SmallVector<OpenMPDirectiveKind, 4> AllowedNameModifiers;
   switch (Kind) {
+#if 0
   case OMPD_vote:
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp flush' directive");
@@ -6040,6 +6031,7 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnFTNmrDirective(ClausesWithImplicit, AStmt, StartLoc,
                                        EndLoc);
     break;
+#endif
   case OMPD_parallel:
     Res = ActOnOpenMPParallelDirective(ClausesWithImplicit, AStmt, StartLoc,
                                        EndLoc);

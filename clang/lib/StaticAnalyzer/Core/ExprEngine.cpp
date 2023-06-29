@@ -1242,6 +1242,8 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
 	    // ifdef DK
     case Stmt::FTNmrDirectiveClass:
     case Stmt::FTVoteDirectiveClass:
+    case Stmt::FTTNmrDirectiveClass:
+    case Stmt::FTTVoteDirectiveClass:
 	    // endif
     case Stmt::OMPSimdDirectiveClass:
     case Stmt::OMPForDirectiveClass:

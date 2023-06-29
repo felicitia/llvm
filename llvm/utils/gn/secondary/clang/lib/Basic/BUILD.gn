@@ -39,6 +39,8 @@ static_library("Basic") {
     # public_dep because public header OpenMPKinds.h includes generated
     # OMP.h.inc.
     "//llvm/include/llvm/Frontend/OpenMP:public_tablegen",
+    # FT.h.inc.
+    "//llvm/include/llvm/Frontend/FT:public_tablegen",
   ]
   deps = [
     ":write_vcsversion",

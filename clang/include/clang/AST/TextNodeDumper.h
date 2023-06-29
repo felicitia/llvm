@@ -185,6 +185,8 @@ public:
 
   void Visit(const OMPClause *C);
 
+  void Visit(const FTClause *C);
+
   void Visit(const BlockDecl::Capture &C);
 
   void Visit(const GenericSelectionExpr::ConstAssociation &A);
@@ -340,6 +342,7 @@ public:
   void VisitPragmaDetectMismatchDecl(const PragmaDetectMismatchDecl *D);
   void VisitOMPExecutableDirective(const OMPExecutableDirective *D);
   void VisitFTExecutableDirective(const FTExecutableDirective *D);
+  void VisitFTTExecutableDirective(const FTTExecutableDirective *D);
   void VisitOMPDeclareReductionDecl(const OMPDeclareReductionDecl *D);
   void VisitOMPRequiresDecl(const OMPRequiresDecl *D);
   void VisitOMPCapturedExprDecl(const OMPCapturedExprDecl *D);

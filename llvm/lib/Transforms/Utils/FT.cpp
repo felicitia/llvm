@@ -168,14 +168,6 @@ bool isHeadRHSOrTailLHSFTInstr(const Instruction *I, bool lookforHead, SmallVect
   BBVisitedHas.clear();
   Instruction *defI = getDefInstr(arg);
   if (defI == nullptr) return false;
-  /* check if it is HEAD 
-      1. check if it is the first in its BB
-      2. check if there is no such FT instruction in all the parents 
-  */
-  /* check if it is TAIL 
-      1. check if it is the last in its BB
-      2. check if there is no such FT instruction in all the children
-  */
   /* position within a BB */
   instrPosition positionInBB = getFTPositionInBB(I);
   if (positionInBB != IS_UNIQUE) {

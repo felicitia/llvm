@@ -51,6 +51,7 @@ struct {
   void Visit(const Decl *D);
   void Visit(const CXXCtorInitializer *Init);
   void Visit(const OMPClause *C);
+  void Visit(const FTClause *C);
   void Visit(const BlockDecl::Capture &C);
   void Visit(const GenericSelectionExpr::ConstAssociation &A);
   void Visit(const concepts::Requirement *R);
@@ -214,6 +215,14 @@ public:
   }
 
   void Visit(const OMPClause *C) {
+    getNodeDelegate().AddChild([=] {
+      getNodeDelegate().Visit(C);
+      for (const auto *S : C->children())
+        Visit(S);
+    });
+  }
+
+  void Visit(const FTClause *C) {
     getNodeDelegate().AddChild([=] {
       getNodeDelegate().Visit(C);
       for (const auto *S : C->children())
@@ -695,6 +704,10 @@ public:
   }
 
   void VisitFTExecutableDirective(const FTExecutableDirective *Node) {
+    for (const auto *C : Node->clauses())
+      Visit(C);
+  }
+  void VisitFTTExecutableDirective(const FTTExecutableDirective *Node) {
     for (const auto *C : Node->clauses())
       Visit(C);
   }

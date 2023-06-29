@@ -411,7 +411,8 @@ Retry:
     LLVM_FALLTHROUGH;
   case tok::annot_attr_ft:
     // Do not prohibit attributes if they were FT attributes.
-      return ParseFTDeclarativeOrExecutableDirective(StmtCtx);
+      // return ParseFTDeclarativeOrExecutableDirective(StmtCtx);
+      return ParseFTTDeclarativeOrExecutableDirective(StmtCtx);
     // endif
     //
   case tok::annot_pragma_openmp:

@@ -1219,6 +1219,61 @@ cc_library(
 )
 
 filegroup(
+    name = "ft_td_files",
+    srcs = glob([
+        "include/llvm/Frontend/FT/*.td",
+        "include/llvm/Frontend/Directive/*.td",
+    ]),
+)
+
+gentbl(
+    name = "ft_gen",
+    library = False,
+    tbl_outs = [
+        ("--gen-directive-decl", "include/llvm/Frontend/FT/FT.h.inc"),
+    ],
+    tblgen = ":llvm-tblgen",
+    td_file = "include/llvm/Frontend/FT/FT.td",
+    td_srcs = [":ft_td_files"],
+)
+
+gentbl(
+    name = "ft_gen_impl",
+    library = False,
+    tbl_outs = [
+        ("--gen-directive-impl", "include/llvm/Frontend/FT/FT.inc"),
+    ],
+    tblgen = ":llvm-tblgen",
+    td_file = "include/llvm/Frontend/FT/FT.td",
+    td_srcs = [":ft_td_files"],
+)
+
+cc_library(
+    name = "FrontendFT",
+    srcs = glob([
+        "lib/Frontend/FT/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/llvm/Frontend/FT/*.h",
+        "include/llvm/Frontend/*.h",
+    ]) + [
+        "include/llvm/Frontend/FT/FT.h.inc",
+        "include/llvm/Frontend/FT/FT.inc",
+    ],
+    copts = llvm_copts,
+    textual_hdrs = glob([
+        "include/llvm/Frontend/FT/*.def",
+    ]),
+    deps = [
+        ":Analysis",
+        ":Core",
+        ":Scalar",
+        ":Support",
+        ":TransformUtils",
+    ],
+)
+
+filegroup(
     name = "acc_td_files",
     srcs = glob([
         "include/llvm/Frontend/OpenACC/*.td",

@@ -47,6 +47,7 @@ namespace clang {
   class InMessageExpressionRAIIObject;
   class PoisonSEHIdentifiersRAIIObject;
   class OMPClause;
+  class FTClause;
   class ObjCTypeParamList;
   struct OMPTraitProperty;
   struct OMPTraitSelector;
@@ -3212,6 +3213,11 @@ private:
       AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
       DeclSpec::TST TagType = DeclSpec::TST_unspecified,
       Decl *TagDecl = nullptr);
+  /// Parses declarative FTT directives.
+  DeclGroupPtrTy ParseFTTDeclarativeDirectiveWithExtDecl(
+      AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
+      DeclSpec::TST TagType = DeclSpec::TST_unspecified,
+      Decl *TagDecl = nullptr);
   /// Parses declarative OpenMP directives.
   DeclGroupPtrTy ParseOpenMPDeclarativeDirectiveWithExtDecl(
       AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
@@ -3252,6 +3258,10 @@ private:
       ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
   OMPClause *ParseFTClause(OpenMPDirectiveKind mDKind,
                                OpenMPClauseKind CKind, bool FirstClause);
+  StmtResult ParseFTTDeclarativeOrExecutableDirective(
+      ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
+  FTClause *ParseFTClause(FTDirectiveKind mDKind,
+                               FTClauseKind CKind, bool FirstClause);
   // endif
   
   /// Parses declarative or executable directive.
@@ -3326,6 +3336,8 @@ private:
 #endif
   OMPClause *ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
+  FTClause *ParseFTDoubleVarListClause(FTDirectiveKind DKind,
+                                      FTClauseKind Kind, bool ParseOnly);
   // endif
   
   /// Parses and creates OpenMP 5.0 iterators expression:

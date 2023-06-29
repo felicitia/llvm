@@ -22,6 +22,7 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/Type.h"

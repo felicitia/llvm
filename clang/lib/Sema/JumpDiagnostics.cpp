@@ -15,6 +15,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/SourceLocation.h"

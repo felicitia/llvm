@@ -19,6 +19,7 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/ODRHash.h"
+#include "clang/AST/FTClause.h"
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/StmtVisitor.h"
 #include "llvm/ADT/FoldingSet.h"
@@ -919,6 +920,53 @@ void OMPClauseProfiler::VisitOMPOrderClause(const OMPOrderClause *C) {}
 void OMPClauseProfiler::VisitOMPBindClause(const OMPBindClause *C) {}
 } // namespace
 
+namespace {
+class FTClauseProfiler : public ConstFTClauseVisitor<FTClauseProfiler> {
+  StmtProfiler *Profiler;
+  /// Process clauses with list of variables.
+  template <typename T>
+  void VisitFTClauseList(T *Node);
+
+public:
+  FTClauseProfiler(StmtProfiler *P) : Profiler(P) { }
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) void Visit##Class(const Class *C);
+#include "llvm/Frontend/FT/FT.inc"
+};
+
+template<typename T>
+void FTClauseProfiler::VisitFTClauseList(T *Node) {
+  for (auto *E : Node->varlists()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+}
+
+// ifdef DK
+void FTClauseProfiler::VisitFTVoteClause(const FTVoteClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTLhsClause(const FTLhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTRhsClause(const FTRhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTNovoteClause(const FTNovoteClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTNolhsClause(const FTNolhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTNorhsClause(const FTNorhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTAutoClause(const FTAutoClause *C) {
+  VisitFTClauseList(C);
+}
+// endif
+} // namespace
+
 void
 StmtProfiler::VisitOMPExecutableDirective(const OMPExecutableDirective *S) {
   VisitStmt(S);
@@ -936,6 +984,17 @@ StmtProfiler::VisitFTExecutableDirective(const FTExecutableDirective *S) {
   OMPClauseProfiler P(this);
   ArrayRef<OMPClause *> Clauses = S->clauses();
   for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
+       I != E; ++I)
+    if (*I)
+      P.Visit(*I);
+}
+
+void
+StmtProfiler::VisitFTTExecutableDirective(const FTTExecutableDirective *S) {
+  VisitStmt(S);
+  FTClauseProfiler P(this);
+  ArrayRef<FTClause *> Clauses = S->clauses();
+  for (ArrayRef<FTClause *>::iterator I = Clauses.begin(), E = Clauses.end();
        I != E; ++I)
     if (*I)
       P.Visit(*I);
@@ -964,6 +1023,9 @@ void StmtProfiler::VisitOMPParallelDirective(const OMPParallelDirective *S) {
 //ifdef DK
 void StmtProfiler::VisitFTNmrDirective(const FTNmrDirective *S) {
   VisitFTExecutableDirective(S);
+}
+void StmtProfiler::VisitFTTNmrDirective(const FTTNmrDirective *S) {
+  VisitFTTExecutableDirective(S);
 }
 //
 
@@ -1062,6 +1124,9 @@ void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
 // ifdef DK
 void StmtProfiler::VisitFTVoteDirective(const FTVoteDirective *S) {
   VisitFTExecutableDirective(S);
+}
+void StmtProfiler::VisitFTTVoteDirective(const FTTVoteDirective *S) {
+  VisitFTTExecutableDirective(S);
 }
 // endif
 //

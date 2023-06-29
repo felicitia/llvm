@@ -27,6 +27,7 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtOpenMP.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/ABI.h"
 #include "clang/Basic/CapturedStmt.h"
@@ -79,6 +80,7 @@ class OMPUseDevicePtrClause;
 class OMPUseDeviceAddrClause;
 class SVETypeFlags;
 class OMPExecutableDirective;
+class FTTExecutableDirective;
 
 namespace analyze_os_log {
 class OSLogBufferLayout;
@@ -3515,8 +3517,10 @@ public:
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
 // ifdef DK
   void EmitFTNmrDirective(const FTNmrDirective &S);
+  void EmitFTTNmrDirective(const FTTNmrDirective &S);
   const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generateVote);
   void EmitFTVoteDirective(const FTVoteDirective &S);
+  void EmitFTTVoteDirective(const FTTVoteDirective &S);
   void EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeInBytes, int whichside, bool keep_status);
   void EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status);
 // endif

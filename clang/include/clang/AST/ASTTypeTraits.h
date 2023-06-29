@@ -157,6 +157,12 @@ private:
 #define GEN_CLANG_CLAUSE_CLASS
 #define CLAUSE_CLASS(Enum, Str, Class) NKI_##Class,
 #include "llvm/Frontend/OpenMP/OMP.inc"
+#if 0
+    NKI_FTClause,
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) NKI_##Class,
+#include "llvm/Frontend/FT/FT.inc"
+#endif
     NKI_Attr,
 #define ATTR(A) NKI_##A##Attr,
 #include "clang/Basic/AttrList.inc"
@@ -225,6 +231,11 @@ KIND_TO_KIND_ID(CXXBaseSpecifier)
 #define GEN_CLANG_CLAUSE_CLASS
 #define CLAUSE_CLASS(Enum, Str, Class) KIND_TO_KIND_ID(Class)
 #include "llvm/Frontend/OpenMP/OMP.inc"
+#if 0
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) KIND_TO_KIND_ID(Class)
+#include "llvm/Frontend/FT/FT.inc"
+#endif
 #define ATTR(A) KIND_TO_KIND_ID(A##Attr)
 #include "clang/Basic/AttrList.inc"
 #undef KIND_TO_KIND_ID

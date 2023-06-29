@@ -28,6 +28,7 @@
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
@@ -129,6 +130,8 @@ namespace {
     void PrintOMPExecutableDirective(OMPExecutableDirective *S,
                                      bool ForceNoStmt = false);
     void PrintFTExecutableDirective(FTExecutableDirective *S,
+                                     bool ForceNoStmt = false);
+    void PrintFTTExecutableDirective(FTTExecutableDirective *S,
                                      bool ForceNoStmt = false);
 
     void PrintExpr(Expr *E) {
@@ -684,6 +687,21 @@ void StmtPrinter::PrintFTExecutableDirective(FTExecutableDirective *S,
     PrintStmt(S->getRawStmt());
 }
 
+void StmtPrinter::PrintFTTExecutableDirective(FTTExecutableDirective *S,
+                                              bool ForceNoStmt) {
+  FTClausePrinter Printer(OS, Policy);
+  ArrayRef<FTClause *> Clauses = S->clauses();
+  Indent() << "#pragma omp parallel";
+  for (auto *Clause : Clauses)
+    if (Clause && !Clause->isImplicit()) {
+      OS << ' ';
+      Printer.Visit(Clause);
+    }
+  OS << NL;
+  if (!ForceNoStmt && S->hasAssociatedStmt())
+    PrintStmt(S->getRawStmt());
+}
+
 void StmtPrinter::VisitOMPMetaDirective(OMPMetaDirective *Node) {
   Indent() << "#pragma omp metadirective";
   PrintOMPExecutableDirective(Node);
@@ -696,8 +714,12 @@ void StmtPrinter::VisitOMPParallelDirective(OMPParallelDirective *Node) {
 
 //ifdef DK
 void StmtPrinter::VisitFTNmrDirective(FTNmrDirective *Node) {
-  Indent() << "#pragma omp parallel";
+  Indent() << "#pragma ft nmr";
   PrintFTExecutableDirective(Node);
+}
+void StmtPrinter::VisitFTTNmrDirective(FTTNmrDirective *Node) {
+  Indent() << "#pragma ft nmr";
+  PrintFTTExecutableDirective(Node);
 }
 //
 
@@ -811,8 +833,12 @@ void StmtPrinter::VisitOMPFlushDirective(OMPFlushDirective *Node) {
 
 // ifdef DK
 void StmtPrinter::VisitFTVoteDirective(FTVoteDirective *Node) {
-  Indent() << "#pragma omp flush";
+  Indent() << "#pragma ft vote";
   PrintFTExecutableDirective(Node);
+}
+void StmtPrinter::VisitFTTVoteDirective(FTTVoteDirective *Node) {
+  Indent() << "#pragma ft vote";
+  PrintFTTExecutableDirective(Node);
 }
 // endif
 //

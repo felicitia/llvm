@@ -1905,6 +1905,10 @@ enum StmtCode {
   STMT_SEH_FINALLY,                 // SEHFinallyStmt
   STMT_SEH_TRY,                     // SEHTryStmt
 
+  // FT directives
+  STMT_FTT_NMR_DIRECTIVE,
+  STMT_FTT_VOTE_DIRECTIVE,
+
   // OpenMP directives
   STMT_OMP_META_DIRECTIVE,
   STMT_OMP_CANONICAL_LOOP,

@@ -21,11 +21,13 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExprCXX.h"
+// #include "clang/AST/ExprFT.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/DiagnosticParse.h"
@@ -42,6 +44,7 @@
 #include <algorithm>
 
 using namespace llvm::omp;
+using namespace llvm::ft;
 
 namespace clang {
 using namespace sema;
@@ -371,6 +374,8 @@ public:
   ///
   /// \returns the transformed OpenMP clause.
   OMPClause *TransformOMPClause(OMPClause *S);
+
+  FTClause *TransformFTClause(FTClause *S);
 
   /// Transform the given attribute.
   ///
@@ -717,6 +722,7 @@ public:
 
   StmtResult TransformOMPExecutableDirective(OMPExecutableDirective *S);
   StmtResult TransformFTExecutableDirective(FTExecutableDirective *S);
+  StmtResult TransformFTTExecutableDirective(FTTExecutableDirective *S);
 
 // FIXME: We use LLVM_ATTRIBUTE_NOINLINE because inlining causes a ridiculous
 // amount of stack usage with clang.
@@ -737,6 +743,12 @@ public:
   LLVM_ATTRIBUTE_NOINLINE                                                      \
   OMPClause *Transform##Class(Class *S);
 #include "llvm/Frontend/OpenMP/OMP.inc"
+
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class)                                         \
+  LLVM_ATTRIBUTE_NOINLINE                                                      \
+  FTClause *Transform##Class(Class *S);
+#include "llvm/Frontend/FT/FT.inc"
 
   /// Build a new qualified type given its unqualified type and type location.
   ///
@@ -1584,6 +1596,16 @@ public:
         Kind, DirName, Clauses, AStmt, StartLoc, EndLoc);
   }
 
+  StmtResult RebuildFTTExecutableDirective(FTDirectiveKind Kind,
+                                           DeclarationNameInfo DirName,
+             //                              OpenMPDirectiveKind CancelRegion,
+                                           ArrayRef<FTClause *> Clauses,
+                                           Stmt *AStmt, SourceLocation StartLoc,
+                                           SourceLocation EndLoc) {
+    return getSema().ActOnFTTExecutableDirective(
+        Kind, DirName, Clauses, AStmt, StartLoc, EndLoc);
+  }
+
   /// Build a new OpenMP 'if' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -1806,6 +1828,25 @@ public:
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc) {
     return getSema().ActOnOpenMPVoteClause(VarList, SizeList, PtrList, StartLoc, LParenLoc,
+                                             EndLoc);
+  }
+  FTClause *RebuildFTVarClause( FTClauseKind Kind,
+		  		    ArrayRef<Expr *> VarList,
+  				    ArrayRef<Expr *> SizeList,
+  				    ArrayRef<Expr *> PtrList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc) {
+    return getSema().ActOnFTVarSizeListClause(Kind, VarList, SizeList, PtrList, StartLoc, LParenLoc,
+                                             EndLoc);
+  }
+  FTClause *RebuildFTVoteClause( ArrayRef<Expr *> VarList,
+  				    ArrayRef<Expr *> SizeList,
+  				    ArrayRef<Expr *> PtrList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc) {
+    return getSema().ActOnFTVoteClause(VarList, SizeList, PtrList, StartLoc, LParenLoc,
                                              EndLoc);
   }
   // endif
@@ -3888,6 +3929,24 @@ OMPClause *TreeTransform<Derived>::TransformOMPClause(OMPClause *S) {
   case Enum:                                                                   \
     return getDerived().Transform##Class(cast<Class>(S));
 #include "llvm/Frontend/OpenMP/OMP.inc"
+  }
+
+  return S;
+}
+
+template<typename Derived>
+FTClause *TreeTransform<Derived>::TransformFTClause(FTClause *S) {
+  if (!S)
+    return S;
+
+  switch (S->getClauseKind()) {
+  default: break;
+  // Transform individual clause nodes
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class)                                         \
+  case Enum:                                                                   \
+    return getDerived().Transform##Class(cast<Class>(S));
+#include "llvm/Frontend/FT/FT.inc"
   }
 
   return S;
@@ -8689,6 +8748,59 @@ StmtResult TreeTransform<Derived>::TransformFTExecutableDirective(
 }
 
 template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformFTTExecutableDirective(
+    FTTExecutableDirective *D) {
+
+  // Transform the clauses
+  llvm::SmallVector<FTClause *, 16> TClauses;
+  ArrayRef<FTClause *> Clauses = D->clauses();
+  TClauses.reserve(Clauses.size());
+  for (ArrayRef<FTClause *>::iterator I = Clauses.begin(), E = Clauses.end();
+       I != E; ++I) {
+    if (*I) {
+      getDerived().getSema().StartFTClause((*I)->getClauseKind());
+      FTClause *Clause = getDerived().TransformFTClause(*I);
+      getDerived().getSema().EndFTClause();
+      if (Clause)
+        TClauses.push_back(Clause);
+    } else {
+      TClauses.push_back(nullptr);
+    }
+  }
+  StmtResult AssociatedStmt;
+  if (D->hasAssociatedStmt() && D->getAssociatedStmt()) {
+#if 0
+    getDerived().getSema().ActOnFTRegionStart(D->getDirectiveKind(),
+                                                  /*CurScope=*/nullptr);
+#endif
+    StmtResult Body;
+    {
+      Sema::CompoundScopeRAII CompoundScope(getSema());
+      Stmt *CS;
+      CS = D->getRawStmt();
+      Body = getDerived().TransformStmt(CS);
+    }
+#if 0
+    AssociatedStmt =
+        getDerived().getSema().ActOnFTRegionEnd(Body, TClauses);
+    if (AssociatedStmt.isInvalid()) {
+      return StmtError();
+    }
+#endif
+  }
+  if (TClauses.size() != Clauses.size()) {
+    return StmtError();
+  }
+
+  // Transform directive name for 'omp critical' directive.
+  DeclarationNameInfo DirName;
+
+  return getDerived().RebuildFTTExecutableDirective(
+      D->getDirectiveKind(), DirName, TClauses ,
+      AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc());
+}
+
+template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPMetaDirective(OMPMetaDirective *D) {
   // TODO: Fix This
@@ -8719,6 +8831,17 @@ TreeTransform<Derived>::TransformFTNmrDirective(FTNmrDirective *D) {
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
+
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformFTTNmrDirective(FTTNmrDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartFTDSABlock(FTTD_nmr, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformFTTExecutableDirective(D);
+  getDerived().getSema().EndFTDSABlock(Res.get());
+  return Res;
+}
 template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformFTVoteDirective(FTVoteDirective *D) {
@@ -8727,6 +8850,16 @@ TreeTransform<Derived>::TransformFTVoteDirective(FTVoteDirective *D) {
                                              D->getBeginLoc());
   StmtResult Res = getDerived().TransformFTExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformFTTVoteDirective(FTTVoteDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartFTDSABlock(FTTD_vote, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformFTTExecutableDirective(D);
+  getDerived().getSema().EndFTDSABlock(Res.get());
   return Res;
 }
 //
@@ -10021,6 +10154,139 @@ TreeTransform<Derived>::TransformOMPAutoClause(OMPAutoClause *C) {
     Vars.push_back(EVar.get());
   }
   return getDerived().RebuildFTVarClause(OMPC_auto, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTVoteClause(FTVoteClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVoteClause(Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTRhsClause(FTRhsClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(FTC_rhs, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTLhsClause(FTLhsClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(FTC_lhs, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTNolhsClause(FTNolhsClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(FTC_nolhs, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTNorhsClause(FTNorhsClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(FTC_norhs, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTNovoteClause(FTNovoteClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(FTC_novote, Vars, Sizes, Ptr, C->getBeginLoc(),
+                                             C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+FTClause *
+TreeTransform<Derived>::TransformFTAutoClause(FTAutoClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Sizes;
+  Sizes.reserve(C->varlist_size());
+  llvm::SmallVector<Expr *, 16> Ptr;
+  Ptr.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildFTVarClause(FTC_auto, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 

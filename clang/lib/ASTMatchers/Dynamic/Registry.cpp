@@ -509,6 +509,9 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(ofKind);
   REGISTER_MATCHER(ompDefaultClause);
   REGISTER_MATCHER(ompExecutableDirective);
+#if 0
+  REGISTER_MATCHER(ftExecutableDirective);
+#endif
   REGISTER_MATCHER(on);
   REGISTER_MATCHER(onImplicitObjectArgument);
   REGISTER_MATCHER(opaqueValueExpr);

@@ -2196,6 +2196,12 @@ void ASTStmtWriter::VisitFTExecutableDirective(FTExecutableDirective *E) {
   Record.AddSourceLocation(E->getEndLoc());
 }
 
+void ASTStmtWriter::VisitFTTExecutableDirective(FTTExecutableDirective *E) {
+  Record.writeFTTChildren(E->Data);
+  Record.AddSourceLocation(E->getBeginLoc());
+  Record.AddSourceLocation(E->getEndLoc());
+}
+
 void ASTStmtWriter::VisitOMPLoopBasedDirective(OMPLoopBasedDirective *D) {
   VisitStmt(D);
   Record.writeUInt32(D->getLoopsNumber());
@@ -2226,6 +2232,12 @@ void ASTStmtWriter::VisitFTNmrDirective(FTNmrDirective *D) {
   VisitFTExecutableDirective(D);
   Record.writeBool(D->hasCancel());
   Code = serialization::STMT_FT_NMR_DIRECTIVE;
+}
+void ASTStmtWriter::VisitFTTNmrDirective(FTTNmrDirective *D) {
+  VisitStmt(D);
+  VisitFTTExecutableDirective(D);
+  Record.writeBool(D->hasCancel());
+  Code = serialization::STMT_FTT_NMR_DIRECTIVE;
 }
 //
 
@@ -2412,6 +2424,12 @@ void ASTStmtWriter::VisitFTVoteDirective(FTVoteDirective *D) {
   VisitStmt(D);
   VisitFTExecutableDirective(D);
   Code = serialization::STMT_FT_VOTE_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitFTTVoteDirective(FTTVoteDirective *D) {
+  VisitStmt(D);
+  VisitFTTExecutableDirective(D);
+  Code = serialization::STMT_FTT_VOTE_DIRECTIVE;
 }
 
 void ASTStmtWriter::VisitOMPDepobjDirective(OMPDepobjDirective *D) {

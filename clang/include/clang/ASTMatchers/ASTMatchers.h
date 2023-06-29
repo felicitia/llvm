@@ -65,6 +65,7 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
@@ -8211,7 +8212,13 @@ extern const internal::VariadicDynCastAllOfMatcher<Stmt, OMPExecutableDirective>
 AST_MATCHER(OMPExecutableDirective, isStandaloneDirective) {
   return Node.isStandaloneDirective();
 }
-
+#if 0
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, FTTExecutableDirective>
+    ftExecutableDirective;
+AST_MATCHER(FTTExecutableDirective, isStandaloneDirective) {
+  return Node.isStandaloneDirective();
+}
+#endif
 /// Matches the structured-block of the OpenMP executable directive
 ///
 /// Prerequisite: the executable directive must not be standalone directive.
@@ -8233,7 +8240,14 @@ AST_MATCHER_P(OMPExecutableDirective, hasStructuredBlock,
     return false; // Standalone directives have no structured blocks.
   return InnerMatcher.matches(*Node.getStructuredBlock(), Finder, Builder);
 }
-
+#if 0
+AST_MATCHER_P(FTTExecutableDirective, hasStructuredBlock,
+              internal::Matcher<Stmt>, InnerMatcher) {
+  if (Node.isStandaloneDirective())
+    return false; // Standalone directives have no structured blocks.
+  return InnerMatcher.matches(*Node.getStructuredBlock(), Finder, Builder);
+}
+#endif
 /// Matches any clause in an OpenMP directive.
 ///
 /// Given
@@ -8252,7 +8266,15 @@ AST_MATCHER_P(OMPExecutableDirective, hasAnyClause,
                                     Clauses.end(), Finder,
                                     Builder) != Clauses.end();
 }
-
+#if 0
+AST_MATCHER_P(FTTExecutableDirective, hasAnyClause,
+              internal::Matcher<FTClause>, InnerMatcher) {
+  ArrayRef<FTClause *> Clauses = Node.clauses();
+  return matchesFirstInPointerRange(InnerMatcher, Clauses.begin(),
+                                    Clauses.end(), Finder,
+                                    Builder) != Clauses.end();
+}
+#endif
 /// Matches OpenMP ``default`` clause.
 ///
 /// Given

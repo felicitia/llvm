@@ -33,6 +33,7 @@
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtOpenMP.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeOrdering.h"
 #include "clang/Basic/BitmaskEnum.h"
@@ -42,6 +43,7 @@
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenCLOptions.h"
 #include "clang/Basic/OpenMPKinds.h"
+#include "clang/Basic/FTKinds.h"
 #include "clang/Basic/PragmaKinds.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TemplateKinds.h"
@@ -66,6 +68,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
+#include "llvm/Frontend/FT/FTConstants.h"
 #include <deque>
 #include <memory>
 #include <string>
@@ -168,6 +171,7 @@ namespace clang {
   class OMPDeclareReductionDecl;
   class OMPDeclareSimdDecl;
   class OMPClause;
+  class FTClause;
   struct OMPVarListLocTy;
   struct OverloadCandidate;
   enum class OverloadCandidateParamOrder : char;
@@ -10613,9 +10617,16 @@ public:
 
   ExprResult PerformOpenMPImplicitIntegerConversion(SourceLocation OpLoc,
                                                     Expr *Op);
-  void StartFTDSABlock(OpenMPDirectiveKind K,
+  void StartFTDSABlock(FTDirectiveKind K,
                            const DeclarationNameInfo &DirName, Scope *CurScope,
                            SourceLocation Loc);
+  /// Start analysis of clauses.
+  void StartFTClause(FTClauseKind K);
+  /// End analysis of clauses.
+  void EndFTClause();
+  /// Called on end of data sharing attribute block.
+  void EndFTDSABlock(Stmt *CurDirective);
+
   /// Called on start of new data sharing attribute block.
   void StartOpenMPDSABlock(OpenMPDirectiveKind K,
                            const DeclarationNameInfo &DirName, Scope *CurScope,
@@ -10803,6 +10814,29 @@ public:
                                           Stmt *AStmt,
                                           SourceLocation StartLoc,
                                           SourceLocation EndLoc);
+  StmtResult ActOnFTExecutableDirective(
+      FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
+      ArrayRef<OMPClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
+  StmtResult ActOnFTVoteDirective(ArrayRef<FTClause *> Clauses,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  StmtResult ActOnFTNmrDirective(ArrayRef<FTClause *> Clauses,
+                                          Stmt *AStmt,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  StmtResult ActOnFTTExecutableDirective(
+      FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
+      ArrayRef<FTClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
+  StmtResult ActOnFTTVoteDirective(ArrayRef<FTClause *> Clauses,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  StmtResult ActOnFTTNmrDirective(ArrayRef<FTClause *> Clauses,
+                                          Stmt *AStmt,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  // endif
   // endif
   /// Called on well-formed '\#pragma omp parallel' after parsing
   /// of the  associated statement.
@@ -11421,6 +11455,13 @@ public:
                                         SourceLocation StartLoc,
                                         SourceLocation LParenLoc,
                                         SourceLocation EndLoc);
+  FTClause *ActOnFTVarSizeListClause(
+      FTClauseKind Kind, ArrayRef<Expr *> Vars, 
+      					ArrayRef<Expr *> Sizes,
+      					ArrayRef<Expr *> Ptrs,
+                                        SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc);
   // endif
   
   OMPClause *ActOnOpenMPVarListClause(
@@ -11526,6 +11567,12 @@ public:
                                     SourceLocation EndLoc);
   /// ifdef DK
   OMPClause *ActOnOpenMPVoteClause( ArrayRef<Expr *> VarList,
+		  		    ArrayRef<Expr *> SizeList,
+		  		    ArrayRef<Expr *> PtrList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
+  FTClause *ActOnFTVoteClause( ArrayRef<Expr *> VarList,
 		  		    ArrayRef<Expr *> SizeList,
 		  		    ArrayRef<Expr *> PtrList,
                                     SourceLocation StartLoc,

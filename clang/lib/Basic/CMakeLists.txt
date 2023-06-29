@@ -58,6 +58,7 @@ add_clang_library(clangBasic
   ObjCRuntime.cpp
   OpenCLOptions.cpp
   OpenMPKinds.cpp
+  FTKinds.cpp
   OperatorPrecedence.cpp
   ProfileList.cpp
   NoSanitizeList.cpp

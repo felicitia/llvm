@@ -202,6 +202,7 @@ public:
              const Decl *From = nullptr, StringRef Label = {});
   void Visit(const CXXCtorInitializer *Init);
   void Visit(const OMPClause *C);
+  void Visit(const FTClause *C);
   void Visit(const BlockDecl::Capture &C);
   void Visit(const GenericSelectionExpr::ConstAssociation &A);
   void Visit(const concepts::Requirement *R);

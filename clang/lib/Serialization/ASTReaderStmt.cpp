@@ -31,6 +31,7 @@
 #include "clang/AST/OperationKinds.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
@@ -2282,6 +2283,12 @@ void ASTStmtReader::VisitFTExecutableDirective(FTExecutableDirective *E) {
   E->setLocEnd(readSourceLocation());
 }
 
+void ASTStmtReader::VisitFTTExecutableDirective(FTTExecutableDirective *E) {
+  Record.readFTTChildren(E->Data);
+  E->setLocStart(readSourceLocation());
+  E->setLocEnd(readSourceLocation());
+}
+
 void ASTStmtReader::VisitOMPLoopBasedDirective(OMPLoopBasedDirective *D) {
   VisitStmt(D);
   // Field CollapsedNum was read in ReadStmtFromStream.
@@ -2310,6 +2317,11 @@ void ASTStmtReader::VisitOMPParallelDirective(OMPParallelDirective *D) {
 void ASTStmtReader::VisitFTNmrDirective(FTNmrDirective *D) {
   VisitStmt(D);
   VisitFTExecutableDirective(D);
+  D->setHasCancel(Record.readBool());
+}
+void ASTStmtReader::VisitFTTNmrDirective(FTTNmrDirective *D) {
+  VisitStmt(D);
+  VisitFTTExecutableDirective(D);
   D->setHasCancel(Record.readBool());
 }
 //endif
@@ -2429,6 +2441,10 @@ void ASTStmtReader::VisitOMPFlushDirective(OMPFlushDirective *D) {
 void ASTStmtReader::VisitFTVoteDirective(FTVoteDirective *D) {
   VisitStmt(D);
   VisitFTExecutableDirective(D);
+}
+void ASTStmtReader::VisitFTTVoteDirective(FTTVoteDirective *D) {
+  VisitStmt(D);
+  VisitFTTExecutableDirective(D);
 }
 // endif
 //
@@ -3354,8 +3370,16 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = FTVoteDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
+    case STMT_FTT_VOTE_DIRECTIVE:
+      S = FTTVoteDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
     case STMT_FT_NMR_DIRECTIVE:
       S = FTNmrDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+    case STMT_FTT_NMR_DIRECTIVE:
+      S = FTTNmrDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
       // endif
