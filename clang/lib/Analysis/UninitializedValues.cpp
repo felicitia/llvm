@@ -291,7 +291,6 @@ public:
   void VisitCallExpr(CallExpr *CE);
   void VisitCastExpr(CastExpr *CE);
   void VisitOMPExecutableDirective(OMPExecutableDirective *ED);
-  void VisitFTExecutableDirective(FTExecutableDirective *ED);
   void VisitFTTExecutableDirective(FTTExecutableDirective *ED);
 
   void operator()(Stmt *S) { Visit(S); }
@@ -403,14 +402,11 @@ void ClassifyRefs::VisitOMPExecutableDirective(OMPExecutableDirective *ED) {
     classify(cast<Expr>(S), Use);
 }
 
-void ClassifyRefs::VisitFTExecutableDirective(FTExecutableDirective *ED) {
-  for (Stmt *S : FTExecutableDirective::used_clauses_children(ED->clauses()))
-    classify(cast<Expr>(S), Use);
-}
 void ClassifyRefs::VisitFTTExecutableDirective(FTTExecutableDirective *ED) {
   for (Stmt *S : FTTExecutableDirective::used_clauses_children(ED->clauses()))
     classify(cast<Expr>(S), Use);
 }
+
 static bool isPointerToConst(const QualType &QT) {
   return QT->isAnyPointerType() && QT->getPointeeType().isConstQualified();
 }
@@ -502,7 +498,6 @@ public:
   void VisitObjCForCollectionStmt(ObjCForCollectionStmt *FS);
   void VisitObjCMessageExpr(ObjCMessageExpr *ME);
   void VisitOMPExecutableDirective(OMPExecutableDirective *ED);
-  void VisitFTExecutableDirective(FTExecutableDirective *ED);
   void VisitFTTExecutableDirective(FTTExecutableDirective *ED);
 
   bool isTrackedVar(const VarDecl *vd) {
@@ -710,16 +705,6 @@ void TransferFunctions::VisitObjCForCollectionStmt(ObjCForCollectionStmt *FS) {
 void TransferFunctions::VisitOMPExecutableDirective(
     OMPExecutableDirective *ED) {
   for (Stmt *S : OMPExecutableDirective::used_clauses_children(ED->clauses())) {
-    assert(S && "Expected non-null used-in-clause child.");
-    Visit(S);
-  }
-  if (!ED->isStandaloneDirective())
-    Visit(ED->getStructuredBlock());
-}
-
-void TransferFunctions::VisitFTExecutableDirective(
-    FTExecutableDirective *ED) {
-  for (Stmt *S : FTExecutableDirective::used_clauses_children(ED->clauses())) {
     assert(S && "Expected non-null used-in-clause child.");
     Visit(S);
   }

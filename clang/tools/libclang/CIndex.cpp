@@ -2046,15 +2046,13 @@ public:
   void VisitPseudoObjectExpr(const PseudoObjectExpr *E);
   void VisitOpaqueValueExpr(const OpaqueValueExpr *E);
   void VisitLambdaExpr(const LambdaExpr *E);
+  void VisitFTTExecutableDirective(const FTTExecutableDirective *D);
+  void VisitFTTNmrDirective(const FTTNmrDirective *D);
+  void VisitFTTVoteDirective(const FTTVoteDirective *D);
   void VisitOMPExecutableDirective(const OMPExecutableDirective *D);
   void VisitOMPLoopBasedDirective(const OMPLoopBasedDirective *D);
   void VisitOMPLoopDirective(const OMPLoopDirective *D);
   void VisitOMPParallelDirective(const OMPParallelDirective *D);
-  //ifdef DK
-  void VisitFTTExecutableDirective(const FTTExecutableDirective *D);
-  void VisitFTNmrDirective(const FTNmrDirective *D);
-  void VisitFTTNmrDirective(const FTTNmrDirective *D);
-  //endif
   void VisitOMPSimdDirective(const OMPSimdDirective *D);
   void
   VisitOMPLoopTransformationDirective(const OMPLoopTransformationDirective *D);
@@ -2080,10 +2078,6 @@ public:
   VisitOMPCancellationPointDirective(const OMPCancellationPointDirective *D);
   void VisitOMPCancelDirective(const OMPCancelDirective *D);
   void VisitOMPFlushDirective(const OMPFlushDirective *D);
-  // ifdef DK
-  void VisitFTVoteDirective(const FTVoteDirective *D);
-  void VisitFTTVoteDirective(const FTTVoteDirective *D);
-  // endif
   void VisitOMPDepobjDirective(const OMPDepobjDirective *D);
   void VisitOMPScanDirective(const OMPScanDirective *D);
   void VisitOMPOrderedDirective(const OMPOrderedDirective *D);
@@ -2435,28 +2429,6 @@ void OMPClauseEnqueue::VisitOMPLastprivateClause(
 void OMPClauseEnqueue::VisitOMPSharedClause(const OMPSharedClause *C) {
   VisitOMPClauseList(C);
 }
-// ifdef DK
-void OMPClauseEnqueue::VisitOMPVoteClause(const OMPVoteClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseEnqueue::VisitOMPLhsClause(const OMPLhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseEnqueue::VisitOMPRhsClause(const OMPRhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseEnqueue::VisitOMPNovoteClause(const OMPNovoteClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseEnqueue::VisitOMPNolhsClause(const OMPNolhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseEnqueue::VisitOMPNorhsClause(const OMPNorhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseEnqueue::VisitOMPAutoClause(const OMPAutoClause *C) {
-  VisitOMPClauseList(C);
-}
 // endif
 void OMPClauseEnqueue::VisitOMPReductionClause(const OMPReductionClause *C) {
   VisitOMPClauseList(C);
@@ -2652,7 +2624,6 @@ template <typename T> void FTClauseEnqueue::VisitFTClauseList(T *Node) {
   }
 }
 
-// ifdef DK
 void FTClauseEnqueue::VisitFTVoteClause(const FTVoteClause *C) {
   VisitFTClauseList(C);
 }
@@ -2674,7 +2645,6 @@ void FTClauseEnqueue::VisitFTNorhsClause(const FTNorhsClause *C) {
 void FTClauseEnqueue::VisitFTAutoClause(const FTAutoClause *C) {
   VisitFTClauseList(C);
 }
-// endif
 } // namespace
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
@@ -2955,6 +2925,23 @@ void EnqueueVisitor::VisitExpressionTraitExpr(const ExpressionTraitExpr *E) {
   EnqueueChildren(E);
 }
 
+void EnqueueVisitor::VisitFTTExecutableDirective(
+    const FTTExecutableDirective *D) {
+  EnqueueChildren(D);
+  for (ArrayRef<FTClause *>::iterator I = D->clauses().begin(),
+                                       E = D->clauses().end();
+       I != E; ++I)
+    EnqueueChildren(*I);
+}
+
+void EnqueueVisitor::VisitFTTNmrDirective(const FTTNmrDirective *D) {
+  VisitFTTExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitFTTVoteDirective(const FTTVoteDirective *D) {
+  VisitFTTExecutableDirective(D);
+}
+
 void EnqueueVisitor::VisitUnresolvedMemberExpr(const UnresolvedMemberExpr *U) {
   VisitOverloadExpr(U);
   if (!U->isImplicitAccess())
@@ -2991,15 +2978,6 @@ void EnqueueVisitor::VisitOMPExecutableDirective(
     EnqueueChildren(*I);
 }
 
-void EnqueueVisitor::VisitFTTExecutableDirective(
-    const FTTExecutableDirective *D) {
-  EnqueueChildren(D);
-  for (ArrayRef<FTClause *>::iterator I = D->clauses().begin(),
-                                       E = D->clauses().end();
-       I != E; ++I)
-    EnqueueChildren(*I);
-}
-
 void EnqueueVisitor::VisitOMPLoopBasedDirective(
     const OMPLoopBasedDirective *D) {
   VisitOMPExecutableDirective(D);
@@ -3012,15 +2990,6 @@ void EnqueueVisitor::VisitOMPLoopDirective(const OMPLoopDirective *D) {
 void EnqueueVisitor::VisitOMPParallelDirective(const OMPParallelDirective *D) {
   VisitOMPExecutableDirective(D);
 }
-
-//ifdef DK
-void EnqueueVisitor::VisitFTNmrDirective(const FTNmrDirective *D) {
-  VisitFTExecutableDirective(D);
-}
-void EnqueueVisitor::VisitFTTNmrDirective(const FTTNmrDirective *D) {
-  VisitFTTExecutableDirective(D);
-}
-//endif
 
 void EnqueueVisitor::VisitOMPSimdDirective(const OMPSimdDirective *D) {
   VisitOMPLoopDirective(D);
@@ -3116,14 +3085,6 @@ void EnqueueVisitor::VisitOMPFlushDirective(const OMPFlushDirective *D) {
   VisitOMPExecutableDirective(D);
 }
 
-// ifdef DK
-void EnqueueVisitor::VisitFTVoteDirective(const FTVoteDirective *D) {
-  VisitFTExecutableDirective(D);
-}
-void EnqueueVisitor::VisitFTTVoteDirective(const FTTVoteDirective *D) {
-  VisitFTTExecutableDirective(D);
-}
-//
 void EnqueueVisitor::VisitOMPDepobjDirective(const OMPDepobjDirective *D) {
   VisitOMPExecutableDirective(D);
 }
@@ -5718,6 +5679,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
+  case CXCursor_FTTVoteDirective:
+    return cxstring::createRef("FTTVoteDirective");
+  case CXCursor_FTTNmrDirective:
+    return cxstring::createRef("FTTNmrDirective");
   case CXCursor_OMPCanonicalLoop:
     return cxstring::createRef("OMPCanonicalLoop");
   case CXCursor_OMPMetaDirective:
@@ -5764,16 +5729,6 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTaskgroupDirective");
   case CXCursor_OMPFlushDirective:
     return cxstring::createRef("OMPFlushDirective");
-    // ifdef DK
-  case CXCursor_FTVoteDirective:
-    return cxstring::createRef("FTVoteDirective");
-  case CXCursor_FTNmrDirective:
-    return cxstring::createRef("FTNmrDirective");
-  case CXCursor_FTTVoteDirective:
-    return cxstring::createRef("FTTVoteDirective");
-  case CXCursor_FTTNmrDirective:
-    return cxstring::createRef("FTTNmrDirective");
-    // endif
   case CXCursor_OMPDepobjDirective:
     return cxstring::createRef("OMPDepobjDirective");
   case CXCursor_OMPScanDirective:

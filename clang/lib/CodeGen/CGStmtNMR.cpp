@@ -361,34 +361,9 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
   }
 }
 
-LValue CodeGenFunction::EmitOMPFTVarLValue(const Expr *E) {
-  if (const auto *OrigDRE = dyn_cast<DeclRefExpr>(E)) {
-    if (const auto *OrigVD = dyn_cast<VarDecl>(OrigDRE->getDecl())) {
-      OrigVD = OrigVD->getCanonicalDecl();
-      bool IsCaptured =
-          LambdaCaptureFields.lookup(OrigVD) ||
-          (CapturedStmtInfo && CapturedStmtInfo->lookup(OrigVD)) ||
-          (CurCodeDecl && isa<BlockDecl>(CurCodeDecl));
-      DeclRefExpr DRE(getContext(), const_cast<VarDecl *>(OrigVD), IsCaptured,
-                      OrigDRE->getType(), VK_LValue, OrigDRE->getExprLoc());
-      return EmitLValue(&DRE);
-    }
-  }
-  return EmitLValue(E);
-}
-
 void CodeGenFunction::EmitFTTVoteDirective(const FTTVoteDirective &S) {
 	// no associated statement
   if (const auto *FtvarClause = S.getSingleClause<FTVoteClause>()) {
-    SmallVector<const Expr *, 4> VarsSizes;
-    VarsSizes.append(FtvarClause->varlist_begin(), FtvarClause->varlist_end());
-    emitVoteStmt(*this, VarsSizes, S.getBeginLoc());
-  }
-}
-
-void CodeGenFunction::EmitFTVoteDirective(const FTVoteDirective &S) {
-	// no associated statement
-  if (const auto *FtvarClause = S.getSingleClause<OMPVoteClause>()) {
     SmallVector<const Expr *, 4> VarsSizes;
     VarsSizes.append(FtvarClause->varlist_begin(), FtvarClause->varlist_end());
     emitVoteStmt(*this, VarsSizes, S.getBeginLoc());
@@ -434,56 +409,6 @@ void CodeGenFunction::EmitFTTNmrDirective(const FTTNmrDirective &S) {
   const auto *NorvarClause = S.getSingleClause<FTNorhsClause>();
   const auto *NovoteClause = S.getSingleClause<FTNovoteClause>();
   const auto *AutoClause = S.getSingleClause<FTAutoClause>();
-  std::vector<int> LvarsIndex, RvarsIndex;
-
-  SaveLVarSize = LVarSize;
-  SaveRVarSize = RVarSize;
-  SaveAutoSize = AutoSize;
-
-  // inherit outer NMR region's var, rvar and add local ones
-  if (LvarClause)  // lvar
-    LVarSize.append(LvarClause->varlist_begin(), LvarClause->varlist_end());
-  if (RvarClause)  // rvar
-    RVarSize.append(RvarClause->varlist_begin(), RvarClause->varlist_end());
-  if (NovarClause)
-    NovarSize.append(NovarClause->varlist_begin(), NovarClause->varlist_end());
-  if (NorvarClause)
-    NorvarSize.append(NorvarClause->varlist_begin(), NorvarClause->varlist_end());
-  if (NovoteClause)
-    NovoteSize.append(NovoteClause->varlist_begin(), NovoteClause->varlist_end());
-  if (AutoClause)
-    AutoSize.append(AutoClause->varlist_begin(), AutoClause->varlist_end());
-  // remove entries in (No) clauses
-  removeVars(*this, LVarSize, NovarSize);
-  removeVars(*this, LVarSize, NovoteSize);
-  removeVars(*this, RVarSize, NorvarSize);
-  removeVars(*this, RVarSize, NovoteSize);
-  // remove entries in (No) votes from Auto: TODO?: noauto?
-  removeVars(*this, AutoSize, NovoteSize);
-  LexicalScope Scope(*this, S.getSourceRange());
-  EmitStopPoint(&S);
-  const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());
-  EmitStmt(CS);
-
-  LVarSize = SaveLVarSize;
-  RVarSize = SaveRVarSize;
-  AutoSize = SaveAutoSize;
-}
-void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
-
-  SmallVector<const Expr *, 4> SaveLVarSize;
-  SmallVector<const Expr *, 4> SaveRVarSize;
-  SmallVector<const Expr *, 4> SaveAutoSize;
-  SmallVector<const Expr *, 4> NovarSize;
-  SmallVector<const Expr *, 4> NorvarSize;
-  SmallVector<const Expr *, 4> NovoteSize;
-
-  const auto *LvarClause = S.getSingleClause<OMPLhsClause>();
-  const auto *RvarClause = S.getSingleClause<OMPRhsClause>();
-  const auto *NovarClause = S.getSingleClause<OMPNolhsClause>();
-  const auto *NorvarClause = S.getSingleClause<OMPNorhsClause>();
-  const auto *NovoteClause = S.getSingleClause<OMPNovoteClause>();
-  const auto *AutoClause = S.getSingleClause<OMPAutoClause>();
   std::vector<int> LvarsIndex, RvarsIndex;
 
   SaveLVarSize = LVarSize;

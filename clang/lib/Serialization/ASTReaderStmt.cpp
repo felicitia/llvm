@@ -2262,6 +2262,27 @@ void ASTStmtReader::VisitAsTypeExpr(AsTypeExpr *E) {
 }
 
 //===----------------------------------------------------------------------===//
+// FaultTolerance Directives.
+//===----------------------------------------------------------------------===//
+
+void ASTStmtReader::VisitFTTExecutableDirective(FTTExecutableDirective *E) {
+  Record.readFTTChildren(E->Data);
+  E->setLocStart(readSourceLocation());
+  E->setLocEnd(readSourceLocation());
+}
+
+void ASTStmtReader::VisitFTTNmrDirective(FTTNmrDirective *D) {
+  VisitStmt(D);
+  VisitFTTExecutableDirective(D);
+  D->setHasCancel(Record.readBool());
+}
+
+void ASTStmtReader::VisitFTTVoteDirective(FTTVoteDirective *D) {
+  VisitStmt(D);
+  VisitFTTExecutableDirective(D);
+}
+
+//===----------------------------------------------------------------------===//
 // OpenMP Directives.
 //===----------------------------------------------------------------------===//
 
@@ -2273,18 +2294,6 @@ void ASTStmtReader::VisitOMPCanonicalLoop(OMPCanonicalLoop *S) {
 
 void ASTStmtReader::VisitOMPExecutableDirective(OMPExecutableDirective *E) {
   Record.readOMPChildren(E->Data);
-  E->setLocStart(readSourceLocation());
-  E->setLocEnd(readSourceLocation());
-}
-
-void ASTStmtReader::VisitFTExecutableDirective(FTExecutableDirective *E) {
-  Record.readFTChildren(E->Data);
-  E->setLocStart(readSourceLocation());
-  E->setLocEnd(readSourceLocation());
-}
-
-void ASTStmtReader::VisitFTTExecutableDirective(FTTExecutableDirective *E) {
-  Record.readFTTChildren(E->Data);
   E->setLocStart(readSourceLocation());
   E->setLocEnd(readSourceLocation());
 }
@@ -2312,19 +2321,6 @@ void ASTStmtReader::VisitOMPParallelDirective(OMPParallelDirective *D) {
   VisitOMPExecutableDirective(D);
   D->setHasCancel(Record.readBool());
 }
-
-//ifdef DK
-void ASTStmtReader::VisitFTNmrDirective(FTNmrDirective *D) {
-  VisitStmt(D);
-  VisitFTExecutableDirective(D);
-  D->setHasCancel(Record.readBool());
-}
-void ASTStmtReader::VisitFTTNmrDirective(FTTNmrDirective *D) {
-  VisitStmt(D);
-  VisitFTTExecutableDirective(D);
-  D->setHasCancel(Record.readBool());
-}
-//endif
 
 void ASTStmtReader::VisitOMPSimdDirective(OMPSimdDirective *D) {
   VisitOMPLoopDirective(D);
@@ -2437,17 +2433,6 @@ void ASTStmtReader::VisitOMPFlushDirective(OMPFlushDirective *D) {
   VisitOMPExecutableDirective(D);
 }
 
-// ifdef DK
-void ASTStmtReader::VisitFTVoteDirective(FTVoteDirective *D) {
-  VisitStmt(D);
-  VisitFTExecutableDirective(D);
-}
-void ASTStmtReader::VisitFTTVoteDirective(FTTVoteDirective *D) {
-  VisitStmt(D);
-  VisitFTTExecutableDirective(D);
-}
-// endif
-//
 void ASTStmtReader::VisitOMPDepobjDirective(OMPDepobjDirective *D) {
   VisitStmt(D);
   VisitOMPExecutableDirective(D);
@@ -3235,6 +3220,16 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                               nullptr);
       break;
 
+    case STMT_FTT_VOTE_DIRECTIVE:
+      S = FTTVoteDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+
+    case STMT_FTT_NMR_DIRECTIVE:
+      S = FTTNmrDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+
     case STMT_OMP_CANONICAL_LOOP:
       S = OMPCanonicalLoop::createEmpty(Context);
       break;
@@ -3365,25 +3360,6 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 
-      // ifdef DK
-    case STMT_FT_VOTE_DIRECTIVE:
-      S = FTVoteDirective::CreateEmpty(
-          Context, Record[ASTStmtReader::NumStmtFields], Empty);
-      break;
-    case STMT_FTT_VOTE_DIRECTIVE:
-      S = FTTVoteDirective::CreateEmpty(
-          Context, Record[ASTStmtReader::NumStmtFields], Empty);
-      break;
-    case STMT_FT_NMR_DIRECTIVE:
-      S = FTNmrDirective::CreateEmpty(
-          Context, Record[ASTStmtReader::NumStmtFields], Empty);
-      break;
-    case STMT_FTT_NMR_DIRECTIVE:
-      S = FTTNmrDirective::CreateEmpty(
-          Context, Record[ASTStmtReader::NumStmtFields], Empty);
-      break;
-      // endif
-      //
     case STMT_OMP_DEPOBJ_DIRECTIVE:
       S = OMPDepobjDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);

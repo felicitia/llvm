@@ -3208,11 +3208,6 @@ private:
                             SourceLocation FoundLoc,
                             bool SkipUntilOpenMPEnd);
 
-  /// Parses declarative FT directives.
-  DeclGroupPtrTy ParseFTDeclarativeDirectiveWithExtDecl(
-      AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
-      DeclSpec::TST TagType = DeclSpec::TST_unspecified,
-      Decl *TagDecl = nullptr);
   /// Parses declarative FTT directives.
   DeclGroupPtrTy ParseFTTDeclarativeDirectiveWithExtDecl(
       AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
@@ -3254,10 +3249,6 @@ private:
       bool AllowScopeSpecifier);
 
   // ifdef DK
-  StmtResult ParseFTDeclarativeOrExecutableDirective(
-      ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
-  OMPClause *ParseFTClause(OpenMPDirectiveKind mDKind,
-                               OpenMPClauseKind CKind, bool FirstClause);
   StmtResult ParseFTTDeclarativeOrExecutableDirective(
       ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
   FTClause *ParseFTClause(FTDirectiveKind mDKind,
@@ -3329,12 +3320,6 @@ private:
   /// nullptr.
   ///
   OMPClause *ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
-                                      OpenMPClauseKind Kind, bool ParseOnly);
-#if 0// ifdef DK
-  OMPClause *ParseOpenMPDoubleVarListClause(OpenMPDirectiveKind DKind,
-                                      OpenMPClauseKind Kind, bool ParseOnly);
-#endif
-  OMPClause *ParseFTDoubleVarListClause(OpenMPDirectiveKind DKind,
                                       OpenMPClauseKind Kind, bool ParseOnly);
   FTClause *ParseFTDoubleVarListClause(FTDirectiveKind DKind,
                                       FTClauseKind Kind, bool ParseOnly);

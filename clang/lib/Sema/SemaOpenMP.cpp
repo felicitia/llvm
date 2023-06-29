@@ -3489,19 +3489,6 @@ class DSAAttrChecker final : public StmtVisitor<DSAAttrChecker, void> {
     }
   }
 
-  void FTVisitSubCaptures(FTExecutableDirective *S) {
-    // Check implicitly captured variables.
-    if (!S->hasAssociatedStmt() || !S->getAssociatedStmt())
-      return;
-    // In tasks firstprivates are not captured anymore, need to analyze them
-    // explicitly.
-      for (OMPClause *C : S->clauses())
-        if (auto *FC = dyn_cast<OMPFirstprivateClause>(C)) {
-          for (Expr *Ref : FC->varlists())
-            Visit(Ref);
-        }
-  }
-
 public:
   void VisitDeclRefExpr(DeclRefExpr *E) {
     if (TryCaptureCXXThisMembers || E->isTypeDependent() ||
@@ -3849,23 +3836,6 @@ public:
     }
     // Check implicitly captured variables.
     VisitSubCaptures(S);
-  }
-
-  void VisitFTExecutableDirective(FTExecutableDirective *S) {
-    for (OMPClause *C : S->clauses()) {
-      // Skip analysis of arguments of private clauses for task|target
-      // directives.
-      // Skip analysis of arguments of implicitly defined firstprivate clause
-      // for task|target directives.
-      // Skip analysis of arguments of implicitly defined map clause for target
-      // directives.
-        for (Stmt *CC : C->children()) {
-          if (CC)
-            Visit(CC);
-        }
-    }
-    // Check implicitly captured variables.
-    FTVisitSubCaptures(S);
   }
 
   void VisitOMPLoopTransformationDirective(OMPLoopTransformationDirective *S) {
@@ -4720,7 +4690,7 @@ StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
         }
       }
     }
-    if (ThisCaptureRegion == OMPD_parallel /* || ThisCaptureRegion == OMPD_nmr */) {
+    if (ThisCaptureRegion == OMPD_parallel) {
       // Capture temp arrays for inscan reductions and locals in aligned
       // clauses.
       for (OMPClause *C : Clauses) {
@@ -5882,7 +5852,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   bool ErrorFound = false;
   ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
   if (AStmt && !CurContext->isDependentContext() && Kind != OMPD_atomic &&
-      Kind != OMPD_nmr &&
       Kind != OMPD_critical && Kind != OMPD_section && Kind != OMPD_master &&
       Kind != OMPD_masked && !isOpenMPLoopTransformationDirective(Kind)) {
     assert(isa<CapturedStmt>(AStmt) && "Captured statement expected");
@@ -6021,17 +5990,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
 
   llvm::SmallVector<OpenMPDirectiveKind, 4> AllowedNameModifiers;
   switch (Kind) {
-#if 0
-  case OMPD_vote:
-    assert(AStmt == nullptr &&
-           "No associated statement allowed for 'omp flush' directive");
-    Res = ActOnFTVoteDirective(ClausesWithImplicit, StartLoc, EndLoc);
-    break;
-  case OMPD_nmr:
-    Res = ActOnFTNmrDirective(ClausesWithImplicit, AStmt, StartLoc,
-                                       EndLoc);
-    break;
-#endif
   case OMPD_parallel:
     Res = ActOnOpenMPParallelDirective(ClausesWithImplicit, AStmt, StartLoc,
                                        EndLoc);
@@ -6542,39 +6500,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     // Register target to DSA Stack.
     DSAStack->addTargetDirLocation(StartLoc);
   }
-
-  return Res;
-}
-
-StmtResult Sema::ActOnFTExecutableDirective(
-    OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
-    ArrayRef<OMPClause *> Clauses,
-    Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc) {
-  StmtResult Res = StmtError();
-//  OpenMPBindClauseKind BindKind = OMPC_BIND_unknown;
-  llvm::SmallVector<OMPClause *, 8> ClausesWithImplicit;
-  bool ErrorFound = false;
-  ClausesWithImplicit.append(Clauses.begin(), Clauses.end());
-
-  llvm::SmallVector<OpenMPDirectiveKind, 4> AllowedNameModifiers;
-  switch (Kind) {
-  case OMPD_vote:
-    assert(AStmt == nullptr &&
-           "No associated statement allowed for 'omp flush' directive");
-    Res = ActOnFTVoteDirective(ClausesWithImplicit, StartLoc, EndLoc);
-    break;
-  case OMPD_nmr:
-    Res = ActOnFTNmrDirective(ClausesWithImplicit, AStmt, StartLoc,
-                                       EndLoc);
-    break;
-  default:
-    llvm_unreachable("Unknown OpenMP directive");
-  }
-
-  ErrorFound = Res.isInvalid() || ErrorFound;
-
-  if (ErrorFound)
-    return StmtError();
 
   return Res;
 }
@@ -7468,18 +7393,6 @@ void Sema::ActOnOpenMPDeclareVariantDirective(
       AppendArgs.size(), SR);
   FD->addAttr(NewAttr);
 }
-
-// ifdef DK
-StmtResult Sema::ActOnFTNmrDirective(ArrayRef<OMPClause *> Clauses,
-                                              Stmt *AStmt,
-                                              SourceLocation StartLoc,
-                                              SourceLocation EndLoc) {
-
-  if (!AStmt)
-    return StmtError();
-  return FTNmrDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
-}
-// endif
 
 StmtResult Sema::ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
                                               Stmt *AStmt,
@@ -10889,47 +10802,6 @@ StmtResult Sema::ActOnOpenMPFlushDirective(ArrayRef<OMPClause *> Clauses,
   }
   return OMPFlushDirective::Create(Context, StartLoc, EndLoc, Clauses);
 }
-
-// #ifdef DK
-StmtResult Sema::ActOnFTVoteDirective(ArrayRef<OMPClause *> Clauses,
-                                           SourceLocation StartLoc,
-                                           SourceLocation EndLoc) {
-  OMPVoteClause *FC = nullptr;
-  OMPClause *OrderClause = nullptr;
-  for (OMPClause *C : Clauses) {
-    if (C->getClauseKind() == OMPC_vote)
-      FC = cast<OMPVoteClause>(C);
-    else
-      OrderClause = C;
-  }
-  OpenMPClauseKind MemOrderKind = OMPC_unknown;
-  SourceLocation MemOrderLoc;
-  for (const OMPClause *C : Clauses) {
-    if (C->getClauseKind() == OMPC_acq_rel ||
-        C->getClauseKind() == OMPC_acquire ||
-        C->getClauseKind() == OMPC_release) {
-      if (MemOrderKind != OMPC_unknown) {
-        Diag(C->getBeginLoc(), diag::err_omp_several_mem_order_clauses)
-            << getOpenMPDirectiveName(OMPD_vote) << 1
-            << SourceRange(C->getBeginLoc(), C->getEndLoc());
-        Diag(MemOrderLoc, diag::note_omp_previous_mem_order_clause)
-            << getOpenMPClauseName(MemOrderKind);
-      } else {
-        MemOrderKind = C->getClauseKind();
-        MemOrderLoc = C->getBeginLoc();
-      }
-    }
-  }
-  if (FC && OrderClause) {
-    Diag(FC->getLParenLoc(), diag::err_omp_flush_order_clause_and_list)
-        << getOpenMPClauseName(OrderClause->getClauseKind());
-    Diag(OrderClause->getBeginLoc(), diag::note_omp_flush_order_clause_here)
-        << getOpenMPClauseName(OrderClause->getClauseKind());
-    return StmtError();
-  }
-  return FTVoteDirective::Create(Context, StartLoc, EndLoc, Clauses);
-}
-// #endif
 
 StmtResult Sema::ActOnOpenMPDepobjDirective(ArrayRef<OMPClause *> Clauses,
                                             SourceLocation StartLoc,
@@ -15060,7 +14932,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target_exit_data:
     case OMPD_target_update:
     case OMPD_cancel:
-/*    case OMPD_nmr: */
     case OMPD_parallel:
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
@@ -15147,7 +15018,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target_exit_data:
     case OMPD_target_update:
     case OMPD_cancel:
-/*    case OMPD_nmr: */
     case OMPD_parallel:
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
@@ -15326,7 +15196,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target_simd:
     case OMPD_target_parallel:
     case OMPD_cancel:
-/*    case OMPD_nmr: */
     case OMPD_parallel:
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
@@ -15414,7 +15283,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_parallel_master_taskloop:
     case OMPD_parallel_master_taskloop_simd:
     case OMPD_cancel:
-/*    case OMPD_nmr: */
     case OMPD_parallel:
     case OMPD_parallel_master:
     case OMPD_parallel_sections:
@@ -17904,85 +17772,6 @@ OMPClause *Sema::ActOnOpenMPSharedClause(ArrayRef<Expr *> VarList,
   return OMPSharedClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars);
 }
 
-// ifdef DK
-OMPClause *Sema::ActOnOpenMPVarSizeListClause(OpenMPClauseKind Kind,
-					 ArrayRef<Expr *> VarList,
-					 ArrayRef<Expr *> SizeList,
-					 ArrayRef<Expr *> PtrList,
-                                         SourceLocation StartLoc,
-                                         SourceLocation LParenLoc,
-                                         SourceLocation EndLoc) {
-  SmallVector<Expr *, 4> Vars;
-  SmallVector<Expr *, 4> SizeL;
-  SmallVector<Expr *, 4> Ptr;
-  // DK TODO: recode with array index
-  for (int i = 0; i < (int)VarList.size(); i++) {
-    SourceLocation ELoc;
-    SourceRange ERange;
-    Expr *SimpleRefExpr = VarList[i];
-    auto Res = getPrivateItem(*this, SimpleRefExpr, ELoc, ERange);
-    if (Res.second) {
-      // It will be analyzed later.
-      Vars.push_back(VarList[i]);
-      SizeL.push_back(SizeList[i]);
-      Ptr.push_back(PtrList[i]);
-    }
-    ValueDecl *D = Res.first;
-    if (!D)
-      continue;
-    auto *VD = dyn_cast<VarDecl>(D);
-
-    // OpenMP [2.9.1.1, Data-sharing Attribute Rules for Variables Referenced
-    // in a Construct]
-    //  Variables with the predetermined data-sharing attributes may not be
-    //  listed in data-sharing attributes clauses, except for the cases
-    //  listed below. For these exceptions only, listing a predetermined
-    //  variable in a data-sharing attribute clause is allowed and overrides
-    //  the variable's predetermined data-sharing attributes.
-    DSAStackTy::DSAVarData DVar = DSAStack->getTopDSA(D, /*FromParent=*/false);
-    if (DVar.CKind != OMPC_unknown && DVar.CKind != OMPC_shared &&
-        DVar.RefExpr) {
-      Diag(ELoc, diag::err_omp_wrong_dsa) << getOpenMPClauseName(DVar.CKind)
-                                          << getOpenMPClauseName(OMPC_shared);
-      reportOriginalDsa(*this, DSAStack, D, DVar);
-      continue;
-    }
-
-    DeclRefExpr *Ref = nullptr;
-    if (!VD && isOpenMPCapturedDecl(D) && !CurContext->isDependentContext())
-      Ref = buildCapture(*this, D, SimpleRefExpr, /*WithInit=*/true);
-    DSAStack->addDSA(D, VarList[i]->IgnoreParens(), OMPC_shared, Ref);
-    Vars.push_back((VD || !Ref || CurContext->isDependentContext())
-                       ? VarList[i]->IgnoreParens()
-                       : Ref);
-    SizeL.push_back(SizeList[i]);
-    Ptr.push_back(PtrList[i]);
-  }
-
-  if (Vars.empty())
-    return nullptr;
-
-  switch(Kind){
-    case OMPC_vote:
-      return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_rhs:
-      return OMPRhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_lhs:
-      return OMPLhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_novote:
-      return OMPNovoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_norhs:
-      return OMPNorhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_nolhs:
-      return OMPNolhsClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    case OMPC_auto:
-      return OMPAutoClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars, SizeL, Ptr);
-    default:
-      return nullptr;
-  }
-}
-// endif
-
 namespace {
 class DSARefChecker : public StmtVisitor<DSARefChecker, bool> {
   DSAStackTy *Stack;
@@ -19784,21 +19573,6 @@ OMPClause *Sema::ActOnOpenMPCopyprivateClause(ArrayRef<Expr *> VarList,
   return OMPCopyprivateClause::Create(Context, StartLoc, LParenLoc, EndLoc,
                                       Vars, SrcExprs, DstExprs, AssignmentOps);
 }
-
-// #ifdef DK
-OMPClause *Sema::ActOnOpenMPVoteClause(ArrayRef<Expr *> VarList, 
-					ArrayRef<Expr *> SizeList,
-					ArrayRef<Expr *> PtrList,
-                                        SourceLocation StartLoc,
-                                        SourceLocation LParenLoc,
-                                        SourceLocation EndLoc) {
-  if (VarList.empty())
-    return nullptr;
-
-  return OMPVoteClause::Create(Context, StartLoc, LParenLoc, EndLoc, VarList, SizeList, PtrList);
-}
-
-// #endif
 
 OMPClause *Sema::ActOnOpenMPFlushClause(ArrayRef<Expr *> VarList,
                                         SourceLocation StartLoc,

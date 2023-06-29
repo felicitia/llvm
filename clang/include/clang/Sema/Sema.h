@@ -10802,29 +10802,6 @@ public:
       OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
       OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
       Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
-  // ifdef DK
-  StmtResult ActOnFTExecutableDirective(
-      OpenMPDirectiveKind Kind, const DeclarationNameInfo &DirName,
-      ArrayRef<OMPClause *> Clauses,
-      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
-  StmtResult ActOnFTVoteDirective(ArrayRef<OMPClause *> Clauses,
-                                          SourceLocation StartLoc,
-                                          SourceLocation EndLoc);
-  StmtResult ActOnFTNmrDirective(ArrayRef<OMPClause *> Clauses,
-                                          Stmt *AStmt,
-                                          SourceLocation StartLoc,
-                                          SourceLocation EndLoc);
-  StmtResult ActOnFTExecutableDirective(
-      FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
-      ArrayRef<OMPClause *> Clauses,
-      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
-  StmtResult ActOnFTVoteDirective(ArrayRef<FTClause *> Clauses,
-                                          SourceLocation StartLoc,
-                                          SourceLocation EndLoc);
-  StmtResult ActOnFTNmrDirective(ArrayRef<FTClause *> Clauses,
-                                          Stmt *AStmt,
-                                          SourceLocation StartLoc,
-                                          SourceLocation EndLoc);
   StmtResult ActOnFTTExecutableDirective(
       FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
       ArrayRef<FTClause *> Clauses,
@@ -10836,8 +10813,6 @@ public:
                                           Stmt *AStmt,
                                           SourceLocation StartLoc,
                                           SourceLocation EndLoc);
-  // endif
-  // endif
   /// Called on well-formed '\#pragma omp parallel' after parsing
   /// of the  associated statement.
   StmtResult ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
@@ -11447,14 +11422,6 @@ public:
       OpenMPAtomicDefaultMemOrderClauseKind Kind, SourceLocation KindLoc,
       SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation EndLoc);
 
-  // ifdef DK
-  OMPClause *ActOnOpenMPVarSizeListClause(
-      OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, 
-      					ArrayRef<Expr *> Sizes,
-      					ArrayRef<Expr *> Ptrs,
-                                        SourceLocation StartLoc,
-                                        SourceLocation LParenLoc,
-                                        SourceLocation EndLoc);
   FTClause *ActOnFTVarSizeListClause(
       FTClauseKind Kind, ArrayRef<Expr *> Vars, 
       					ArrayRef<Expr *> Sizes,
@@ -11462,7 +11429,6 @@ public:
                                         SourceLocation StartLoc,
                                         SourceLocation LParenLoc,
                                         SourceLocation EndLoc);
-  // endif
   
   OMPClause *ActOnOpenMPVarListClause(
       OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, Expr *DepModOrTailExpr,
@@ -11566,12 +11532,6 @@ public:
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc);
   /// ifdef DK
-  OMPClause *ActOnOpenMPVoteClause( ArrayRef<Expr *> VarList,
-		  		    ArrayRef<Expr *> SizeList,
-		  		    ArrayRef<Expr *> PtrList,
-                                    SourceLocation StartLoc,
-                                    SourceLocation LParenLoc,
-                                    SourceLocation EndLoc);
   FTClause *ActOnFTVoteClause( ArrayRef<Expr *> VarList,
 		  		    ArrayRef<Expr *> SizeList,
 		  		    ArrayRef<Expr *> PtrList,

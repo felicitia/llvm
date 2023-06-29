@@ -642,29 +642,6 @@ OMPClauseProfiler::VisitOMPLastprivateClause(const OMPLastprivateClause *C) {
 void OMPClauseProfiler::VisitOMPSharedClause(const OMPSharedClause *C) {
   VisitOMPClauseList(C);
 }
-// ifdef DK
-void OMPClauseProfiler::VisitOMPVoteClause(const OMPVoteClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseProfiler::VisitOMPLhsClause(const OMPLhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseProfiler::VisitOMPRhsClause(const OMPRhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseProfiler::VisitOMPNovoteClause(const OMPNovoteClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseProfiler::VisitOMPNolhsClause(const OMPNolhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseProfiler::VisitOMPNorhsClause(const OMPNorhsClause *C) {
-  VisitOMPClauseList(C);
-}
-void OMPClauseProfiler::VisitOMPAutoClause(const OMPAutoClause *C) {
-  VisitOMPClauseList(C);
-}
-// endif
 void OMPClauseProfiler::VisitOMPReductionClause(
                                          const OMPReductionClause *C) {
   Profiler->VisitNestedNameSpecifier(
@@ -942,7 +919,6 @@ void FTClauseProfiler::VisitFTClauseList(T *Node) {
   }
 }
 
-// ifdef DK
 void FTClauseProfiler::VisitFTVoteClause(const FTVoteClause *C) {
   VisitFTClauseList(C);
 }
@@ -964,22 +940,10 @@ void FTClauseProfiler::VisitFTNorhsClause(const FTNorhsClause *C) {
 void FTClauseProfiler::VisitFTAutoClause(const FTAutoClause *C) {
   VisitFTClauseList(C);
 }
-// endif
 } // namespace
 
 void
 StmtProfiler::VisitOMPExecutableDirective(const OMPExecutableDirective *S) {
-  VisitStmt(S);
-  OMPClauseProfiler P(this);
-  ArrayRef<OMPClause *> Clauses = S->clauses();
-  for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
-       I != E; ++I)
-    if (*I)
-      P.Visit(*I);
-}
-
-void
-StmtProfiler::VisitFTExecutableDirective(const FTExecutableDirective *S) {
   VisitStmt(S);
   OMPClauseProfiler P(this);
   ArrayRef<OMPClause *> Clauses = S->clauses();
@@ -1020,14 +984,9 @@ void StmtProfiler::VisitOMPParallelDirective(const OMPParallelDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-//ifdef DK
-void StmtProfiler::VisitFTNmrDirective(const FTNmrDirective *S) {
-  VisitFTExecutableDirective(S);
-}
 void StmtProfiler::VisitFTTNmrDirective(const FTTNmrDirective *S) {
   VisitFTTExecutableDirective(S);
 }
-//
 
 void StmtProfiler::VisitOMPSimdDirective(const OMPSimdDirective *S) {
   VisitOMPLoopDirective(S);
@@ -1121,14 +1080,9 @@ void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
-// ifdef DK
-void StmtProfiler::VisitFTVoteDirective(const FTVoteDirective *S) {
-  VisitFTExecutableDirective(S);
-}
 void StmtProfiler::VisitFTTVoteDirective(const FTTVoteDirective *S) {
   VisitFTTExecutableDirective(S);
 }
-// endif
 //
 void StmtProfiler::VisitOMPDepobjDirective(const OMPDepobjDirective *S) {
   VisitOMPExecutableDirective(S);

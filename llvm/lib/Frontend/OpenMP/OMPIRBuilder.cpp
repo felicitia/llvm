@@ -1168,25 +1168,6 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::createParallel(
   return AfterIP;
 }
 
-// ifdef DK
-#if 0
-void OpenMPIRBuilder::emitFtvote(const LocationDescription &Loc, llvm::Value * var, llvm::Value * varsize) {
-  // Build call void __kmpc_ftvote()
-  uint32_t SrcLocStrSize;
-  Constant *SrcLocStr = getOrCreateSrcLocStr(Loc, SrcLocStrSize);
-  Value *Args[] = {getOrCreateIdent(SrcLocStr, SrcLocStrSize), var, varsize};
-
-  Builder.CreateCall(getOrCreateRuntimeFunctionPtr(OMPRTL___kmpc_ftvote), Args);
-}
-//
-
-void OpenMPIRBuilder::createFtvote(const LocationDescription &Loc, llvm::Value * var, llvm::Value * varsize) {
-/*  if (!updateToLocation(Loc))
-    return; */
-  emitFtvote(Loc, var, varsize);
-}
-#endif
-
 void OpenMPIRBuilder::emitFlush(const LocationDescription &Loc) {
   // Build call void __kmpc_flush(ident_t *loc)
   uint32_t SrcLocStrSize;

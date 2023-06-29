@@ -648,8 +648,6 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_metadirective:
     CaptureRegions.push_back(OMPD_metadirective);
     break;
-//  case OMPD_vote:
-  case OMPD_nmr:
   case OMPD_parallel:
   case OMPD_parallel_for:
   case OMPD_parallel_for_simd:

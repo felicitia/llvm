@@ -721,7 +721,6 @@ public:
       TypeSourceInfo **RecoveryTSI);
 
   StmtResult TransformOMPExecutableDirective(OMPExecutableDirective *S);
-  StmtResult TransformFTExecutableDirective(FTExecutableDirective *S);
   StmtResult TransformFTTExecutableDirective(FTTExecutableDirective *S);
 
 // FIXME: We use LLVM_ATTRIBUTE_NOINLINE because inlining causes a ridiculous
@@ -1586,16 +1585,6 @@ public:
         Kind, DirName, CancelRegion, Clauses, AStmt, StartLoc, EndLoc);
   }
 
-  StmtResult RebuildFTExecutableDirective(OpenMPDirectiveKind Kind,
-                                           DeclarationNameInfo DirName,
-                                           OpenMPDirectiveKind CancelRegion,
-                                           ArrayRef<OMPClause *> Clauses,
-                                           Stmt *AStmt, SourceLocation StartLoc,
-                                           SourceLocation EndLoc) {
-    return getSema().ActOnFTExecutableDirective(
-        Kind, DirName, Clauses, AStmt, StartLoc, EndLoc);
-  }
-
   StmtResult RebuildFTTExecutableDirective(FTDirectiveKind Kind,
                                            DeclarationNameInfo DirName,
              //                              OpenMPDirectiveKind CancelRegion,
@@ -1811,25 +1800,6 @@ public:
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
   /// Subclasses may override this routine to provide different behavior.
-  OMPClause *RebuildFTVarClause( OpenMPClauseKind Kind,
-		  		    ArrayRef<Expr *> VarList,
-  				    ArrayRef<Expr *> SizeList,
-  				    ArrayRef<Expr *> PtrList,
-                                    SourceLocation StartLoc,
-                                    SourceLocation LParenLoc,
-                                    SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPVarSizeListClause(Kind, VarList, SizeList, PtrList, StartLoc, LParenLoc,
-                                             EndLoc);
-  }
-  OMPClause *RebuildOMPVoteClause( ArrayRef<Expr *> VarList,
-  				    ArrayRef<Expr *> SizeList,
-  				    ArrayRef<Expr *> PtrList,
-                                    SourceLocation StartLoc,
-                                    SourceLocation LParenLoc,
-                                    SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPVoteClause(VarList, SizeList, PtrList, StartLoc, LParenLoc,
-                                             EndLoc);
-  }
   FTClause *RebuildFTVarClause( FTClauseKind Kind,
 		  		    ArrayRef<Expr *> VarList,
   				    ArrayRef<Expr *> SizeList,
@@ -8680,74 +8650,6 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
 }
 
 template <typename Derived>
-StmtResult TreeTransform<Derived>::TransformFTExecutableDirective(
-    FTExecutableDirective *D) {
-
-  // Transform the clauses
-  llvm::SmallVector<OMPClause *, 16> TClauses;
-  ArrayRef<OMPClause *> Clauses = D->clauses();
-  TClauses.reserve(Clauses.size());
-  for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
-       I != E; ++I) {
-    if (*I) {
-      getDerived().getSema().StartOpenMPClause((*I)->getClauseKind());
-      OMPClause *Clause = getDerived().TransformOMPClause(*I);
-      getDerived().getSema().EndOpenMPClause();
-      if (Clause)
-        TClauses.push_back(Clause);
-    } else {
-      TClauses.push_back(nullptr);
-    }
-  }
-  StmtResult AssociatedStmt;
-  if (D->hasAssociatedStmt() && D->getAssociatedStmt()) {
-    getDerived().getSema().ActOnOpenMPRegionStart(D->getDirectiveKind(),
-                                                  /*CurScope=*/nullptr);
-    StmtResult Body;
-    {
-      Sema::CompoundScopeRAII CompoundScope(getSema());
-      Stmt *CS;
-      if (D->getDirectiveKind() == OMPD_atomic ||
-          D->getDirectiveKind() == OMPD_critical ||
-          D->getDirectiveKind() == OMPD_section ||
-          D->getDirectiveKind() == OMPD_master)
-        CS = D->getAssociatedStmt();
-      else
-        CS = D->getRawStmt();
-      Body = getDerived().TransformStmt(CS);
-      if (Body.isUsable() && isOpenMPLoopDirective(D->getDirectiveKind()) &&
-          getSema().getLangOpts().OpenMPIRBuilder)
-        Body = getDerived().RebuildOMPCanonicalLoop(Body.get());
-    }
-    AssociatedStmt =
-        getDerived().getSema().ActOnOpenMPRegionEnd(Body, TClauses);
-    if (AssociatedStmt.isInvalid()) {
-      return StmtError();
-    }
-  }
-  if (TClauses.size() != Clauses.size()) {
-    return StmtError();
-  }
-
-  // Transform directive name for 'omp critical' directive.
-  DeclarationNameInfo DirName;
-  if (D->getDirectiveKind() == OMPD_critical) {
-    DirName = cast<OMPCriticalDirective>(D)->getDirectiveName();
-    DirName = getDerived().TransformDeclarationNameInfo(DirName);
-  }
-  OpenMPDirectiveKind CancelRegion = OMPD_unknown;
-  if (D->getDirectiveKind() == OMPD_cancellation_point) {
-    CancelRegion = cast<OMPCancellationPointDirective>(D)->getCancelRegion();
-  } else if (D->getDirectiveKind() == OMPD_cancel) {
-    CancelRegion = cast<OMPCancelDirective>(D)->getCancelRegion();
-  }
-
-  return getDerived().RebuildFTExecutableDirective(
-      D->getDirectiveKind(), DirName, CancelRegion, TClauses,
-      AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc());
-}
-
-template <typename Derived>
 StmtResult TreeTransform<Derived>::TransformFTTExecutableDirective(
     FTTExecutableDirective *D) {
 
@@ -8823,33 +8725,12 @@ TreeTransform<Derived>::TransformOMPParallelDirective(OMPParallelDirective *D) {
 //ifdef DK
 template <typename Derived>
 StmtResult
-TreeTransform<Derived>::TransformFTNmrDirective(FTNmrDirective *D) {
-  DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_nmr, DirName, nullptr,
-                                             D->getBeginLoc());
-  StmtResult Res = getDerived().TransformFTExecutableDirective(D);
-  getDerived().getSema().EndOpenMPDSABlock(Res.get());
-  return Res;
-}
-
-template <typename Derived>
-StmtResult
 TreeTransform<Derived>::TransformFTTNmrDirective(FTTNmrDirective *D) {
   DeclarationNameInfo DirName;
   getDerived().getSema().StartFTDSABlock(FTTD_nmr, DirName, nullptr,
                                              D->getBeginLoc());
   StmtResult Res = getDerived().TransformFTTExecutableDirective(D);
   getDerived().getSema().EndFTDSABlock(Res.get());
-  return Res;
-}
-template <typename Derived>
-StmtResult
-TreeTransform<Derived>::TransformFTVoteDirective(FTVoteDirective *D) {
-  DeclarationNameInfo DirName;
-  getDerived().getSema().StartOpenMPDSABlock(OMPD_vote, DirName, nullptr,
-                                             D->getBeginLoc());
-  StmtResult Res = getDerived().TransformFTExecutableDirective(D);
-  getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
 template <typename Derived>
@@ -10021,139 +9902,6 @@ TreeTransform<Derived>::TransformOMPSharedClause(OMPSharedClause *C) {
     Vars.push_back(EVar.get());
   }
   return getDerived().RebuildOMPSharedClause(Vars, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPVoteClause(OMPVoteClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildOMPVoteClause(Vars, Sizes, Ptr, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPRhsClause(OMPRhsClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildFTVarClause(OMPC_rhs, Vars, Sizes, Ptr, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPLhsClause(OMPLhsClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildFTVarClause(OMPC_lhs, Vars, Sizes, Ptr, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPNolhsClause(OMPNolhsClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildFTVarClause(OMPC_nolhs, Vars, Sizes, Ptr, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPNorhsClause(OMPNorhsClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildFTVarClause(OMPC_norhs, Vars, Sizes, Ptr, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPNovoteClause(OMPNovoteClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildFTVarClause(OMPC_novote, Vars, Sizes, Ptr, C->getBeginLoc(),
-                                             C->getLParenLoc(), C->getEndLoc());
-}
-
-template <typename Derived>
-OMPClause *
-TreeTransform<Derived>::TransformOMPAutoClause(OMPAutoClause *C) {
-  llvm::SmallVector<Expr *, 16> Vars;
-  Vars.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Sizes;
-  Sizes.reserve(C->varlist_size());
-  llvm::SmallVector<Expr *, 16> Ptr;
-  Ptr.reserve(C->varlist_size());
-  for (auto *VE : C->varlists()) {
-    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
-    if (EVar.isInvalid())
-      return nullptr;
-    Vars.push_back(EVar.get());
-  }
-  return getDerived().RebuildFTVarClause(OMPC_auto, Vars, Sizes, Ptr, C->getBeginLoc(),
                                              C->getLParenLoc(), C->getEndLoc());
 }
 

@@ -82,32 +82,6 @@ def OMPC_Shared : Clause<"shared"> {
   let clangClass = "OMPSharedClause";
   let flangClass = "OmpObjectList";
 }
-// ifdef DK
-def OMPC_Lhs: Clause<"lhs"> {	/* DK: TODO */
-  let clangClass = "OMPLhsClause";
-  let flangClass = "OmpObjectList";
-}
-def OMPC_Rhs: Clause<"rhs"> {	/* DK: TODO */
-  let clangClass = "OMPRhsClause";
-  let flangClass = "OmpObjectList";
-}
-def OMPC_Nolhs: Clause<"nolhs"> {	/* DK: TODO */
-  let clangClass = "OMPNolhsClause";
-  let flangClass = "OmpObjectList";
-}
-def OMPC_Norhs: Clause<"norhs"> {	/* DK: TODO */
-  let clangClass = "OMPNorhsClause";
-  let flangClass = "OmpObjectList";
-}
-def OMPC_Novote: Clause<"novote"> {	/* DK: TODO */
-  let clangClass = "OMPNovoteClause";
-  let flangClass = "OmpObjectList";
-}
-def OMPC_Auto: Clause<"auto"> {	/* DK: TODO */
-  let clangClass = "OMPAutoClause";
-  let flangClass = "OmpObjectList";
-}
-// endif
 def OMPC_Reduction : Clause<"reduction"> {
   let clangClass = "OMPReductionClause";
   let flangClass = "OmpReductionClause";
@@ -377,12 +351,6 @@ def OMPC_Flush : Clause<"flush"> {
   let clangClass = "OMPFlushClause";
   let isImplicit = true;
 }
-// ifdef DK
-def OMPC_Vote: Clause<"vote"> {
-  let clangClass = "OMPVoteClause";
-  let isImplicit = true;
-}
-// endif
 def OMPC_ThreadPrivate : Clause<"threadprivate"> {
   let alternativeName = "threadprivate or thread local";
   let isImplicit = true;
@@ -415,24 +383,6 @@ def OMPC_Bind : Clause<"bind"> {
 //===----------------------------------------------------------------------===//
 
 def OMP_ThreadPrivate : Directive<"threadprivate"> {}
-// ifdef DK
-def OMP_Nmr : Directive<"nmr"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_Lhs>,
-    VersionedClause<OMPC_Vote>,
-    VersionedClause<OMPC_Rhs>,
-    VersionedClause<OMPC_Nolhs>,
-    VersionedClause<OMPC_Norhs>,
-    VersionedClause<OMPC_Novote>,
-    VersionedClause<OMPC_Auto>,
-  ];
-}
-def OMP_Vote : Directive<"vote"> {
-  let allowedClauses = [
-    VersionedClause<OMPC_Vote>,
-  ];
-}
-// endif
 def OMP_Parallel : Directive<"parallel"> {
   let allowedClauses = [
     VersionedClause<OMPC_Private>,

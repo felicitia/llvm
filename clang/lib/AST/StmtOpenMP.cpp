@@ -55,45 +55,6 @@ OMPChildren *OMPChildren::CreateEmpty(void *Mem, unsigned NumClauses,
   return new (Mem) OMPChildren(NumClauses, NumChildren, HasAssociatedStmt);
 }
 
-size_t FTChildren::size(unsigned NumClauses, bool HasAssociatedStmt,
-                         unsigned NumChildren) {
-  return llvm::alignTo(
-      totalSizeToAlloc<OMPClause *, Stmt *>(
-          NumClauses, NumChildren + (HasAssociatedStmt ? 1 : 0)),
-      alignof(FTChildren));
-}
-
-void FTChildren::setClauses(ArrayRef<OMPClause *> Clauses) {
-  assert(Clauses.size() == NumClauses &&
-         "Number of clauses is not the same as the preallocated buffer");
-  llvm::copy(Clauses, getTrailingObjects<OMPClause *>());
-}
-
-MutableArrayRef<Stmt *> FTChildren::getChildren() {
-  return llvm::makeMutableArrayRef(getTrailingObjects<Stmt *>(), NumChildren);
-}
-
-FTChildren *FTChildren::Create(void *Mem, ArrayRef<OMPClause *> Clauses) {
-  auto *Data = CreateEmpty(Mem, Clauses.size());
-  Data->setClauses(Clauses);
-  return Data;
-}
-
-FTChildren *FTChildren::Create(void *Mem, ArrayRef<OMPClause *> Clauses,
-                                 Stmt *S, unsigned NumChildren) {
-  auto *Data = CreateEmpty(Mem, Clauses.size(), S, NumChildren);
-  Data->setClauses(Clauses);
-  if (S)
-    Data->setAssociatedStmt(S);
-  return Data;
-}
-
-FTChildren *FTChildren::CreateEmpty(void *Mem, unsigned NumClauses,
-                                      bool HasAssociatedStmt,
-                                      unsigned NumChildren) {
-  return new (Mem) FTChildren(NumClauses, NumChildren, HasAssociatedStmt);
-}
-
 bool OMPExecutableDirective::isStandaloneDirective() const {
   // Special case: 'omp target enter data', 'omp target exit data',
   // 'omp target update' are stand-alone directives, but for implementation
@@ -110,23 +71,6 @@ Stmt *OMPExecutableDirective::getStructuredBlock() {
          "Standalone Executable Directives don't have Structured Blocks.");
   if (auto *LD = dyn_cast<OMPLoopDirective>(this))
     return LD->getBody();
-  return getRawStmt();
-}
-
-bool FTExecutableDirective::isStandaloneDirective() const {
-  // Special case: 'omp target enter data', 'omp target exit data',
-  // 'omp target update' are stand-alone directives, but for implementation
-  // reasons they have empty synthetic structured block, to simplify codegen.
-  if (isa<OMPTargetEnterDataDirective>(this) ||
-      isa<OMPTargetExitDataDirective>(this) ||
-      isa<OMPTargetUpdateDirective>(this))
-    return true;
-  return !hasAssociatedStmt();
-}
-
-Stmt *FTExecutableDirective::getStructuredBlock() {
-  assert(!isStandaloneDirective() &&
-         "Standalone Executable Directives don't have Structured Blocks.");
   return getRawStmt();
 }
 
@@ -333,27 +277,6 @@ OMPMetaDirective *OMPMetaDirective::CreateEmpty(const ASTContext &C,
                                                 /*HasAssociatedStmt=*/true,
                                                 /*NumChildren=*/1);
 }
-
-// ifdef DK
-FTNmrDirective *FTNmrDirective::Create(
-    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
-  auto *Dir = createDirective<FTNmrDirective>(
-      C, Clauses, AssociatedStmt, /*NumChildren=*/1, StartLoc, EndLoc);
-//  Dir->setTaskReductionRefExpr(TaskRedRef);
-//  Dir->setHasCancel(HasCancel);
-  return Dir;
-}
-
-FTNmrDirective *FTNmrDirective::CreateEmpty(const ASTContext &C,
-                                                        unsigned NumClauses,
-                                                        EmptyShell) {
-  return createEmptyDirective<FTNmrDirective>(C, NumClauses,
-                                                    /*HasAssociatedStmt=*/true,
-                                                    /*NumChildren=*/1);
-}
-
-// endif
 
 OMPParallelDirective *OMPParallelDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
@@ -892,23 +815,6 @@ OMPFlushDirective *OMPFlushDirective::CreateEmpty(const ASTContext &C,
   return createEmptyDirective<OMPFlushDirective>(C, NumClauses);
 }
 
-// ifdef DK
-FTVoteDirective *FTVoteDirective::Create(const ASTContext &C,
-                                             SourceLocation StartLoc,
-                                             SourceLocation EndLoc,
-                                             ArrayRef<OMPClause *> Clauses) {
-  return createDirective<FTVoteDirective>(
-      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
-      EndLoc);
-}
-
-FTVoteDirective *FTVoteDirective::CreateEmpty(const ASTContext &C,
-                                                  unsigned NumClauses,
-                                                  EmptyShell) {
-  return createEmptyDirective<FTVoteDirective>(C, NumClauses);
-}
-
-// endif
 OMPDepobjDirective *OMPDepobjDirective::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
                                                SourceLocation EndLoc,

@@ -4394,7 +4394,6 @@ public:
     }
   }
   void VisitOMPExecutableDirective(const OMPExecutableDirective *) {}
-  void VisitFTExecutableDirective(const FTExecutableDirective *) {}
   void VisitCapturedStmt(const CapturedStmt *) {}
   void VisitLambdaExpr(const LambdaExpr *) {}
   void VisitBlockExpr(const BlockExpr *) {}

@@ -224,12 +224,10 @@ def FTTVoteDirective : StmtNode<FTTExecutableDirective>;
 // OpenMP Directives.
 def OMPCanonicalLoop : StmtNode<Stmt>;
 def OMPExecutableDirective : StmtNode<Stmt, 1>;
-def FTExecutableDirective : StmtNode<Stmt, 1>;
 def OMPMetaDirective : StmtNode<OMPExecutableDirective>;
 def OMPLoopBasedDirective : StmtNode<OMPExecutableDirective, 1>;
 def OMPLoopDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPParallelDirective : StmtNode<OMPExecutableDirective>;
-def FTNmrDirective : StmtNode<FTExecutableDirective>;
 def OMPSimdDirective : StmtNode<OMPLoopDirective>;
 def OMPLoopTransformationDirective : StmtNode<OMPLoopBasedDirective, 1>;
 def OMPTileDirective : StmtNode<OMPLoopTransformationDirective>;
@@ -251,9 +249,6 @@ def OMPBarrierDirective : StmtNode<OMPExecutableDirective>;
 def OMPTaskwaitDirective : StmtNode<OMPExecutableDirective>;
 def OMPTaskgroupDirective : StmtNode<OMPExecutableDirective>;
 def OMPFlushDirective : StmtNode<OMPExecutableDirective>;
-// ifdef DK
-def FTVoteDirective : StmtNode<FTExecutableDirective>;
-// endif
 def OMPDepobjDirective : StmtNode<OMPExecutableDirective>;
 def OMPScanDirective : StmtNode<OMPExecutableDirective>;
 def OMPOrderedDirective : StmtNode<OMPExecutableDirective>;

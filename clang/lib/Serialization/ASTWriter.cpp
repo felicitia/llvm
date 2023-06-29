@@ -6494,50 +6494,6 @@ void OMPClauseWriter::VisitOMPSharedClause(OMPSharedClause *C) {
     Record.AddStmt(VE);
 }
 
-// ifdef DK
-void OMPClauseWriter::VisitOMPVoteClause(OMPVoteClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-void OMPClauseWriter::VisitOMPLhsClause(OMPLhsClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-void OMPClauseWriter::VisitOMPRhsClause(OMPRhsClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-void OMPClauseWriter::VisitOMPNovoteClause(OMPNovoteClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-void OMPClauseWriter::VisitOMPNolhsClause(OMPNolhsClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-void OMPClauseWriter::VisitOMPNorhsClause(OMPNorhsClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-void OMPClauseWriter::VisitOMPAutoClause(OMPAutoClause *C) {
-  Record.push_back(C->varlist_size());
-  Record.AddSourceLocation(C->getLParenLoc());
-  for (auto *VE : C->varlists())
-    Record.AddStmt(VE);
-}
-// endif
 //
 void OMPClauseWriter::VisitOMPReductionClause(OMPReductionClause *C) {
   Record.push_back(C->varlist_size());
@@ -7033,20 +6989,6 @@ void ASTRecordWriter::writeOMPTraitInfo(const OMPTraitInfo *TI) {
 }
 
 void ASTRecordWriter::writeOMPChildren(OMPChildren *Data) {
-  if (!Data)
-    return;
-  writeUInt32(Data->getNumClauses());
-  writeUInt32(Data->getNumChildren());
-  writeBool(Data->hasAssociatedStmt());
-  for (unsigned I = 0, E = Data->getNumClauses(); I < E; ++I)
-    writeOMPClause(Data->getClauses()[I]);
-  if (Data->hasAssociatedStmt())
-    AddStmt(Data->getAssociatedStmt());
-  for (unsigned I = 0, E = Data->getNumChildren(); I < E; ++I)
-    AddStmt(Data->getChildren()[I]);
-}
-
-void ASTRecordWriter::writeFTChildren(FTChildren *Data) {
   if (!Data)
     return;
   writeUInt32(Data->getNumClauses());
