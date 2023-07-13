@@ -2261,6 +2261,7 @@ private:
   void EnqueueChildren(const OMPClause *S);
   void EnqueueChildren(const FTClause *S);
   void EnqueueChildren(const AnnotateAttr *A);
+  void EnqueueChildren(const FTClause *S);
 };
 } // namespace
 
@@ -2816,6 +2817,18 @@ void EnqueueVisitor::EnqueueChildren(const AnnotateAttr *A) {
   for (const Expr *Arg : A->args()) {
     VisitStmt(Arg);
   }
+  if (size == WL.size())
+    return;
+  // Now reverse the entries we just added.  This will match the DFS
+  // ordering performed by the worklist.
+  VisitorWorkList::iterator I = WL.begin() + size, E = WL.end();
+  std::reverse(I, E);
+}
+
+void EnqueueVisitor::EnqueueChildren(const FTClause *S) {
+  unsigned size = WL.size();
+  FTClauseEnqueue Visitor(this);
+  Visitor.Visit(S);
   if (size == WL.size())
     return;
   // Now reverse the entries we just added.  This will match the DFS
