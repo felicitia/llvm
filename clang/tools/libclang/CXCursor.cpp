@@ -650,6 +650,12 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::MSDependentExistsStmtClass:
     K = CXCursor_UnexposedStmt;
     break;
+  case Stmt::FTNmrDirectiveClass:
+    K = CXCursor_FTNmrDirective;
+    break;
+  case Stmt::FTVoteDirectiveClass:
+    K = CXCursor_FTVoteDirective;
+    break;
   case Stmt::OMPCanonicalLoopClass:
     K = CXCursor_OMPCanonicalLoop;
     break;

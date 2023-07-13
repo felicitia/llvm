@@ -200,6 +200,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
     break;
+  case Stmt::FTVoteDirectiveClass:
+    EmitFTVoteDirective(cast<FTVoteDirective>(*S));
+    break;
+  case Stmt::FTNmrDirectiveClass:
+    EmitFTNmrDirective(cast<FTNmrDirective>(*S));
+    break;
   case Stmt::OMPMetaDirectiveClass:
     EmitOMPMetaDirective(cast<OMPMetaDirective>(*S));
     break;
@@ -2205,6 +2211,7 @@ std::pair<llvm::Value*, llvm::Type *> CodeGenFunction::EmitAsmInputLValue(
 
   Address Addr = InputValue.getAddress(*this);
   ConstraintStr += '*';
+  EmitVote(Addr, InputType, 1, 0);
   return {Addr.getPointer(), Addr.getElementType()};
 }
 
@@ -2231,6 +2238,7 @@ CodeGenFunction::EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
               nullptr};
   }
 
+  CheckVote(InputExpr, 1);
   if (Info.allowsRegister() || !Info.allowsMemory())
     if (CodeGenFunction::hasScalarEvaluationKind(InputExpr->getType()))
       return {EmitScalarExpr(InputExpr), nullptr};
@@ -2346,6 +2354,32 @@ EmitAsmStores(CodeGenFunction &CGF, const AsmStmt &S,
   CodeGenModule &CGM = CGF.CGM;
   llvm::LLVMContext &CTX = CGF.getLLVMContext();
 
+  // added for NMR
+  std::vector<const Expr *> OutExprRegVote;
+  if (RegResults.size() > 0) {
+    for (unsigned i = 0, e = S.getNumOutputs(); i != e; i++) {
+      StringRef Name;
+      if (const GCCAsmStmt *GAS = dyn_cast<GCCAsmStmt>(&S))
+        Name = GAS->getOutputName(i);
+      TargetInfo::ConstraintInfo Info(S.getOutputConstraint(i), Name);
+      const Expr *OutExpr = S.getOutputExpr(i);
+      OutExpr = OutExpr->IgnoreParenNoopCasts(CGF.getContext());
+      QualType QTy = OutExpr->getType();
+      const bool IsScalarOrAggregate = CodeGenFunction::hasScalarEvaluationKind(QTy) ||
+                                       CodeGenFunction::hasAggregateEvaluationKind(QTy);
+      if (!Info.allowsMemory() && IsScalarOrAggregate) {
+          OutExprRegVote.push_back(OutExpr);
+      }
+    }
+    bool IsGCCAsmGoto = false;
+    if (const auto *GS = dyn_cast<GCCAsmStmt>(&S)) 
+      IsGCCAsmGoto = GS->isAsmGoto();
+    if (IsGCCAsmGoto && !RegResults.empty()) OutExprRegVote.clear();
+    else if (OutExprRegVote.size() < RegResults.size())
+      CGM.Error(S.getAsmLoc(), "OutExprRegVote.size() is smaller than from RegResults.size(): ");
+  }
+  // end of NMR
+
   assert(RegResults.size() == ResultRegTypes.size());
   assert(RegResults.size() == ResultTruncRegTypes.size());
   assert(RegResults.size() == ResultRegDests.size());
@@ -2415,7 +2449,11 @@ EmitAsmStores(CodeGenFunction &CGF, const AsmStmt &S,
       }
       Dest = CGF.MakeAddrLValue(A, Ty);
     }
+    // added for NMR
+    if (OutExprRegVote.size() > i)
+       CGF.CheckVote(OutExprRegVote[i], 0);
     CGF.EmitStoreThroughLValue(RValue::get(Tmp), Dest);
+    // end of NMR
   }
 }
 
@@ -2511,6 +2549,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   // It can be marked readnone if it doesn't have any input memory constraints
   // in addition to meeting the conditions listed above.
   bool ReadOnly = true, ReadNone = true;
+  std::vector<const Expr *> OutExprVote;
+  std::vector<const Expr *> InputExprVote;
+  std::vector<CodeGen::LValue> OutLValueVote;
 
   for (unsigned i = 0, e = S.getNumOutputs(); i != e; i++) {
     TargetInfo::ConstraintInfo &Info = OutputConstraintInfos[i];
@@ -2600,6 +2641,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
         LargestVectorWidth =
             std::max((uint64_t)LargestVectorWidth,
                      VT->getPrimitiveSizeInBits().getKnownMinValue());
+      // OutExprRegVote.push_back(OutExpr);
     } else {
       Address DestAddr = Dest.getAddress(*this);
       // Matrix types in memory are represented by arrays, but accessed through
@@ -2616,6 +2658,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       Constraints += "=*";
       Constraints += OutputConstraint;
       ReadOnly = ReadNone = false;
+
+      OutExprVote.push_back(OutExpr);
+      OutLValueVote.push_back(Dest);
     }
 
     if (Info.isReadWrite()) {
@@ -2624,6 +2669,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       const Expr *InputExpr = S.getOutputExpr(i);
       llvm::Value *Arg;
       llvm::Type *ArgElemType;
+      CheckVote(InputExpr, 1);
       std::tie(Arg, ArgElemType) = EmitAsmInputLValue(
           Info, Dest, InputExpr->getType(), InOutConstraints,
           InputExpr->getExprLoc());
@@ -2666,6 +2712,8 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
   for (unsigned i = 0, e = S.getNumInputs(); i != e; i++) {
     const Expr *InputExpr = S.getInputExpr(i);
+
+    InputExprVote.push_back(InputExpr);
 
     TargetInfo::ConstraintInfo &Info = InputConstraintInfos[i];
 
@@ -2892,6 +2940,10 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                 ResultRegDests, ResultRegQualTys, ResultTypeRequiresCast,
                 ResultRegIsFlagReg);
 
+  for (unsigned i = 0, e = OutExprVote.size(); i != e; ++i) {
+    CheckVote(OutExprVote[i], 0);
+    EmitVote(OutLValueVote[i], 0, false);
+  }
   // If this is an asm goto with outputs, repeat EmitAsmStores, but with a
   // different insertion point; one for each indirect destination and with
   // CBRRegResults rather than RegResults.

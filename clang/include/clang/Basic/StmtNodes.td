@@ -217,6 +217,11 @@ def MSDependentExistsStmt : StmtNode<Stmt>;
 // OpenCL Extensions.
 def AsTypeExpr : StmtNode<Expr>;
 
+// FT Extension
+def FTExecutableDirective : StmtNode<Stmt, 1>;
+def FTNmrDirective : StmtNode<FTExecutableDirective>;
+def FTVoteDirective : StmtNode<FTExecutableDirective>;
+
 // OpenMP Directives.
 def OMPCanonicalLoop : StmtNode<Stmt>;
 def OMPExecutableDirective : StmtNode<Stmt, 1>;

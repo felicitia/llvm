@@ -444,6 +444,9 @@ void Parser::initializePragmaHandlers() {
   PCSectionHandler = std::make_unique<PragmaClangSectionHandler>(Actions);
   PP.AddPragmaHandler("clang", PCSectionHandler.get());
 
+  FTHandler = std::make_unique<PragmaFTHandler>();
+  PP.AddPragmaHandler(FTHandler.get());
+
   if (getLangOpts().OpenCL) {
     OpenCLExtensionHandler = std::make_unique<PragmaOpenCLExtensionHandler>();
     PP.AddPragmaHandler("OPENCL", OpenCLExtensionHandler.get());
@@ -572,6 +575,8 @@ void Parser::resetPragmaHandlers() {
   WeakHandler.reset();
   PP.RemovePragmaHandler(RedefineExtnameHandler.get());
   RedefineExtnameHandler.reset();
+  PP.RemovePragmaHandler(FTHandler.get());
+  FTHandler.reset();
 
   if (getLangOpts().OpenCL) {
     PP.RemovePragmaHandler("OPENCL", OpenCLExtensionHandler.get());
@@ -2522,6 +2527,43 @@ void PragmaWeakHandler::HandlePragma(Preprocessor &PP,
   }
 }
 
+/// Handle '#pragma ft ...' when FT is enabled.
+void PragmaFTHandler::HandlePragma(Preprocessor &PP,
+                                       PragmaIntroducer Introducer,
+                                       Token &FirstTok) {
+  SmallVector<Token, 16> Pragma;
+  Token Tok;
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_ft);
+  Tok.setLocation(Introducer.Loc);
+
+  while (Tok.isNot(tok::eod) && Tok.isNot(tok::eof)) {
+    Pragma.push_back(Tok);
+    PP.Lex(Tok);
+    if (Tok.is(tok::annot_pragma_ft)) {
+      PP.Diag(Tok, diag::err_omp_unexpected_directive) << 0;
+      unsigned InnerPragmaCnt = 1;
+      while (InnerPragmaCnt != 0) {
+        PP.Lex(Tok);
+        if (Tok.is(tok::annot_pragma_ft))
+          ++InnerPragmaCnt;
+        else if (Tok.is(tok::annot_pragma_ft_end))
+          --InnerPragmaCnt;
+      }
+      PP.Lex(Tok);
+    }
+  }
+  SourceLocation EodLoc = Tok.getLocation();
+  Tok.startToken();
+  Tok.setKind(tok::annot_pragma_ft_end);
+  Tok.setLocation(EodLoc);
+  Pragma.push_back(Tok);
+
+  auto Toks = std::make_unique<Token[]>(Pragma.size());
+  std::copy(Pragma.begin(), Pragma.end(), Toks.get());
+  PP.EnterTokenStream(std::move(Toks), Pragma.size(),
+                      /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
+}
 // #pragma redefine_extname identifier identifier
 void PragmaRedefineExtnameHandler::HandlePragma(Preprocessor &PP,
                                                 PragmaIntroducer Introducer,

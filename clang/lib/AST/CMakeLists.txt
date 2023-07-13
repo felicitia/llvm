@@ -62,6 +62,7 @@ add_clang_library(clangAST
   ExternalASTMerger.cpp
   ExternalASTSource.cpp
   FormatString.cpp
+  FTClause.cpp
   InheritViz.cpp
   Interp/ByteCodeEmitter.cpp
   Interp/ByteCodeExprGen.cpp
@@ -109,6 +110,7 @@ add_clang_library(clangAST
   SelectorLocationsKind.cpp
   Stmt.cpp
   StmtCXX.cpp
+  StmtFT.cpp
   StmtIterator.cpp
   StmtObjC.cpp
   StmtOpenMP.cpp

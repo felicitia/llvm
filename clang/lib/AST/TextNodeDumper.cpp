@@ -13,6 +13,7 @@
 #include "clang/AST/TextNodeDumper.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/DeclFriend.h"
+#include "clang/AST/DeclFT.h"
 #include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/LocInfoType.h"
@@ -23,6 +24,7 @@
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TypeTraits.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Frontend/FT/FTConstants.h"
 
 #include <algorithm>
 #include <utility>
@@ -339,6 +341,24 @@ void TextNodeDumper::Visit(const BlockDecl::Capture &C) {
     OS << ' ';
     dumpBareDeclRef(C.getVariable());
   }
+}
+
+void TextNodeDumper::Visit(const FTClause *C) {
+  if (!C) {
+    ColorScope Color(OS, ShowColors, NullColor);
+    OS << "<<<NULL>>> FTClause";
+    return;
+  }
+  {
+    ColorScope Color(OS, ShowColors, AttrColor);
+    StringRef ClauseName(llvm::ft::getFTClauseName(C->getClauseKind()));
+    OS << "FT" << ClauseName.substr(/*Start=*/0, /*N=*/1).upper()
+       << ClauseName.drop_front() << "Clause";
+  }
+  dumpPointer(C);
+  dumpSourceRange(SourceRange(C->getBeginLoc(), C->getEndLoc()));
+  if (C->isImplicit())
+    OS << " <implicit>";
 }
 
 void TextNodeDumper::Visit(const OMPClause *C) {
@@ -2060,6 +2080,12 @@ void TextNodeDumper::VisitPragmaCommentDecl(const PragmaCommentDecl *D) {
 void TextNodeDumper::VisitPragmaDetectMismatchDecl(
     const PragmaDetectMismatchDecl *D) {
   OS << " \"" << D->getName() << "\" \"" << D->getValue() << "\"";
+}
+
+void TextNodeDumper::VisitFTExecutableDirective(
+    const FTExecutableDirective *D) {
+  if (D->isStandaloneDirective())
+    OS << " ft_standalone_directive";
 }
 
 void TextNodeDumper::VisitOMPExecutableDirective(

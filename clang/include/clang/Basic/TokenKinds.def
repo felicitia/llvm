@@ -955,6 +955,13 @@ PRAGMA_ANNOTATION(pragma_openmp_end)
 PRAGMA_ANNOTATION(pragma_openacc)
 PRAGMA_ANNOTATION(pragma_openacc_end)
 
+// Annotations for FT pragma directives - #pragma ft ...
+ANNOTATION(attr_ft)
+// The lexer produces these so that they only take effect when the parser
+// handles #pragma ft ... directives.
+PRAGMA_ANNOTATION(pragma_ft)
+PRAGMA_ANNOTATION(pragma_ft_end)
+
 // Annotations for loop pragma directives #pragma clang loop ...
 // The lexer produces these so that they only take effect when the parser
 // handles #pragma loop ... directives.

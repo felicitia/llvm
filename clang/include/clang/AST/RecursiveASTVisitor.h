@@ -19,6 +19,7 @@
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclFriend.h"
+#include "clang/AST/DeclFT.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
@@ -30,9 +31,11 @@
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/LambdaCapture.h"
 #include "clang/AST/NestedNameSpecifier.h"
+#include "clang/AST/FTClause.h"
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/TemplateBase.h"
@@ -40,6 +43,7 @@
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/LLVM.h"
+#include "clang/Basic/FTKinds.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/Specifiers.h"
 #include "llvm/ADT/PointerIntPair.h"
@@ -492,6 +496,7 @@ private:
   bool TraverseDeclContextHelper(DeclContext *DC);
   bool TraverseFunctionHelper(FunctionDecl *D);
   bool TraverseVarHelper(VarDecl *D);
+  bool TraverseFTExecutableDirective(FTExecutableDirective *S);
   bool TraverseOMPExecutableDirective(OMPExecutableDirective *S);
   bool TraverseOMPLoopDirective(OMPLoopDirective *S);
   bool TraverseOMPClause(OMPClause *C);
@@ -503,6 +508,13 @@ private:
   /// Process clauses with pre-initis.
   bool VisitOMPClauseWithPreInit(OMPClauseWithPreInit *Node);
   bool VisitOMPClauseWithPostUpdate(OMPClauseWithPostUpdate *Node);
+
+  bool TraverseFTClause(FTClause *C);
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) bool Visit##Class(Class *C);
+#include "llvm/Frontend/FT/FT.inc"
+  /// Process clauses with list of variables.
+  template <typename T> bool VisitFTClauseList(T *Node);
 
   bool PostVisitStmt(Stmt *S);
 };
@@ -2931,6 +2943,91 @@ DEF_TRAVERSE_STMT(ObjCDictionaryLiteral, {})
 
 // Traverse OpenCL: AsType, Convert.
 DEF_TRAVERSE_STMT(AsTypeExpr, {})
+
+// FT directives.
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::TraverseFTExecutableDirective(
+    FTExecutableDirective *S) {
+  for (auto *C : S->clauses()) {
+    TRY_TO(TraverseFTClause(C));
+  }
+  return true;
+}
+
+DEF_TRAVERSE_STMT(FTNmrDirective,
+                  { TRY_TO(TraverseFTExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(FTVoteDirective,
+                  { TRY_TO(TraverseFTExecutableDirective(S)); })
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::TraverseFTClause(FTClause *C) {
+  if (!C)
+    return true;
+  switch (C->getClauseKind()) {
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class)                                         \
+  case llvm::ft::Clause::Enum:                                                \
+    TRY_TO(Visit##Class(static_cast<Class *>(C)));                             \
+    break;
+#define CLAUSE_NO_CLASS(Enum, Str)                                             \
+  case llvm::ft::Clause::Enum:                                                \
+    break;
+#include "llvm/Frontend/FT/FT.inc"
+  }
+  return true;
+}
+
+template <typename Derived>
+template <typename T>
+bool RecursiveASTVisitor<Derived>::VisitFTClauseList(T *Node) {
+  for (auto *E : Node->varlists()) {
+    TRY_TO(TraverseStmt(E));
+  }
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTVoteClause(FTVoteClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTLhsClause(FTLhsClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTRhsClause(FTRhsClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTNolhsClause(FTNolhsClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTNorhsClause(FTNorhsClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTNovoteClause(FTNovoteClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitFTAutoClause(FTAutoClause *C) {
+  TRY_TO(VisitFTClauseList(C));
+  return true;
+}
 
 // OpenMP directives.
 template <typename Derived>

@@ -259,6 +259,7 @@ void CodeGenFunction::EmitAnyExprToMem(const Expr *E,
   case TEK_Scalar: {
     RValue RV = RValue::get(EmitScalarExpr(E, /*Ignore*/ false));
     LValue LV = MakeAddrLValue(Location, E->getType());
+    CheckVote(E, 0);
     EmitStoreThroughLValue(RV, LV);
     return;
   }
@@ -1831,6 +1832,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
                                                LValueBaseInfo BaseInfo,
                                                TBAAAccessInfo TBAAInfo,
                                                bool isNontemporal) {
+  EmitVote(Addr, Ty, 1, false);
   if (auto *GV = dyn_cast<llvm::GlobalValue>(Addr.getPointer()))
     if (GV->isThreadLocal())
       Addr = Addr.withPointer(Builder.CreateThreadLocalAddress(GV),
@@ -2028,6 +2030,8 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   }
 
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
+
+  EmitVote(Addr, Ty, 0, false);
 }
 
 void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
@@ -2057,12 +2061,14 @@ static RValue EmitLoadOfMatrixLValue(LValue LV, SourceLocation Loc,
 /// returning the rvalue.
 RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
   if (LV.isObjCWeak()) {
+    EmitVote(LV, 1, false);
     // load of a __weak object.
     Address AddrWeakObj = LV.getAddress(*this);
     return RValue::get(CGM.getObjCRuntime().EmitObjCWeakRead(*this,
                                                              AddrWeakObj));
   }
   if (LV.getQuals().getObjCLifetime() == Qualifiers::OCL_Weak) {
+    EmitVote(LV, 1, false);
     // In MRC mode, we do a load+autorelease.
     if (!getLangOpts().ObjCAutoRefCount) {
       return RValue::get(EmitARCLoadWeak(LV.getAddress(*this)));
@@ -2085,6 +2091,7 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
   }
 
   if (LV.isVectorElt()) {
+    EmitVote(LV.getVectorAddress(), LV.getType(), 1, false);
     llvm::LoadInst *Load = Builder.CreateLoad(LV.getVectorAddress(),
                                               LV.isVolatileQualified());
     return RValue::get(Builder.CreateExtractElement(Load, LV.getVectorIdx(),
@@ -2108,6 +2115,7 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
       llvm::MatrixBuilder MB(Builder);
       MB.CreateIndexAssumption(Idx, MatTy->getNumElementsFlattened());
     }
+    EmitVote(LV.getMatrixAddress(), LV.getType(), 1, false);
     llvm::LoadInst *Load =
         Builder.CreateLoad(LV.getMatrixAddress(), LV.isVolatileQualified());
     return RValue::get(Builder.CreateExtractElement(Load, Idx, "matrixext"));
@@ -2124,6 +2132,7 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV,
   // Get the output type.
   llvm::Type *ResLTy = ConvertType(LV.getType());
 
+  EmitVote(LV.getBitFieldAddress(), LV.getType(), 1, false);
   Address Ptr = LV.getBitFieldAddress();
   llvm::Value *Val =
       Builder.CreateLoad(Ptr, LV.isVolatileQualified(), "bf.load");
@@ -2155,6 +2164,7 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV,
 // If this is a reference to a subset of the elements of a vector, create an
 // appropriate shufflevector.
 RValue CodeGenFunction::EmitLoadOfExtVectorElementLValue(LValue LV) {
+  EmitVote(LV.getExtVectorAddress(), LV.getType(), 1, false);
   llvm::Value *Vec = Builder.CreateLoad(LV.getExtVectorAddress(),
                                         LV.isVolatileQualified());
 
@@ -2213,6 +2223,7 @@ RValue CodeGenFunction::EmitLoadOfGlobalRegLValue(LValue LV) {
   llvm::MDNode *RegName = cast<llvm::MDNode>(
       cast<llvm::MetadataAsValue>(LV.getGlobalReg())->getMetadata());
 
+  EmitVote(LV, 1, false);
   // We accept integer and pointer types only
   llvm::Type *OrigTy = CGM.getTypes().ConvertType(LV.getType());
   llvm::Type *Ty = OrigTy;
@@ -2253,6 +2264,7 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst,
       }
       Builder.CreateStore(Vec, Dst.getVectorAddress(),
                           Dst.isVolatileQualified());
+      EmitVote(Dst.getVectorAddress(), Dst.getType(), 0, false);
       return;
     }
 
@@ -2276,6 +2288,7 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst,
           Builder.CreateInsertElement(Load, Src.getScalarVal(), Idx, "matins");
       Builder.CreateStore(Vec, Dst.getMatrixAddress(),
                           Dst.isVolatileQualified());
+      EmitVote(Dst.getMatrixAddress(), Dst.getType(), 0, false);
       return;
     }
 
@@ -2299,6 +2312,7 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst,
         break;
       }
       EmitARCStoreStrong(Dst, Src.getScalarVal(), /*ignore*/ true);
+      EmitVote(Dst, 0, false);
       return;
 
     case Qualifiers::OCL_Weak:
@@ -2308,6 +2322,7 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst,
       else
         EmitARCStoreWeak(Dst.getAddress(*this), Src.getScalarVal(),
                          /*ignore*/ true);
+      EmitVote(Dst, 0, false);
       return;
 
     case Qualifiers::OCL_Autoreleasing:
@@ -2348,6 +2363,8 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst,
     }
     else
       CGM.getObjCRuntime().EmitObjCStrongCastAssign(*this, src, LvalueDst);
+
+    EmitVote(Dst, 0, false);
     return;
   }
 
@@ -2410,6 +2427,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
       Builder.CreateLoad(Ptr, true, "bf.load");
   }
 
+  EmitVote(Ptr, Dst.getType(), 0, false);
   // Write the new value back out.
   Builder.CreateStore(SrcVal, Ptr, Dst.isVolatileQualified());
 
@@ -2505,6 +2523,8 @@ void CodeGenFunction::EmitStoreThroughExtVectorComponentLValue(RValue Src,
 
   Builder.CreateStore(Vec, Dst.getExtVectorAddress(),
                       Dst.isVolatileQualified());
+
+  EmitVote(Dst.getExtVectorAddress(), Dst.getType(), 0, false);
 }
 
 /// Store of global named registers are always calls to intrinsics.
@@ -2528,6 +2548,7 @@ void CodeGenFunction::EmitStoreThroughGlobalRegLValue(RValue Src, LValue Dst) {
     Value = Builder.CreatePtrToInt(Value, Ty);
   Builder.CreateCall(
       F, {llvm::MetadataAsValue::get(Ty->getContext(), RegName), Value});
+  EmitVote(Dst, 0, false);
 }
 
 // setObjCGCLValueClass - sets class of the lvalue for the purpose of
@@ -5361,6 +5382,7 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
     LValue LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
     if (RV.isScalar())
       EmitNullabilityCheck(LV, RV.getScalarVal(), E->getExprLoc());
+    CheckVote(E,0);
     EmitStoreThroughLValue(RV, LV);
     if (getLangOpts().OpenMP)
       CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(*this,

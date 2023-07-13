@@ -34,6 +34,7 @@
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtOpenMP.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeOrdering.h"
 #include "clang/Basic/BitmaskEnum.h"
@@ -43,6 +44,7 @@
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenCLOptions.h"
 #include "clang/Basic/OpenMPKinds.h"
+#include "clang/Basic/FTKinds.h"
 #include "clang/Basic/PragmaKinds.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TemplateKinds.h"
@@ -66,6 +68,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
+#include "llvm/Frontend/FT/FTConstants.h"
 #include <deque>
 #include <memory>
 #include <optional>
@@ -169,6 +172,7 @@ namespace clang {
   class OMPDeclareReductionDecl;
   class OMPDeclareSimdDecl;
   class OMPClause;
+  class FTClause;
   struct OMPVarListLocTy;
   struct OverloadCandidate;
   enum class OverloadCandidateParamOrder : char;
@@ -11356,6 +11360,43 @@ public:
   void ActOnStartOfFunctionDefinitionInOpenMPDeclareVariantScope(
       Scope *S, Declarator &D, MultiTemplateParamsArg TemplateParameterLists,
       SmallVectorImpl<FunctionDecl *> &Bases);
+
+  void StartFTDSABlock(FTDirectiveKind K,
+                           const DeclarationNameInfo &DirName, Scope *CurScope,
+                           SourceLocation Loc);
+  /// Called on end of data sharing attribute block.
+  void EndFTDSABlock(Stmt *CurDirective);
+  /// Start analysis of clauses.
+  void StartFTClause(FTClauseKind K);
+  /// End analysis of clauses.
+  void EndFTClause();
+
+  StmtResult ActOnFTExecutableDirective(
+      FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
+      ArrayRef<FTClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
+  StmtResult ActOnFTVoteDirective(ArrayRef<FTClause *> Clauses,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  StmtResult ActOnFTNmrDirective(ArrayRef<FTClause *> Clauses,
+                                          Stmt *AStmt,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+
+  FTClause *ActOnFTVarSizeListClause(
+      FTClauseKind Kind, ArrayRef<Expr *> Vars, 
+      					ArrayRef<Expr *> Sizes,
+      					ArrayRef<Expr *> Ptrs,
+                                        SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc);
+
+  FTClause *ActOnFTVoteClause( ArrayRef<Expr *> VarList,
+		  		    ArrayRef<Expr *> SizeList,
+		  		    ArrayRef<Expr *> PtrList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
 
   /// Register \p D as specialization of all base functions in \p Bases in the
   /// current `omp begin/end declare variant` scope.

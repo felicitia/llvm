@@ -25,6 +25,7 @@
 #include "clang/AST/CurrentSourceLocExprScope.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/Type.h"
@@ -80,6 +81,7 @@ class OMPUseDevicePtrClause;
 class OMPUseDeviceAddrClause;
 class SVETypeFlags;
 class OMPExecutableDirective;
+class FTExecutableDirective;
 
 namespace analyze_os_log {
 class OSLogBufferLayout;
@@ -258,6 +260,14 @@ public:
     EHScopeStack::stable_iterator ScopeDepth;
     unsigned Index;
   };
+
+  SmallVector<const Expr *, 4> LVarSize ;
+  SmallVector<const Expr *, 4> RVarSize ;
+  SmallVector<const Expr *, 4> AutoSize ;
+  bool VoteNow = false;
+  const Expr * VoteVar;
+  const Expr * VoteExp;
+  SourceLocation VoteLoc;
 
   CodeGenModule &CGM;  // Per-module state.
   const TargetInfo &Target;
@@ -3317,6 +3327,13 @@ public:
   void startOutlinedSEHHelper(CodeGenFunction &ParentCGF, bool IsFilter,
                               const Stmt *OutlinedStmt);
 
+  void EmitVote(int mode, bool keep_status);
+  void EmitVote(const Expr * E, LValue LHS);
+  void EmitVote(LValue LHS, int mode, bool keep_status);
+  void EmitVote(Address addr, QualType dataType, int mode, bool keep_status);
+  void EmitVote(Address addrR, QualType dataTypeR, Address addrI, QualType dataTypeI, int mode, bool keep_status);
+  void CheckVote(const Expr * E, int mode);
+
   llvm::Function *GenerateSEHFilterFunction(CodeGenFunction &ParentCGF,
                                             const SEHExceptStmt &Except);
 
@@ -3531,6 +3548,11 @@ public:
                           CodeGenFunction &CGF,
                           const CapturedStmt *CS,
                           OMPPrivateScope &Scope);
+  void EmitFTNmrDirective(const FTNmrDirective &S);
+  const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generateVote);
+  void EmitFTVoteDirective(const FTVoteDirective &S);
+  void EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeInBytes, int whichside, bool keep_status);
+  void EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status);
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);

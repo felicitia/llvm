@@ -2140,7 +2140,11 @@ enum CXCursorKind {
    */
   CXCursor_OMPScopeDirective = 306,
 
-  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
+  CXCursor_FTNmrDirective = 307,
+
+  CXCursor_FTVoteDirective = 308,
+
+  CXCursor_LastStmt = CXCursor_FTVoteDirective,
 
   /**
    * Cursor that represents the translation unit itself.
