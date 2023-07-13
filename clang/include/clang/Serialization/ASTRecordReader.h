@@ -25,6 +25,7 @@
 
 namespace clang {
 class OMPTraitInfo;
+class FTChildren;
 class OMPChildren;
 
 /// An object for streaming information from a record.
@@ -261,6 +262,12 @@ public:
   CXXTemporary *readCXXTemporary() {
     return Reader->ReadCXXTemporary(*F, Record, Idx);
   }
+
+  /// Read an FT clause, advancing Idx.
+  FTClause *readFTClause();
+
+  /// Read an OpenMP children, advancing Idx.
+  void readFTChildren(FTChildren *Data);
 
   /// Read an OMPTraitInfo object, advancing Idx.
   OMPTraitInfo *readOMPTraitInfo();

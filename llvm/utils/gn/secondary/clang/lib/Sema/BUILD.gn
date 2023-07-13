@@ -67,6 +67,7 @@ static_library("Sema") {
     "SemaExprMember.cpp",
     "SemaExprObjC.cpp",
     "SemaFixItUtils.cpp",
+    "SemaFT.cpp",
     "SemaHLSL.cpp",
     "SemaInit.cpp",
     "SemaLambda.cpp",

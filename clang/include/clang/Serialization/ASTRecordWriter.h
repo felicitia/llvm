@@ -276,6 +276,11 @@ public:
   /// Emit information about the initializer of a VarDecl.
   void AddVarDeclInit(const VarDecl *VD);
 
+  void writeFTClause(FTClause *C);
+
+  /// Writes data related to the FT directives.
+  void writeFTChildren(FTChildren *Data);
+
   /// Write an OMPTraitInfo object.
   void writeOMPTraitInfo(const OMPTraitInfo *TI);
 

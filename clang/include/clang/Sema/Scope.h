@@ -150,6 +150,9 @@ public:
     /// template scope in between), the outer scope does not increase the
     /// depth of recursion.
     LambdaScope = 0x8000000,
+
+    /// This is the scope of FT executable directive.
+    FTDirectiveScope = 0x10000000,
   };
 
 private:

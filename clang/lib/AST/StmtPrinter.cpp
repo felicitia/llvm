@@ -27,6 +27,7 @@
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/Stmt.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
@@ -130,6 +131,8 @@ namespace {
     void PrintOMPExecutableDirective(OMPExecutableDirective *S,
                                      bool ForceNoStmt = false);
     void PrintFPPragmas(CompoundStmt *S);
+    void PrintFTExecutableDirective(FTExecutableDirective *S,
+                                     bool ForceNoStmt = false);
 
     void PrintExpr(Expr *E) {
       if (E)
@@ -708,6 +711,34 @@ void StmtPrinter::VisitSEHFinallyStmt(SEHFinallyStmt *Node) {
 void StmtPrinter::VisitSEHLeaveStmt(SEHLeaveStmt *Node) {
   Indent() << "__leave;";
   if (Policy.IncludeNewlines) OS << NL;
+}
+
+//===----------------------------------------------------------------------===//
+//  FT directives printing methods
+//===----------------------------------------------------------------------===//
+void StmtPrinter::PrintFTExecutableDirective(FTExecutableDirective *S,
+                                              bool ForceNoStmt) {
+  FTClausePrinter Printer(OS, Policy);
+  ArrayRef<FTClause *> Clauses = S->clauses();
+  Indent() << "#pragma omp parallel";
+  for (auto *Clause : Clauses)
+    if (Clause && !Clause->isImplicit()) {
+      OS << ' ';
+      Printer.Visit(Clause);
+    }
+  OS << NL;
+  if (!ForceNoStmt && S->hasAssociatedStmt())
+    PrintStmt(S->getRawStmt());
+}
+
+void StmtPrinter::VisitFTNmrDirective(FTNmrDirective *Node) {
+  Indent() << "#pragma ft nmr";
+  PrintFTExecutableDirective(Node);
+}
+
+void StmtPrinter::VisitFTVoteDirective(FTVoteDirective *Node) {
+  Indent() << "#pragma ft vote";
+  PrintFTExecutableDirective(Node);
 }
 
 //===----------------------------------------------------------------------===//

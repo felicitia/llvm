@@ -31,6 +31,7 @@
 #include "clang/AST/OperationKinds.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
@@ -2312,6 +2313,27 @@ void ASTStmtReader::VisitAsTypeExpr(AsTypeExpr *E) {
 }
 
 //===----------------------------------------------------------------------===//
+// FaultTolerance Directives.
+//===----------------------------------------------------------------------===//
+
+void ASTStmtReader::VisitFTExecutableDirective(FTExecutableDirective *E) {
+  Record.readFTChildren(E->Data);
+  E->setLocStart(readSourceLocation());
+  E->setLocEnd(readSourceLocation());
+}
+
+void ASTStmtReader::VisitFTNmrDirective(FTNmrDirective *D) {
+  VisitStmt(D);
+  VisitFTExecutableDirective(D);
+  D->setHasCancel(Record.readBool());
+}
+
+void ASTStmtReader::VisitFTVoteDirective(FTVoteDirective *D) {
+  VisitStmt(D);
+  VisitFTExecutableDirective(D);
+}
+
+//===----------------------------------------------------------------------===//
 // OpenMP Directives.
 //===----------------------------------------------------------------------===//
 
@@ -3286,6 +3308,16 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                               NestedNameSpecifierLoc(),
                                               DeclarationNameInfo(),
                                               nullptr);
+      break;
+
+    case STMT_FT_VOTE_DIRECTIVE:
+      S = FTVoteDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+
+    case STMT_FT_NMR_DIRECTIVE:
+      S = FTNmrDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 
     case STMT_OMP_CANONICAL_LOOP:

@@ -68,6 +68,7 @@ add_clang_library(clangCodeGen
   CGOpenMPRuntimeGPU.cpp
   CGRecordLayoutBuilder.cpp
   CGStmt.cpp
+  CGStmtNMR.cpp
   CGStmtOpenMP.cpp
   CGVTT.cpp
   CGVTables.cpp

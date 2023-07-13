@@ -27,6 +27,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/Mangle.h"
+#include "clang/AST/FTClause.h"
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/OperationKinds.h"
 #include "clang/AST/StmtVisitor.h"
@@ -2091,6 +2092,7 @@ public:
 };
 class EnqueueVisitor : public ConstStmtVisitor<EnqueueVisitor, void> {
   friend class OMPClauseEnqueue;
+  friend class FTClauseEnqueue;
   VisitorWorkList &WL;
   CXCursor Parent;
 
@@ -2146,6 +2148,9 @@ public:
   void VisitConceptSpecializationExpr(const ConceptSpecializationExpr *E);
   void VisitRequiresExpr(const RequiresExpr *E);
   void VisitCXXParenListInitExpr(const CXXParenListInitExpr *E);
+  void VisitFTExecutableDirective(const FTExecutableDirective *D);
+  void VisitFTNmrDirective(const FTNmrDirective *D);
+  void VisitFTVoteDirective(const FTVoteDirective *D);
   void VisitOMPExecutableDirective(const OMPExecutableDirective *D);
   void VisitOMPLoopBasedDirective(const OMPLoopBasedDirective *D);
   void VisitOMPLoopDirective(const OMPLoopDirective *D);
@@ -2242,6 +2247,7 @@ private:
   void AddTypeLoc(TypeSourceInfo *TI);
   void EnqueueChildren(const Stmt *S);
   void EnqueueChildren(const OMPClause *S);
+  void EnqueueChildren(const FTClause *S);
 };
 } // namespace
 
@@ -2723,9 +2729,62 @@ void OMPClauseEnqueue::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
 
 } // namespace
 
+namespace {
+class FTClauseEnqueue : public ConstFTClauseVisitor<FTClauseEnqueue> {
+  EnqueueVisitor *Visitor;
+  /// Process clauses with list of variables.
+  template <typename T> void VisitFTClauseList(T *Node);
+
+public:
+  FTClauseEnqueue(EnqueueVisitor *Visitor) : Visitor(Visitor) {}
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) void Visit##Class(const Class *C);
+#include "llvm/Frontend/FT/FT.inc"
+};
+
+template <typename T> void FTClauseEnqueue::VisitFTClauseList(T *Node) {
+  for (const auto *I : Node->varlists()) {
+    Visitor->AddStmt(I);
+  }
+}
+
+void FTClauseEnqueue::VisitFTVoteClause(const FTVoteClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseEnqueue::VisitFTLhsClause(const FTLhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseEnqueue::VisitFTRhsClause(const FTRhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseEnqueue::VisitFTNovoteClause(const FTNovoteClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseEnqueue::VisitFTNolhsClause(const FTNolhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseEnqueue::VisitFTNorhsClause(const FTNorhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseEnqueue::VisitFTAutoClause(const FTAutoClause *C) {
+  VisitFTClauseList(C);
+}
+} // namespace
+
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
   unsigned size = WL.size();
   OMPClauseEnqueue Visitor(this);
+  Visitor.Visit(S);
+  if (size == WL.size())
+    return;
+  // Now reverse the entries we just added.  This will match the DFS
+  // ordering performed by the worklist.
+  VisitorWorkList::iterator I = WL.begin() + size, E = WL.end();
+  std::reverse(I, E);
+}
+void EnqueueVisitor::EnqueueChildren(const FTClause *S) {
+  unsigned size = WL.size();
+  FTClauseEnqueue Visitor(this);
   Visitor.Visit(S);
   if (size == WL.size())
     return;
@@ -2988,6 +3047,23 @@ void EnqueueVisitor::VisitArrayTypeTraitExpr(const ArrayTypeTraitExpr *E) {
 
 void EnqueueVisitor::VisitExpressionTraitExpr(const ExpressionTraitExpr *E) {
   EnqueueChildren(E);
+}
+
+void EnqueueVisitor::VisitFTExecutableDirective(
+    const FTExecutableDirective *D) {
+  EnqueueChildren(D);
+  for (ArrayRef<FTClause *>::iterator I = D->clauses().begin(),
+                                       E = D->clauses().end();
+       I != E; ++I)
+    EnqueueChildren(*I);
+}
+
+void EnqueueVisitor::VisitFTNmrDirective(const FTNmrDirective *D) {
+  VisitFTExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitFTVoteDirective(const FTVoteDirective *D) {
+  VisitFTExecutableDirective(D);
 }
 
 void EnqueueVisitor::VisitUnresolvedMemberExpr(const UnresolvedMemberExpr *U) {
@@ -5867,6 +5943,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
+  case CXCursor_FTVoteDirective:
+    return cxstring::createRef("FTVoteDirective");
+  case CXCursor_FTNmrDirective:
+    return cxstring::createRef("FTNmrDirective");
   case CXCursor_OMPCanonicalLoop:
     return cxstring::createRef("OMPCanonicalLoop");
   case CXCursor_OMPMetaDirective:
