@@ -1335,6 +1335,16 @@ extern const internal::VariadicDynCastAllOfMatcher<Decl, CXXConversionDecl>
 extern const internal::VariadicDynCastAllOfMatcher<Decl, CXXDeductionGuideDecl>
     cxxDeductionGuideDecl;
 
+/// Matches concept declarations.
+///
+/// Example matches integral
+/// \code
+///   template<typename T>
+///   concept integral = std::is_integral_v<T>;
+/// \endcode
+extern const internal::VariadicDynCastAllOfMatcher<Decl, ConceptDecl>
+    conceptDecl;
+
 /// Matches variable declarations.
 ///
 /// Note: this does not match declarations of member variables, which are
