@@ -11157,20 +11157,10 @@ public:
   void AddXConsumedAttr(Decl *D, const AttributeCommonInfo &CI,
                         RetainOwnershipKind K, bool IsTemplateInstantiation);
 
-  /// Create an AMDGPUWavesPerEUAttr attribute.
-  AMDGPUFlatWorkGroupSizeAttr *
-  CreateAMDGPUFlatWorkGroupSizeAttr(const AttributeCommonInfo &CI, Expr *Min,
-                                    Expr *Max);
-
   /// addAMDGPUFlatWorkGroupSizeAttr - Adds an amdgpu_flat_work_group_size
   /// attribute to a particular declaration.
   void addAMDGPUFlatWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
                                       Expr *Min, Expr *Max);
-
-  /// Create an AMDGPUWavesPerEUAttr attribute.
-  AMDGPUWavesPerEUAttr *
-  CreateAMDGPUWavesPerEUAttr(const AttributeCommonInfo &CI, Expr *Min,
-                             Expr *Max);
 
   /// addAMDGPUWavePersEUAttr - Adds an amdgpu_waves_per_eu attribute to a
   /// particular declaration.
