@@ -2726,6 +2726,8 @@ void OMPClauseEnqueue::VisitOMPXDynCGroupMemClause(
 void OMPClauseEnqueue::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseEnqueue::VisitOMPXAttributeClause(const OMPXAttributeClause *C) {
+}
 
 } // namespace
 
