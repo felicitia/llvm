@@ -120,6 +120,8 @@ void AddAssemblerKPIC(const ToolChain &ToolChain,
 
 void addArchSpecificRPath(const ToolChain &TC, const llvm::opt::ArgList &Args,
                           llvm::opt::ArgStringList &CmdArgs);
+bool addFTRuntime(llvm::opt::ArgStringList &CmdArgs, const ToolChain &TC,
+                      const llvm::opt::ArgList &Args);
 void addOpenMPRuntimeLibraryPath(const ToolChain &TC,
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs);

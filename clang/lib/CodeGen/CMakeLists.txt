@@ -10,6 +10,7 @@ set(LLVM_LINK_COMPONENTS
   Demangle
   Extensions
   FrontendHLSL
+  FrontendFT
   FrontendOpenMP
   IPO
   IRPrinter
@@ -55,6 +56,7 @@ add_clang_library(clangCodeGen
   CGExprComplex.cpp
   CGExprConstant.cpp
   CGExprScalar.cpp
+  CGFTRuntime.cpp
   CGGPUBuiltin.cpp
   CGHLSLRuntime.cpp
   CGLoopInfo.cpp
