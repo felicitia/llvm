@@ -29,6 +29,9 @@
 /* Default OpenMP runtime used by -fopenmp. */
 #define CLANG_DEFAULT_OPENMP_RUNTIME "${CLANG_DEFAULT_OPENMP_RUNTIME}"
 
+/* Default FT runtime used by -fft. */
+#define CLANG_DEFAULT_FT_RUNTIME "${CLANG_DEFAULT_FT_RUNTIME}"
+
 /* Default architecture for SystemZ. */
 #define CLANG_SYSTEMZ_DEFAULT_ARCH "${CLANG_SYSTEMZ_DEFAULT_ARCH}"
 

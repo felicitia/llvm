@@ -30,6 +30,7 @@
 using namespace clang;
 using namespace llvm::ft;
 
+#if 0
 llvm::StringRef llvm::ft::getFTDirectiveName(Directive Kind) {
   switch (Kind) {
     case FTD_nmr:
@@ -76,6 +77,7 @@ llvm::StringRef llvm::ft::getFTClauseName(Clause Kind) {
   }
   llvm_unreachable("Invalid FT Clause kind");
 }
+#endif
 //===----------------------------------------------------------------------===//
 // FT declarative directives.
 //===----------------------------------------------------------------------===//

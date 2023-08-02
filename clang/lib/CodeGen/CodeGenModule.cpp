@@ -17,6 +17,7 @@
 #include "CGCXXABI.h"
 #include "CGCall.h"
 #include "CGDebugInfo.h"
+#include "CGFTRuntime.h"
 #include "CGHLSLRuntime.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
@@ -384,6 +385,8 @@ CodeGenModule::CodeGenModule(ASTContext &C,
     createObjCRuntime();
   if (LangOpts.OpenCL)
     createOpenCLRuntime();
+  if (LangOpts.FT)
+    createFTRuntime();
   if (LangOpts.OpenMP)
     createOpenMPRuntime();
   if (LangOpts.CUDA)
@@ -483,6 +486,10 @@ void CodeGenModule::createOpenMPRuntime() {
       OpenMPRuntime.reset(new CGOpenMPRuntime(*this));
     break;
   }
+}
+
+void CodeGenModule::createFTRuntime() {
+  FTRuntime.reset(new CGFTRuntime(*this));
 }
 
 void CodeGenModule::createCUDARuntime() {

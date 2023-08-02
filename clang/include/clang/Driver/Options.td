@@ -575,6 +575,7 @@ defvar c99 = LangOpts<"C99">;
 defvar c23 = LangOpts<"C23">;
 defvar lang_std = LangOpts<"LangStd">;
 defvar open_cl = LangOpts<"OpenCL">;
+defvar ft = LangOpts<"FT">;
 defvar cuda = LangOpts<"CUDA">;
 defvar render_script = LangOpts<"RenderScript">;
 defvar hip = LangOpts<"HIP">;
@@ -3304,6 +3305,9 @@ def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>,
   "Some stack unwinding cases, such as profilers and sanitizers, may prefer specifying -fno-omit-frame-pointer. "
   "On many targets, -O1 and higher omit the frame pointer by default. "
   "-m[no-]omit-leaf-frame-pointer takes precedence for leaf functions">;
+def fft : Flag<["-"], "fft">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
+  HelpText<"Parse FT pragmas and generate fault tolerant code.">;
+def fno_ft : Flag<["-"], "fno-ft">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
   Flags<[NoArgumentUnused]>,
   Visibility<[ClangOption, CC1Option, FlangOption, FC1Option]>,
@@ -8075,6 +8079,7 @@ def _SLASH_Zp_flag : CLFlag<"Zp">,
   Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
 def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Run the preprocessor, parser and semantic analysis stages">,
   Alias<fsyntax_only>;
+def _SLASH_ft : CLFlag<"ft">, HelpText<"Enable FT support">;
 def _SLASH_openmp_ : CLFlag<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
 def _SLASH_openmp : CLFlag<"openmp">, HelpText<"Enable OpenMP support">,

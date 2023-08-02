@@ -6,22 +6,20 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This contains code to emit OpenMP nodes as LLVM code.
+// This contains code to emit FT nodes as LLVM code.
 //
 //===----------------------------------------------------------------------===//
 #include "CGCleanup.h"
-#include "CGOpenMPRuntime.h"
+#include "CGFTRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/OpenMPClause.h"	// TODO
+#include "clang/AST/FTClause.h"	// TODO
 #include "clang/AST/Stmt.h"
-#include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/BinaryFormat/Dwarf.h"
@@ -35,6 +33,8 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+
+//#include "CGFTRuntime.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -513,16 +513,16 @@ void CodeGenFunction::EmitVote(const Expr * E, LValue LHS) {
   EmitVoteCall(LHS.getPointer(*this), _getTypeSize(*this, LHS.getType()), 0, false);
 }
 
-// whichside: 0 (LHS), 1 (RHS), 0x2 (atomic), 0x3 (auto), 8 (vote now)
-void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status) {
+// whichSide: 0 (LHS), 1 (RHS), 0x2 (atomic), 0x3 (auto), 8 (vote now)
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichSide, bool keep_status) {
     if (VoteVar == nullptr || VoteNow == false) return; 
     uint64_t sizeOfType = _getTypeSize(*this, dataType);
-    if (whichside == 1) // store
+    if (whichSide == 1) // store
       sizeOfType = _getTypeSize(*this, VoteExp->getType());
-    EmitVoteCall(AddrPtr, sizeOfType, whichside, keep_status);
+    EmitVoteCall(AddrPtr, sizeOfType, whichSide, keep_status);
 }
 
-void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, int whichside, bool keep_status) {
+void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, int whichSide, bool keep_status) {
 
     if (VoteVar == nullptr || VoteNow == false) return;
     if (sizeOfType == 0) {
@@ -531,6 +531,7 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, i
       VoteVar = nullptr;
       return;
     }
+    bool isDebug = false;
     llvm::Value *TSize = llvm::ConstantInt::get(Int32Ty, sizeOfType);
     const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
     const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
@@ -540,29 +541,47 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeOfType, i
      llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(CGM.getModule(), constStr->getType(), true, llvm::GlobalValue::PrivateLinkage, constStr);
      llvm::Value* StrPtr = Builder.CreatePointerCast(globalStr, ptrType);
      SourceManager &SM = CGM.getContext().getSourceManager();
-     int line_no = SM.getPresumedLoc(VoteLoc).getLine();
-     llvm::Value *Args[] = {
-         AddrPtr,
-         Builder.CreateIntCast(TSize, Int32Ty, /*isSigned*/ true),
-	 StrPtr,
-         Builder.CreateIntCast(llvm::ConstantInt::get(Int32Ty, line_no), Int32Ty, /*isSigned*/ true)
-         };
+     int lineNo = SM.getPresumedLoc(VoteLoc).getLine();
+#if 1
      if (!HaveInsertPoint())
        return;
      // Build call __ft_vote(&loc, var, size)
      std::string str("__ft_vote");
-     if (whichside & 0x1) str += "r";
+     if (whichSide & 0x1) str += "r";
      else str += "l";
-     if (whichside & 0x2) str += "_atomic";
+     if (whichSide & 0x2) str += "_atomic";
      if (isVarIncluded(VoteVar, AutoSize) >= 0)
        str += "_auto";
-     if (whichside & 0x8) str = "__ft_votenow";
+     if (whichSide & 0x8) str = "__ft_votenow";
      const char *LibCallName = str.c_str();
      
-     llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
-     auto *FTy = llvm::FunctionType::get(CGM.VoidTy, Params, /*isVarArg=*/false);
-     llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
-     EmitRuntimeCall(Func, Args);
+     if (!isDebug) {
+       llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty};
+       llvm::Value *Args[] = {
+         AddrPtr,
+         Builder.CreateIntCast(TSize, Int32Ty, /*isSigned*/ true)
+         };
+       auto *FTy = llvm::FunctionType::get(CGM.Int32Ty, Params, /*isVarArg=*/false);
+       llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
+       EmitRuntimeCall(Func, Args);
+     } else {
+       llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
+       llvm::Value *Args[] = {
+         AddrPtr,
+         Builder.CreateIntCast(TSize, Int32Ty, /*isSigned*/ true),
+	 StrPtr,
+         Builder.CreateIntCast(llvm::ConstantInt::get(Int32Ty, lineNo), Int32Ty, /*isSigned*/ true)
+         };
+       auto *FTy = llvm::FunctionType::get(CGM.Int32Ty, Params, /*isVarArg=*/false);
+       llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
+       EmitRuntimeCall(Func, Args);
+     }
+#else
+     if (isVarIncluded(VoteVar, AutoSize) >= 0)	// set AUTO if it is
+       whichSide = whichSide | 0x4;
+     CGM.getFTRuntime().emitVoteCall(*this, AddrPtr, sizeOfType, whichSide);
+//     CGM.getFTRuntime().emitVoteCall_debug(CGF, AddrPtr, sizeOfType, StrPtr, lineNo, whichSide);
+#endif
      if (keep_status) return;
      VoteNow = false;
      VoteVar = nullptr;

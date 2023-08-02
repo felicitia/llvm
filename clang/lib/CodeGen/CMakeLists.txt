@@ -11,6 +11,7 @@ set(LLVM_LINK_COMPONENTS
   Extensions
   FrontendDriver
   FrontendHLSL
+  FrontendFT
   FrontendOpenMP
   FrontendOffloading
   HIPStdPar
@@ -78,6 +79,7 @@ add_clang_library(clangCodeGen
   CGExprComplex.cpp
   CGExprConstant.cpp
   CGExprScalar.cpp
+  CGFTRuntime.cpp
   CGGPUBuiltin.cpp
   CGHLSLRuntime.cpp
   CGLoopInfo.cpp

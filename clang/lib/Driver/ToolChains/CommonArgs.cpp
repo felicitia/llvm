@@ -1065,6 +1065,15 @@ void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
   }
 }
 
+bool tools::addFTRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
+                             const ArgList &Args) {
+
+  if (!Args.hasFlag(options::OPT_fft, options::OPT_fno_ft, false))
+    return false;
+  CmdArgs.push_back("-lft");
+  return true;
+}
+
 bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
                              const ArgList &Args, bool ForceStaticHostRuntime,
                              bool IsOffloadingHost, bool GompNeedsRT) {

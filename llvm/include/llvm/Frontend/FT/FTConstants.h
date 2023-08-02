@@ -46,7 +46,6 @@ enum class ICVInitValue {
 #endif
 
 /// IDs for all ft runtime library (RTL) functions.
-#if 0
 enum class RuntimeFunction {
 #define FT_RTL(Enum, ...) Enum,
 #include "llvm/Frontend/FT/FTKinds.def"
@@ -55,6 +54,7 @@ enum class RuntimeFunction {
 #define FT_RTL(Enum, ...) constexpr auto Enum = ft::RuntimeFunction::Enum;
 #include "llvm/Frontend/FT/FTKinds.def"
 
+#if 0
 /// IDs for the different default kinds.
 enum class DefaultKind {
 #define FT_DEFAULT_KIND(Enum, Str) Enum,

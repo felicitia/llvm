@@ -1,5 +1,6 @@
 set(LLVM_LINK_COMPONENTS
   FrontendOpenMP
+  FrontendFT
   MC
   MCParser
   Support

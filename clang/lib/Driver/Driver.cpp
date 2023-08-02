@@ -813,6 +813,10 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     C.addOffloadDeviceToolChain(HIPTC, OFK);
   }
 
+  // 
+  // FT
+  //
+  // bool IsFT = C.getInputArgs().hasFlag(options::OPT_fft);
   //
   // OpenMP
   //
