@@ -1687,14 +1687,15 @@ public:
   ///
   /// By default, performs semantic analysis to build the new statement.
   /// Subclasses may override this routine to provide different behavior.
-  StmtResult RebuildOMPExecutableDirective(OpenMPDirectiveKind Kind,
-                                           DeclarationNameInfo DirName,
-                                           OpenMPDirectiveKind CancelRegion,
-                                           ArrayRef<OMPClause *> Clauses,
-                                           Stmt *AStmt, SourceLocation StartLoc,
-                                           SourceLocation EndLoc) {
+  StmtResult RebuildOMPExecutableDirective(
+      OpenMPDirectiveKind Kind, DeclarationNameInfo DirName,
+      OpenMPDirectiveKind CancelRegion, ArrayRef<OMPClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc,
+      OpenMPDirectiveKind PrevMappedDirective = OMPD_unknown) {
+
     return getSema().ActOnOpenMPExecutableDirective(
-        Kind, DirName, CancelRegion, Clauses, AStmt, StartLoc, EndLoc);
+        Kind, DirName, CancelRegion, Clauses, AStmt, StartLoc, EndLoc,
+        PrevMappedDirective);
   }
 
   /// Build a new OpenMP 'if' clause.
@@ -8879,7 +8880,8 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
 
   return getDerived().RebuildOMPExecutableDirective(
       D->getDirectiveKind(), DirName, CancelRegion, TClauses,
-      AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc());
+      AssociatedStmt.get(), D->getBeginLoc(), D->getEndLoc(),
+      D->getMappedDirective());
 }
 
 template <typename Derived>
