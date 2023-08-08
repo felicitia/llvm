@@ -146,7 +146,10 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
 
   switch (DKind) {
   default:
-    assert(false && "Not an FT directive!");
+    Diag(Tok, diag::err_ft_unexpected_directive)
+        << 1 << getFTDirectiveName(DKind);
+    SkipUntil(tok::annot_pragma_ft_end);
+//    assert(false && "Not an FT directive!");
     break;
   case FTD_vote:
   case FTD_nmr:
@@ -154,10 +157,13 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
       HasAssociatedStatement = false;
       ImplicitTok = Tok;
     }
-    else {
+    else if (DKind == FTD_nmr) {
       HasAssociatedStatement = true;
-      // if FT is declared within an OpenMP region, reject it as error
-      if (withinOpenMPScope(this)) 
+    } else {
+        return StmtError();
+    }
+    if (withinOpenMPScope(this)) {
+        // if FT is declared within an OpenMP region, reject it as error
         return StmtError();
     }
     ConsumeToken();
@@ -215,7 +221,7 @@ StmtResult Parser::ParseFTDeclarativeOrExecutableDirective(
     StmtResult AssociatedStmt;
     if (HasAssociatedStatement) {	// DK: region
       assert(DKind == FTD_nmr && "Only NMR directive has associated statements!");
-        ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);
+//        ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);	// DK: without it, it looks OK.
         {
           Sema::CompoundScopeRAII Scope(Actions);
           AssociatedStmt = ParseStatement();	// DK: here associated statements are parsed
@@ -262,10 +268,6 @@ FTClause *Parser::ParseFTDoubleVarListClause(FTDirectiveKind DKind,
   SmallVector<Expr *, 4> Vars;
   SmallVector<Expr *, 4> Sizes;
   SmallVector<Expr *, 4> Ptr;
-#if 0
-  OpenMPVarListDataTy Data;
-  OpenMPVarListDataTy DataSizes;
-#endif
 
   bool IsComma = true;
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_ft_end);
@@ -275,8 +277,6 @@ FTClause *Parser::ParseFTDoubleVarListClause(FTDirectiveKind DKind,
 
   while (Tok.isNot(tok::r_paren) /* && Tok.isNot(tok::colon) */ &&
                      Tok.isNot(tok::annot_pragma_ft_end)) {
-//    ParseScope OMPListScope(this, Scope::OpenMPDirectiveScope);
-//    ColonProtectionRAIIObject ColonRAII(*this);
     // Parse variable
     ExprResult VarExpr =
         Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
@@ -394,6 +394,18 @@ FTClause *Parser::ParseFTDoubleVarListClause(FTDirectiveKind DKind,
       Kind, Vars, Sizes, Ptr, StartLoc, LParenLoc, EndLoc);
 }
 
+void Parser::skipUntilPragmaFTEnd(FTDirectiveKind DKind) {
+  // The last seen token is annot_pragma_ft_end - need to check for
+  // extra tokens.
+  if (Tok.is(tok::annot_pragma_ft_end))
+    return;
+
+  Diag(Tok, diag::warn_omp_extra_tokens_at_eol)
+      << getFTDirectiveName(DKind);
+  while (Tok.isNot(tok::annot_pragma_ft_end))
+    ConsumeAnyToken();
+}
+
 FTClause *Parser::ParseFTClause(FTDirectiveKind DKind,
                                      FTClauseKind CKind, bool FirstClause) {
   FTClause *Clause = nullptr;
@@ -401,7 +413,7 @@ FTClause *Parser::ParseFTClause(FTDirectiveKind DKind,
   bool WrongDirective = false;
   if (CKind == FTC_unknown ||
       !isAllowedFTClauseForDirective(DKind, CKind)) {
-    Diag(Tok, diag::err_omp_unexpected_clause)
+    Diag(Tok, diag::err_ft_unexpected_clause)
         << getFTClauseName(CKind) << getFTDirectiveName(DKind);
     ErrorFound = true;
     WrongDirective = true;
@@ -427,7 +439,10 @@ FTClause *Parser::ParseFTClause(FTDirectiveKind DKind,
 	break;
     case FTC_auto:	/* TODO: degree of NMR */
         Clause = ParseFTDoubleVarListClause(DKind, CKind, WrongDirective);
-	  break;
+        break;
+    case FTC_unknown:
+        skipUntilPragmaFTEnd(DKind);
+        break;
     default:
 	  ErrorFound = true;
   }
