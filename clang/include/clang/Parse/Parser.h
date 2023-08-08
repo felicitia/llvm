@@ -3296,6 +3296,8 @@ private:
   StmtResult ParseFTDeclarativeOrExecutableDirective(
       ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
 
+  void skipUntilPragmaFTEnd(FTDirectiveKind DKind);
+
   FTClause *ParseFTClause(FTDirectiveKind mDKind,
                                FTClauseKind CKind, bool FirstClause);
 

@@ -221,6 +221,20 @@ static void printDL(DataDependenceGraph::DependenceList &Dependences) {
     llvm::errs() << "Dependency Type: " << deptype << "\n";
 //    llvm::errs() << "----------------------------------\n";
   }
+#if 0
+  for (auto && Dependence : Dependences) {
+    llvm::errs() << "Source Instruction: " << *Dependence->getSrc() << "\n";
+//    llvm::errs() << "Destination Instruction: " << *Dependence->getDst() << "\n";
+    std::string deptype;
+    if (Dependence->isInput()) deptype = "input";
+    else if (Dependence->isOutput()) deptype = "output";
+    else if (Dependence->isFlow()) deptype = "flow";
+    else if (Dependence->isAnti()) deptype = "anti";
+    else deptype = "none";
+    llvm::errs() << "Dependency Type: " << deptype << "\n";
+//    llvm::errs() << "----------------------------------\n";
+  }
+#endif
 }
 
 PreservedAnalyses FTPass::run(Function &F,
@@ -235,12 +249,14 @@ PreservedAnalyses FTPass::run(Function &F,
   //  errs() << *N << "\n";
     if (isa<SimpleDDGNode>(N)) {
       llvm::errs() << "==================================\n";
-      llvm::errs() << "Source Instruction: " << *N << "\n";
-      for (const Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
-        Value * arg;
-        uint32_t ftType = getFTInstr(I, FT_MASK_AUTO, &arg);
+      llvm::errs() << "Ref Instruction: " << *N << "\n";
+//      for (const Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
+//        Value * arg;
+//        uint32_t ftType = getFTInstr(I, FT_MASK_AUTO, &arg);
 //        if (ftType) {
           for (auto *E : *N) {
+              llvm::errs() << ".................................\n";
+              llvm::errs() << "Edges: " << *E << "\n";
 //            if (E->isMemoryDependence()) {
               DataDependenceGraph::DependenceList DL;
               DG.getDependencies(*N, E->getTargetNode(), DL);
@@ -249,7 +265,7 @@ PreservedAnalyses FTPass::run(Function &F,
 //            }
           }
 //        }
-      }
+//      }
     }
 #if 0
     SmallVector<Instruction *, 2> SrcIList;

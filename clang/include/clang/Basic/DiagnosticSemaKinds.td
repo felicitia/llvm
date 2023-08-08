@@ -11884,6 +11884,9 @@ def err_loongarch_builtin_requires_la32 : Error<
 def err_builtin_pass_in_regs_non_class : Error<
   "argument %0 is not an unqualified class type">;
 
+def warn_vote_pointer_without_size: Warning<
+  "Vote size for pointer variable is not specified, "
+  "casting to the size of the pointer">;
 
 // WebAssembly reference type and table diagnostics.
 def err_wasm_reference_pr : Error<

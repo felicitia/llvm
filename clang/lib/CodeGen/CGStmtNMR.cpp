@@ -13,6 +13,7 @@
 #include "CGFTRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
@@ -294,6 +295,16 @@ static const Expr * visitStmt(const Stmt *S, SmallVector<const Expr *, 4> &VarSi
     if (FoundVar == nullptr) FoundVar = FoundVar2;
     return FoundVar;
     }
+  case Stmt::AtomicExprClass: { // For atomic, assume all variables can be LHS
+    bool canbeLHS2 = (lookforLHS ? true : canbeLHS);
+    for (const Stmt *subStmt : S->children()) {
+      if (!subStmt) continue;
+      const Expr * FoundVar2 = visitStmt(subStmt, VarSize, VarsNameIndex, lookforLHS, canbeLHS2);
+      if (FoundVar == nullptr) FoundVar = FoundVar2;
+      if (FoundVar) return FoundVar;
+    }
+    return FoundVar;
+    }
   default: 
     if (lookforLHS) return nullptr;
     for (const Stmt *subStmt : S->children()) {
@@ -334,7 +345,9 @@ static void emitVoteStmt(CodeGenFunction &CGF, SmallVector<const Expr *, 4> &Var
    for (int i = 0; i < (int)VarsSizes.size(); i+=3) {
      llvm::Value * VarPtr;
      if (VarsSizes[i]->getType()->isPointerType()) { // only (Basetype *) is allowed.
-       if (VarsSizes[i+1] == nullptr) return; // Not allowed! 
+       if (VarsSizes[i+1] == nullptr) { // Warning! 
+         CGF.CGM.getDiags().Report(Loc, diag::warn_vote_pointer_without_size); 
+       }
        LValue LV = CGF.EmitCheckedLValue(VarsSizes[i], CodeGenFunction::TCK_Load);
 //       llvm::Type * Type = CGF.ConvertType(LV.getType());
 //       sizeInBytes = CGF.CGM.getDataLayout().getTypeAllocSize(Type->getNonOpaquePointerElementType());
@@ -389,9 +402,9 @@ const Expr * CodeGenFunction::EmitVarVote(const Stmt* S, SmallVector<const Expr 
     TVarsSizes.push_back(VarSize[VarsNameIndex[i]+2]);
   }
 
-  if (!generate_vote) return FoundVar2;
+  if (!generate_vote) return FoundVar;
   else  emitVoteStmt(*this, TVarsSizes, S->getBeginLoc());
-  return FoundVar2;
+  return FoundVar;
 }
 
 void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
