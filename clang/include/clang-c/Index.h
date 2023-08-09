@@ -2136,9 +2136,15 @@ enum CXCursorKind {
    */
   CXCursor_OMPErrorDirective = 305,
 
-  CXCursor_FTNmrDirective = 306,
+  /** OpenMP scope directive.
+   */
+  CXCursor_OMPScopeDirective = 306,
 
-  CXCursor_FTVoteDirective = 307,
+  /** Fault Tolerant directives.
+   */
+  CXCursor_FTNmrDirective = 307,
+
+  CXCursor_FTVoteDirective = 308,
 
   CXCursor_LastStmt = CXCursor_FTVoteDirective,
 
