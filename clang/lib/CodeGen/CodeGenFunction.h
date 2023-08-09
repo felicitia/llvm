@@ -3551,6 +3551,7 @@ public:
   void EmitFTNmrDirective(const FTNmrDirective &S);
   const Expr * EmitVarVote(const Stmt* S, SmallVector<const Expr *, 4> &VarSize, bool lookforLHS, bool generateVote);
   void EmitFTVoteDirective(const FTVoteDirective &S);
+  void EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr, int whichside, bool keep_status);
   void EmitVoteCall(llvm::Value * AddrPtr, uint64_t sizeInBytes, int whichside, bool keep_status);
   void EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int whichside, bool keep_status);
   void EmitOMPMetaDirective(const OMPMetaDirective &S);
