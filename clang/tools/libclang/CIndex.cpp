@@ -23,6 +23,7 @@
 #include "CursorVisitor.h"
 #include "clang-c/FatalErrorHandler.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/AttrVisitor.h"
 #include "clang/AST/DeclObjCCommon.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
@@ -574,6 +575,13 @@ bool CursorVisitor::VisitChildren(CXCursor Cursor) {
       return Visit(cxcursor::MakeCursorObjCClassRef(
           ObjT->getInterface(),
           A->getInterfaceLoc()->getTypeLoc().getBeginLoc(), TU));
+  }
+
+  if (clang_isAttribute(Cursor.kind)) {
+    if (const Attr *A = getCursorAttr(Cursor))
+      return Visit(A);
+
+    return false;
   }
 
   // If pointing inside a macro definition, check if the token is an identifier
@@ -2090,7 +2098,8 @@ public:
         (SourceLocation::UIntTy)(uintptr_t)data[1]);
   }
 };
-class EnqueueVisitor : public ConstStmtVisitor<EnqueueVisitor, void> {
+class EnqueueVisitor : public ConstStmtVisitor<EnqueueVisitor, void>,
+                       public ConstAttrVisitor<EnqueueVisitor, void> {
   friend class OMPClauseEnqueue;
   friend class FTClauseEnqueue;
   VisitorWorkList &WL;
@@ -2235,6 +2244,9 @@ public:
       const OMPTargetTeamsDistributeParallelForSimdDirective *D);
   void VisitOMPTargetTeamsDistributeSimdDirective(
       const OMPTargetTeamsDistributeSimdDirective *D);
+
+  // Attributes
+  void VisitAnnotateAttr(const AnnotateAttr *A);
 
 private:
   void AddDeclarationNameInfo(const Stmt *S);
@@ -3104,7 +3116,7 @@ void EnqueueVisitor::VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
   // If the opaque value has a source expression, just transparently
   // visit that.  This is useful for (e.g.) pseudo-object expressions.
   if (Expr *SourceExpr = E->getSourceExpr())
-    return Visit(SourceExpr);
+    return ConstStmtVisitor::Visit(SourceExpr);
 }
 void EnqueueVisitor::VisitLambdaExpr(const LambdaExpr *E) {
   AddStmt(E->getBody());
@@ -3124,7 +3136,7 @@ void EnqueueVisitor::VisitCXXParenListInitExpr(const CXXParenListInitExpr *E) {
 }
 void EnqueueVisitor::VisitPseudoObjectExpr(const PseudoObjectExpr *E) {
   // Treat the expression like its syntactic form.
-  Visit(E->getSyntacticForm());
+  ConstStmtVisitor::Visit(E->getSyntacticForm());
 }
 
 void EnqueueVisitor::VisitOMPExecutableDirective(
@@ -3434,9 +3446,28 @@ void EnqueueVisitor::VisitOMPTargetTeamsDistributeSimdDirective(
   VisitOMPLoopDirective(D);
 }
 
+void EnqueueVisitor::VisitAnnotateAttr(const AnnotateAttr *A) {
+  EnqueueChildren(A);
+}
+
 void CursorVisitor::EnqueueWorkList(VisitorWorkList &WL, const Stmt *S) {
   EnqueueVisitor(WL, MakeCXCursor(S, StmtParent, TU, RegionOfInterest))
-      .Visit(S);
+      .ConstStmtVisitor::Visit(S);
+}
+
+void CursorVisitor::EnqueueWorkList(VisitorWorkList &WL, const Attr *A) {
+  // Parent is the attribute itself when this is indirectly called from
+  // VisitChildren. Because we need to make a CXCursor for A, we need *its*
+  // parent.
+  auto AttrCursor = Parent;
+
+  // Get the attribute's parent as stored in
+  // cxcursor::MakeCXCursor(const Attr *A, const Decl *Parent, CXTranslationUnit
+  // TU)
+  const Decl *AttrParent = static_cast<const Decl *>(AttrCursor.data[1]);
+
+  EnqueueVisitor(WL, MakeCXCursor(A, AttrParent, TU))
+      .ConstAttrVisitor::Visit(A);
 }
 
 bool CursorVisitor::IsInRegionOfInterest(CXCursor C) {
@@ -3696,6 +3727,22 @@ bool CursorVisitor::Visit(const Stmt *S) {
     WorkListCache.push_back(WL);
   }
   EnqueueWorkList(*WL, S);
+  bool result = RunVisitorWorkList(*WL);
+  WorkListFreeList.push_back(WL);
+  return result;
+}
+
+bool CursorVisitor::Visit(const Attr *A) {
+  VisitorWorkList *WL = nullptr;
+  if (!WorkListFreeList.empty()) {
+    WL = WorkListFreeList.back();
+    WL->clear();
+    WorkListFreeList.pop_back();
+  } else {
+    WL = new VisitorWorkList();
+    WorkListCache.push_back(WL);
+  }
+  EnqueueWorkList(*WL, A);
   bool result = RunVisitorWorkList(*WL);
   WorkListFreeList.push_back(WL);
   return result;
