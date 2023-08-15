@@ -205,6 +205,7 @@ public:
   void dumpAccessSpecifier(AccessSpecifier AS);
   void dumpCleanupObject(const ExprWithCleanups::CleanupObject &C);
   void dumpTemplateSpecializationKind(TemplateSpecializationKind TSK);
+  void dumpNestedNameSpecifier(const NestedNameSpecifier *NNS);
 
   void dumpDeclRef(const Decl *D, StringRef Label = {});
 
@@ -257,6 +258,7 @@ public:
   void VisitCastExpr(const CastExpr *Node);
   void VisitImplicitCastExpr(const ImplicitCastExpr *Node);
   void VisitDeclRefExpr(const DeclRefExpr *Node);
+  void VisitDependentScopeDeclRefExpr(const DependentScopeDeclRefExpr *Node);
   void VisitSYCLUniqueStableNameExpr(const SYCLUniqueStableNameExpr *Node);
   void VisitPredefinedExpr(const PredefinedExpr *Node);
   void VisitCharacterLiteral(const CharacterLiteral *Node);
