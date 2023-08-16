@@ -12074,6 +12074,10 @@ def note_safe_buffer_debug_mode : Note<"safe buffers debug: %0">;
 def err_builtin_pass_in_regs_non_class : Error<
   "argument %0 is not an unqualified class type">;
 
+def warn_vote_no_simple_var : Warning<
+  "Vote variable must be a simple variable, "
+  "Ignored the variable for vote">;
+
 def warn_vote_pointer_without_size: Warning<
   "Vote size for pointer variable is not specified, "
   "casting to the size of the pointer">;

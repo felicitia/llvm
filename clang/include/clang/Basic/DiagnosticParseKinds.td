@@ -1725,6 +1725,8 @@ def ext_hlsl_access_specifiers : ExtWarn<
 def warn_ft_extra_tokens_at_eol : Warning<
   "extra tokens at the end of '#pragma ft %0' are ignored">,
   InGroup<ExtraTokens>;
+def warn_ft_vote_no_simple_var: Warning<
+  "Only simple variable is allowed in clause. Non-simple variable in '#pragma ft %0 %1' are ignored">;
 def err_ft_unexpected_directive : Error<
   "unexpected FT directive %select{|'#pragma ft %1'}0">;
 def err_ft_unexpected_clause : Error<

@@ -281,7 +281,12 @@ FTClause *Parser::ParseFTDoubleVarListClause(FTDirectiveKind DKind,
     ExprResult VarExpr =
         Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
     if (VarExpr.isUsable()) {
-      Vars.push_back(VarExpr.get());
+      const Expr* expr = VarExpr.get()->IgnoreParenCasts();
+      if (isa<DeclRefExpr>(expr)) 
+        Vars.push_back(VarExpr.get());
+      else
+        Diag(Tok, diag::warn_ft_vote_no_simple_var) << getFTDirectiveName(DKind) << getFTClauseName(Kind);
+   
     } else {
       SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_ft_end,
                 StopBeforeMatch);

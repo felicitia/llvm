@@ -4,11 +4,11 @@
 
 extern "C" {
 
-int32_t ft_register() {
+int32_t ft_init() {
    return 1;
 }
 
-int32_t ft_deregister() {
+int32_t ft_exit() {
    return 1;
 }
 

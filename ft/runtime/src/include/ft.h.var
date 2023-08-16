@@ -17,8 +17,8 @@
     extern "C" {
 #   endif
 
-    extern int32_t ft_register();
-    extern int32_t ft_deregister();
+    extern int32_t ft_init();
+    extern int32_t ft_exit();
 
     extern int32_t ft_vote(void *, int32_t);
     extern int32_t ft_voter(void *, int32_t);
