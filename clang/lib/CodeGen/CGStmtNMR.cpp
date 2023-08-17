@@ -496,6 +496,7 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
      llvm::Value* StrPtr = Builder.CreatePointerCast(globalStr, ptrType);
      SourceManager &SM = CGM.getContext().getSourceManager();
      int lineNo = SM.getPresumedLoc(VoteLoc).getLine();
+     if (getLangOpts().FTDebugMode) isDebug = true;
 #if 1
      if (!HaveInsertPoint())
        return;
@@ -507,8 +508,10 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
      if (isVarIncluded(*this, VoteVar, AutoSize) >= 0)
        str += "_auto";
      if (whichSide & 0x8) str = "__ft_votenow";
+     if (isDebug)
+       str += "_debug";
      const char *LibCallName = str.c_str();
-     
+    
      if (!isDebug) {
        llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty};
        llvm::Value *Args[] = {

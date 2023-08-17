@@ -3515,6 +3515,9 @@ void CompilerInvocationBase::GenerateLangArgs(const LangOptions &Opts,
   if (Opts.FT) {
     GenerateArg(Args, OPT_fft, SA);
   }
+  if (Opts.FTDebugMode) {
+    GenerateArg(Args, OPT_fft_debug_mode, SA);
+  }
 
   // OpenMP was requested via '-fopenmp', not implied by '-fopenmp-simd' or
   // '-fopenmp-targets='.
@@ -3935,6 +3938,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
 
   // Check if -fft is specified
   Opts.FT = Args.hasArg(OPT_fft);
+  Opts.FTDebugMode = Args.hasArg(options::OPT_fft_debug_mode);
 
   // Check if -fopenmp is specified and set default version to 5.0.
   Opts.OpenMP = Args.hasArg(OPT_fopenmp) ? 51 : 0;

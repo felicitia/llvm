@@ -6245,7 +6245,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fno_elide_type);
 
   // Forward flags for FT. We don't do this if the current action is an
-  Args.AddLastArg(CmdArgs, options::OPT_fft);
+  if (Args.hasFlag(options::OPT_fft_debug_mode, options::OPT_fft_nodebug_mode, false)) {
+    Args.AddLastArg(CmdArgs, options::OPT_fft_debug_mode);
+    Args.AddLastArg(CmdArgs, options::OPT_fft);
+  } else if (Args.hasFlag(options::OPT_fft, options::OPT_fno_ft, false)) {
+    Args.AddLastArg(CmdArgs, options::OPT_fft);
+  } 
 
   // Forward flags for OpenMP. We don't do this if the current action is an
   // device offloading action other than OpenMP.
