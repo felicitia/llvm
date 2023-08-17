@@ -2782,6 +2782,11 @@ def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>,
 def fft : Flag<["-"], "fft">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Parse FT pragmas and generate fault tolerant code.">;
 def fno_ft : Flag<["-"], "fno-ft">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fft_debug_mode : Flag<["-"], "fft-debug-mode">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused]>,
+  HelpText<"Display debug meesage of FT pragmas.">;
+def fft_nodebug_mode : Flag<["-"], "fft-nodebug-mode">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, FlangOption, FC1Option]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
