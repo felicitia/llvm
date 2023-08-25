@@ -4,7 +4,12 @@
 #include "llvm/Analysis/DDG.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/DependenceGraphBuilder.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Value.h"
 
 #include "llvm/Transforms/Utils/FT.h"
 #include <map>
@@ -237,8 +242,141 @@ static void printDL(DataDependenceGraph::DependenceList &Dependences) {
 #endif
 }
 
+static bool isDependInstr(Instruction *inst) {
+  // for now, store instruction only
+  if (!isa<StoreInst>(inst)) return false;
+  StoreInst * sInst = dyn_cast<StoreInst>(inst);
+  Value *storedValue = sInst->getValueOperand();
+  Type *valueType = storedValue->getType();
+  if (valueType->isPointerTy()) return false;
+  return true;
+}
+
+static bool addVoteInstrAfter(Instruction *inst, BasicBlock*nBB) {
+  if (!isDependInstr(inst)) return false;
+  LLVMContext &ctx = inst->getContext();
+  IRBuilder<> Builder(ctx);
+  if (nBB) Builder.SetInsertPoint(nBB);
+  else { 
+    Instruction * nInst = inst->getNextNode();
+    assert(nInst != nullptr);
+    Builder.SetInsertPoint(nInst);
+  }
+  StoreInst * sInst = dyn_cast<StoreInst>(inst);
+  Value *storedPtr = sInst->getPointerOperand();
+  Value *storedValue = sInst->getValueOperand();
+  Module &module = *(sInst->getParent()->getParent()->getParent());
+  const DataLayout &dataLayout = module.getDataLayout();
+  Type *valueType = storedValue->getType();
+
+  uint64_t sizeInBytes = dataLayout.getTypeAllocSize(valueType);
+  llvm::Value *TSize = llvm::ConstantInt::get(Builder.getInt32Ty(), sizeInBytes);
+
+  llvm::Type *Params[] = {storedPtr->getType(), Builder.getInt32Ty()};
+  llvm::Value *Args[] = {
+    storedPtr,
+    Builder.CreateIntCast(TSize, Builder.getInt32Ty(), /*isSigned*/ true)
+  };
+  auto *FTy = llvm::FunctionType::get(Builder.getInt32Ty(), Params, /*isVarArg=*/false);
+  const char *LibCallName = "__ft_votenow";
+  llvm::FunctionCallee Func = module.getOrInsertFunction(LibCallName, FTy);
+  Builder.CreateCall(Func, Args, "");
+  return true;
+}
+
 PreservedAnalyses FTPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
+  auto &DI = AM.getResult<DependenceAnalysis>(F);
+  llvm::DataDependenceGraph DG(F,DI);
+  int changed = 0;
+  int depInstCount = 0;
+  BasicBlock *nBB = nullptr;
+  BasicBlock *cBB = nullptr;
+  int option = 1;	// 0: unconditional, 1: conditional
+  for (DDGNode *N : DG) {
+    if (isa<SimpleDDGNode>(N)) {
+      // look for __ft_vote() call
+      Function *calledAutoFunction = nullptr;
+      Instruction * sInst = nullptr;
+      Instruction * vcallInst = nullptr;
+      for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
+        Instruction * nInst = I->getNextNode();
+        if (nInst == nullptr) continue;
+        if (CallInst *callInst = dyn_cast<CallInst>(nInst)) {
+          Function *calledFunction = callInst->getCalledFunction();
+          if (calledFunction) {
+            if (calledFunction->getName() == "__ft_votel_auto" 
+                || calledFunction->getName() == "__ft_votel_auto_debug") {
+                calledAutoFunction = calledFunction;
+                vcallInst = callInst;
+                sInst = I;
+            }
+          }
+        }
+        if (calledAutoFunction) {
+          LLVMContext &ctx = sInst->getContext();
+          IRBuilder<> Builder(ctx);
+          BasicBlock *CurrBB2 = nullptr;
+          BasicBlock *IfBlock = nullptr;
+          for (auto *E : *N) { // look for memory edge, and 'store' instruction
+            if (E->isMemoryDependence()) {
+              DataDependenceGraph::DependenceList DL;
+              DG.getDependencies(*N, E->getTargetNode(), DL);
+              for (auto && Dependence : DL) {
+                if (Dependence->isOutput()) {	// add vote instruction after this instruction
+                  Instruction * dInst = Dependence->getDst();
+                  if (!isDependInstr(dInst)) continue;
+                  if (option == 0)
+                    addVoteInstrAfter(dInst, nBB);
+                  else {
+                    if (nBB == nullptr) {
+                      /* add if statement */
+                      LLVMContext &ctx = calledAutoFunction->getContext();
+
+
+                      /* split the current BB into two */
+                      BasicBlock *CurrBB = sInst->getParent();
+                      if (vcallInst->getNextNode()) {
+                        CurrBB2 = CurrBB->splitBasicBlock(vcallInst->getNextNode(), CurrBB->getName() + "split");
+                      }
+                      // create new BB
+                      IfBlock = BasicBlock::Create(ctx, CurrBB->getName() + ".IfBlock", const_cast<Function *>(CurrBB->getParent()), CurrBB2);
+                      // Create a constant integer for comparison
+                      ConstantInt* cmpValue = ConstantInt::get(Builder.getInt32Ty(), -1);
+                      // Create an ICmp instruction for comparison
+                      Instruction *defaultBr = vcallInst->getNextNode();
+                      Builder.SetInsertPoint(vcallInst->getNextNode());
+                      Value* callResult = vcallInst;
+                      Value* comparison = Builder.CreateICmpEQ(callResult, cmpValue, "cmpResult");
+                      Builder.CreateCondBr(comparison, IfBlock, CurrBB2);
+                      defaultBr->eraseFromParent();	// erase br instruction generated by splitBasicBlock
+                      nBB = IfBlock;
+                    }
+                    addVoteInstrAfter(dInst, nBB);
+                  }
+                  changed++;
+                }
+              }
+            }
+          }
+          if (changed) {
+            Builder.SetInsertPoint(IfBlock);
+            Builder.CreateBr(CurrBB2);
+          }
+        }
+      }
+    }
+  }
+
+// for debugging
+  if (changed)
+    F.print(llvm::outs()); 
+
+  return changed ? PreservedAnalyses() : PreservedAnalyses::all();
+}
+
+// PreservedAnalyses FTPass::run_test(Function &F, FunctionAnalysisManager &AM) {
+PreservedAnalyses run_test(Function &F, FunctionAnalysisManager &AM) {
 //  errs() << M.getName() << "\n";
   errs() << "Start" << "\n";
 /*  test(M, AM); */
