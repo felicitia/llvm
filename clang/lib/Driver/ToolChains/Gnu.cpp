@@ -2073,8 +2073,7 @@ static llvm::StringRef getGCCToolchainDir(const ArgList &Args,
 /// necessary because the driver doesn't store the final version of the target
 /// triple.
 void Generic_GCC::GCCInstallationDetector::init(
-    const llvm::Triple &TargetTriple, const ArgList &Args,
-    ArrayRef<std::string> ExtraTripleAliases) {
+    const llvm::Triple &TargetTriple, const ArgList &Args) {
   llvm::Triple BiarchVariantTriple = TargetTriple.isArch32Bit()
                                          ? TargetTriple.get64BitArchVariant()
                                          : TargetTriple.get32BitArchVariant();
@@ -2148,9 +2147,6 @@ void Generic_GCC::GCCInstallationDetector::init(
     // may pick the libraries for x86_64-pc-linux-gnu even when exact matching
     // triple x86_64-gentoo-linux-gnu is present.
     GentooTestTriples.push_back(TargetTriple.str());
-    // Check rest of triples.
-    GentooTestTriples.append(ExtraTripleAliases.begin(),
-                             ExtraTripleAliases.end());
     GentooTestTriples.append(CandidateTripleAliases.begin(),
                              CandidateTripleAliases.end());
     if (ScanGentooConfigs(TargetTriple, Args, GentooTestTriples,
@@ -2180,10 +2176,6 @@ void Generic_GCC::GCCInstallationDetector::init(
       if (TargetTriple.getVendor() == llvm::Triple::UnknownVendor)
         ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, TripleNoVendorRef,
                                false, GCCDirExists, GCCCrossDirExists);
-      // Try rest of possible triples.
-      for (StringRef Candidate : ExtraTripleAliases) // Try these first.
-        ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate, false,
-                               GCCDirExists, GCCCrossDirExists);
       for (StringRef Candidate : CandidateTripleAliases)
         ScanLibDirForGCCTriple(TargetTriple, Args, LibDir, Candidate, false,
                                GCCDirExists, GCCCrossDirExists);
@@ -2965,7 +2957,7 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   case llvm::Triple::xcore:
     return false;
   default:
-    return getTriple().getVendor() != llvm::Triple::Myriad;
+    return true;
   }
 }
 
