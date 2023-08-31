@@ -14,12 +14,17 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Transforms/Utils/FT.h"
 #include <map>
 
 using namespace llvm;
+
+static cl::opt<int>
+AutoOptimizationLevel("ft-auto-optimization-level", cl::init(0), cl::Hidden,
+  cl::desc("Optimization level of FT auto clause: 0 and 1"));
 
 static void ftAuto(Function &F, int mode) ;
 static void ftSimple(Function &F);
@@ -260,12 +265,12 @@ static bool isDependInstr(Instruction *inst) {
   return true;
 }
 
-static Instruction * addVoteInstrAfter(Instruction *inst, Instruction *vcallInst, int option) {
+static Instruction * addVoteInstrAfter(Instruction *inst, Instruction *vcallInst) {
   if (!isDependInstr(inst)) return nullptr;
   LLVMContext &ctx = inst->getContext();
   IRBuilder<> Builder(ctx);
   Instruction * nInst = inst->getNextNode();
-  if (option) 
+  if (AutoOptimizationLevel > 0) 
     nInst = vcallInst->getNextNode();
   assert(nInst != nullptr);
   Builder.SetInsertPoint(nInst);
@@ -312,7 +317,6 @@ PreservedAnalyses FTPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   auto &DI = AM.getResult<DependenceAnalysis>(F);
   llvm::DataDependenceGraph DG(F,DI);
-  int option = 1;	// 0: unconditional, 1: conditional
   bool preserved = true;
 
   for (DDGNode *N : DG) {
@@ -339,7 +343,7 @@ PreservedAnalyses FTPass::run(Function &F,
             Instruction * dInst = Dependence->getDst();
             if (!isDependInstr(dInst)) continue;
             if (isVoted(dInst)) continue;
-            nInst = addVoteInstrAfter(dInst, insertInst, option);	// add first
+            nInst = addVoteInstrAfter(dInst, insertInst);	// add first
             insertInst = nInst;
             if (nInst == nullptr) continue;
             preserved = false;
@@ -347,7 +351,7 @@ PreservedAnalyses FTPass::run(Function &F,
           }
         }
       }
-      if (option == 1 && newInstCount > 0) {	// 
+      if (AutoOptimizationLevel == 1 && newInstCount > 0) {	// 
         BasicBlock * CurrBBsplit, * CurrBBif;
         LLVMContext &ctx = vcallInst->getContext();
         // split the current BB into two - original + split 
