@@ -191,6 +191,8 @@ public:
 
   void Visit(const GenericSelectionExpr::ConstAssociation &A);
 
+  void Visit(const ConceptReference *);
+
   void Visit(const concepts::Requirement *R);
 
   void Visit(const APValue &Value, QualType Ty);
@@ -206,6 +208,7 @@ public:
   void dumpCleanupObject(const ExprWithCleanups::CleanupObject &C);
   void dumpTemplateSpecializationKind(TemplateSpecializationKind TSK);
   void dumpNestedNameSpecifier(const NestedNameSpecifier *NNS);
+  void dumpConceptReference(const ConceptReference *R);
 
   void dumpDeclRef(const Decl *D, StringRef Label = {});
 
