@@ -253,9 +253,11 @@ static void printDL(DataDependenceGraph::DependenceList &Dependences) {
 }
 
 /* TODO: check if the pointer is the pointer of the pointer */
-static bool isDependInstr(Instruction *inst) {
+static bool isDependInstr(Instruction *inst, Instruction *sinst, DominatorTree &DT) {
   // for now, store instruction only
   if (!isa<StoreInst>(inst)) return false;
+  if (DT.dominates(inst, sinst)) return true;
+  return false;
 #if 0
   StoreInst * sInst = dyn_cast<StoreInst>(inst);
   Value *storedValue = sInst->getValueOperand();
@@ -266,7 +268,6 @@ static bool isDependInstr(Instruction *inst) {
 }
 
 static Instruction * addVoteInstrAfter(Instruction *inst, Instruction *vcallInst) {
-  if (!isDependInstr(inst)) return nullptr;
   LLVMContext &ctx = inst->getContext();
   IRBuilder<> Builder(ctx);
   Instruction * nInst = inst->getNextNode();
@@ -298,14 +299,26 @@ static Instruction * addVoteInstrAfter(Instruction *inst, Instruction *vcallInst
   return nInst;
 }
 
+//
+// isVoted (target store instruction, auto vote instruction)
+//   true: if the variable of store instruction is already voted
+//   false: not voted yet.
+//
 static bool isVoted(Instruction *inst) {
-  Instruction * nInst = inst->getNextNode();
+  Instruction * nInst = inst->getNextNode();	/* FIX: assume that vote is next instruction if any */
+  auto *SI = dyn_cast<StoreInst>(inst);
+  auto *LI = dyn_cast<LoadInst>(inst);
+  if (SI == nullptr && LI == nullptr) return false;
+  Value *ptr = (SI ? SI->getPointerOperand() : LI->getPointerOperand());
   if (nInst == nullptr) return false;
   if (CallInst *callInst = dyn_cast<CallInst>(nInst)) {
     Function *calledFunction = callInst->getCalledFunction();
     if (calledFunction) {
       if (calledFunction->getName() == "__ft_votel_auto" 
-          || calledFunction->getName() == "__ft_votel_auto_debug") {
+          || calledFunction->getName() == "__ft_votel_auto_debug"
+          || calledFunction->getName() == "__ft_votenow") {
+        Value * dptr = callInst->getArgOperand(0);
+        if (ptr == dptr)
           return true;
       }
     }
@@ -313,36 +326,58 @@ static bool isVoted(Instruction *inst) {
   return false;
 }
 
+static Instruction * isVotedAutoL(Instruction *inst) {
+  auto * SI = dyn_cast<StoreInst>(inst);
+  if (SI == nullptr) return nullptr;
+  // assume that vote instruction is in the same BB
+  Instruction * nInst = inst;
+  while (nInst) {
+    nInst = nInst->getNextNode();
+    if (nInst == nullptr) return nullptr;
+    CallInst *callInst = dyn_cast<CallInst>(nInst);
+    if (callInst == nullptr) continue;
+    Function *calledFunction = callInst->getCalledFunction();
+    if (calledFunction) {
+      if (calledFunction->getName() == "__ft_votel_auto" 
+          || calledFunction->getName() == "__ft_votel_auto_debug") {
+        Value * sValue = SI->getPointerOperand();	// stored pointer
+        Value * vValue = callInst->getArgOperand(0);	// voted pointer
+        if (sValue == vValue)
+          return nInst;
+      }
+    }
+  }
+  return nullptr;
+}
+
 PreservedAnalyses FTPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   auto &DI = AM.getResult<DependenceAnalysis>(F);
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
 
   for (DDGNode *N : DG) {
     if (!isa<SimpleDDGNode>(N)) continue;
     // look for __ft_vote() call
-    Function *calledAutoFunction = nullptr;
-    Instruction * sInst = nullptr;	// store inst
     Instruction * vcallInst = nullptr;	// vote call inst
     Instruction * nInst = nullptr;	// new inst
     int newInstCount = 0;
     for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
-      if (!isVoted(I)) continue;	// for voted instruction only
-      int changed = 0;
-      vcallInst = dyn_cast<CallInst>(I->getNextNode());
+      vcallInst = isVotedAutoL(I);
+      if (vcallInst == nullptr) continue;	// for voted instruction only
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
       Instruction * insertInst = vcallInst;
       for (auto *E : *N) { // look for memory edge, and 'store' instruction
-        if (E->isMemoryDependence()) {	// memory dependence onlyy
+        if (E->isMemoryDependence()) {	// memory dependence only
           DataDependenceGraph::DependenceList DL;
           DG.getDependencies(*N, E->getTargetNode(), DL);
           for (auto && Dependence : DL) {
             if (!Dependence->isOutput()) continue;
             Instruction * dInst = Dependence->getDst();
-            if (!isDependInstr(dInst)) continue;
             if (isVoted(dInst)) continue;
+            if (!isDependInstr(dInst, I, DT)) continue;
             nInst = addVoteInstrAfter(dInst, insertInst);	// add first
             insertInst = nInst;
             if (nInst == nullptr) continue;
@@ -353,7 +388,6 @@ PreservedAnalyses FTPass::run(Function &F,
       }
       if (AutoOptimizationLevel == 1 && newInstCount > 0) {	// 
         BasicBlock * CurrBBsplit, * CurrBBif;
-        LLVMContext &ctx = vcallInst->getContext();
         // split the current BB into two - original + split 
         BasicBlock *CurrBB = I->getParent();
         CurrBBsplit = CurrBB->splitBasicBlock(nInst->getNextNode(), CurrBB->getName() + ".split");
