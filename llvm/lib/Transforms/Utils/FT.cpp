@@ -350,10 +350,17 @@ static Instruction * isVotedAutoL(Instruction *inst) {
   return nullptr;
 }
 
+static void run_test(Function &F, FunctionAnalysisManager &AM);
+
 PreservedAnalyses FTPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   auto &DI = AM.getResult<DependenceAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+
+  run_test(F, AM);
+  llvm::errs() << "++++++++++++++++++++++++++++++++++\n";
+  llvm::errs() << "++++++++++++++++++++++++++++++++++\n";
+
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
 
@@ -369,10 +376,19 @@ PreservedAnalyses FTPass::run(Function &F,
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
       Instruction * insertInst = vcallInst;
+#if 1
+      llvm::errs() << "==================================\n";
+      llvm::errs() << "Ref Instruction: " << *I << "\n";
+#endif
       for (auto *E : *N) { // look for memory edge, and 'store' instruction
+        DataDependenceGraph::DependenceList DL;
+        DG.getDependencies(*N, E->getTargetNode(), DL);
+#if 1
+        llvm::errs() << ".................................\n";
+        llvm::errs() << "Edges: " << *E << "\n";
+        printDL(DL);
+#endif
         if (E->isMemoryDependence()) {	// memory dependence only
-          DataDependenceGraph::DependenceList DL;
-          DG.getDependencies(*N, E->getTargetNode(), DL);
           for (auto && Dependence : DL) {
             if (!Dependence->isOutput()) continue;
             Instruction * dInst = Dependence->getDst();
@@ -383,8 +399,10 @@ PreservedAnalyses FTPass::run(Function &F,
             if (nInst == nullptr) continue;
             preserved = false;
             newInstCount++;
+            llvm::errs() << "---> added \n";
           }
-        }
+        } 
+        llvm::errs() << "----------------------------------\n";
       }
       if (AutoOptimizationLevel == 1 && newInstCount > 0) {	// 
         BasicBlock * CurrBBsplit, * CurrBBif;
@@ -416,7 +434,7 @@ PreservedAnalyses FTPass::run(Function &F,
 }
 
 // PreservedAnalyses FTPass::run_test(Function &F, FunctionAnalysisManager &AM) {
-PreservedAnalyses run_test(Function &F, FunctionAnalysisManager &AM) {
+static void run_test(Function &F, FunctionAnalysisManager &AM) {
 //  errs() << M.getName() << "\n";
   errs() << "Start" << "\n";
 /*  test(M, AM); */
@@ -467,12 +485,12 @@ PreservedAnalyses run_test(Function &F, FunctionAnalysisManager &AM) {
     }
 #endif
   }
-  ftSimple(F);
+  // ftSimple(F);
 #if 0
   removeDuplicatedVote(F);
   ftAuto(F, 0);
 #endif
-  return PreservedAnalyses::all();
+//  return PreservedAnalyses::all();
 }
 
 

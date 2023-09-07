@@ -268,6 +268,8 @@ public:
   const Expr * VoteVar;
   const Expr * VoteExp;
   SourceLocation VoteLoc;
+  int FTNestLevel = 0;
+  int FTNestId = 0;
 
   CodeGenModule &CGM;  // Per-module state.
   const TargetInfo &Target;
