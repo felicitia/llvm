@@ -27,58 +27,64 @@ AutoOptimizationLevel("ft-auto-optimization-level", cl::init(0), cl::Hidden,
   cl::desc("Optimization level of FT auto clause: 0 and 1"));
 
 static void ftAuto(Function &F, int mode) ;
-static void ftSimple(Function &F);
 static void removeDuplicatedVote(Function &F) ;
 static void remove_instr(Instruction &I) { };
 static bool redundant_instr(Instruction & _I, Function & _F, bool is_rhs);
 static void test(Module &M, ModuleAnalysisManager &AM);
 static SmallVector<const BasicBlock *, 4> BBVisitedHas, BBVisited;
 
-std::string VoteFunctionNameR = "__ft_voter";
-std::string VoteFunctionNameL = "__ft_votel";
-std::string VoteFunctionNameAutoR = "__ft_voter_auto";
-std::string VoteFunctionNameAutoL = "__ft_votel_auto";
-std::string VoteFunctionNameV = "__ft_votenow";
-std::string VoteFunctionNameAll = "__ft_voteAll";
-
-#if 0
-void getAnalysisUsage(llvm::AnalysisUsage& AU) const override {
-  AU.addRequired<llvm::DependenceAnalysis>();  // Register DependenceAnalysis pass
-  AU.setPreservesAll();
-}
-#endif
-
+/*
+   bit layout
+   [0..3]:  (bit3:0 - LHS(0x1), RHS(0x2), BOTH(0x3)) 
+   [3]:  if 1: region
+   [4]:  ATOMIC
+   [5]:  VOTENOW
+   [6]:  AUTO
+   [7]:  AUTO_REGION (START_REGION(0x0), END_REGION(0x1))
+*/
 #define FT_LHS 0x1
-#define FT_RHS 0x2
-#define FT_BOTH_SIDES 0x3
-#define FT_ATOMIC 0x4
-#define FT_AUTO 0x8
-#define FT_VOTENOW 0x10
+#define FT_RHS (0x1 << 1)
+#define FT_BOTH_SIDES (FT_LHS | FT_RHS)
+#define FT_ATOMIC (0x1 << 3)
+#define FT_VOTENOW (0x1 << 4)
+#define FT_AUTO (0x1 << 5) 
+#define FT_AUTO_REGION_START (0x1 << 6)
+#define FT_AUTO_REGION_END   (0x1 << 7)
+#define FT_AUTO_REGION (FT_AUTO_REGION_START | FT_AUTO_REGION_END) 
 #define FT_MASK_LHS FT_LHS
 #define FT_MASK_RHS FT_RHS
 #define FT_MASK_BOTH_SIDES FT_BOTH_SIDES
 #define FT_MASK_ATOMIC FT_ATOMIC
 #define FT_MASK_AUTO FT_AUTO
+#define FT_MASK_AUTO_REGION_START FT_AUTO_REGION_START
+#define FT_MASK_AUTO_REGION_END   FT_AUTO_REGION_END
+#define FT_MASK_AUTO_REGION (FT_AUTO_REGION)
 #define FT_MASK_VOTENOW FT_VOTENOW
-#define FT_MASK_ANY (FT_MASK_LHS | FT_MASK_RHS | FT_MASK_BOTH_SIDES | FT_MASK_ATOMIC | FT_MASK_AUTO | FT_MASK_VOTENOW)
+#define FT_MASK_ANY (FT_MASK_LHS | FT_MASK_RHS | FT_MASK_BOTH_SIDES | FT_MASK_ATOMIC | FT_MASK_VOTENOW | FT_MASK_AUTO | FT_MASK_AUTO_REGION)
 
 /*
+   getFTInstr: returns nonzero mode of FT instruction
 	ftmask: mask for lhs, rhs, atomic, auto, votnow
 */
 uint32_t getFTInstr(const Instruction *I, uint32_t ftmask, Value ** arg) {
   uint32_t mode = 0;
   auto *CI = dyn_cast<CallInst>(I);
-  if (arg != nullptr)
-    * arg = nullptr;
   if (CI == nullptr) return mode;
   if (!CI->getCalledFunction()) return mode;
+  if (arg != nullptr) * arg = nullptr;
   llvm::StringRef name = CI->getCalledFunction()->getName();
-  if (name.find("__ft_vote") == std::string::npos) return mode;
-  if (name.find("_auto") != std::string::npos) mode = mode | FT_AUTO;
-  if (name.find("_atomic") != std::string::npos) mode = mode | FT_ATOMIC;
-  if (name.find("_votel") != std::string::npos) mode = mode | FT_LHS;
-  if (name.find("_voter") != std::string::npos) mode = mode | FT_RHS;
-  if (name.find("_votenow") != std::string::npos) mode = FT_VOTENOW;
+  if ((name.find("__ft_") != std::string::npos) && (name.find("_vote") != std::string::npos)) {
+    if (name.find("_auto") != std::string::npos) mode = mode | FT_AUTO;
+    if (name.find("_atomic") != std::string::npos) mode = mode | FT_ATOMIC;
+    if (name.find("_votel") != std::string::npos) mode = mode | FT_LHS;
+    if (name.find("_voter") != std::string::npos) mode = mode | FT_RHS;
+    if (name.find("_votenow") != std::string::npos) mode = FT_VOTENOW;
+  } 
+  if (name.find("__ft_auto") != std::string::npos) {	// exact value
+    if (name.find("_auto_start") != std::string::npos)  mode = mode | FT_AUTO_REGION_START;
+    else if (name.find("_auto_end") != std::string::npos) mode = mode | FT_AUTO_REGION_END;
+    else {}
+  }
   if (mode != 0 && arg != nullptr) * arg = CI->getArgOperand(0);
   return (mode & ftmask);
 }
@@ -169,63 +175,8 @@ instrPosition getFTPositionInBB(const Instruction * I) {
   }
 }
 
-/* return true: if it is FT instr and {(RHS and IS_HEAD) or (LHS and IS_TAIL)}
-          false: if it is not
-*/
-bool isHeadRHSOrTailLHSFTInstr(const Instruction *I, bool lookforHead, SmallVector<Instruction *, 4> & deletedInstr) {
-  Value * arg;
-  uint32_t ftType = getFTInstr(I, FT_MASK_LHS | FT_MASK_RHS, &arg);
-  if (!ftType) return false;
-  if (lookforHead && (ftType & FT_MASK_LHS)) return false;
-  if (!lookforHead && (ftType & FT_MASK_RHS)) return false;
-  if (llvm::is_contained(deletedInstr, I)) return false;	// FIXIT
-  BBVisited.clear();
-  BBVisitedHas.clear();
-  Instruction *defI = getDefInstr(arg);
-  if (defI == nullptr) return false;
-  /* position within a BB */
-  instrPosition positionInBB = getFTPositionInBB(I);
-  if (positionInBB != IS_UNIQUE) {
-    if ((lookforHead && (positionInBB != IS_HEAD)) || (!lookforHead && (positionInBB != IS_TAIL))) {
-      return false;
-    }
-  } 
-  if (lookforHead && (!allBBHasFTInstruction(I, nullptr, true))) {
-    return true;
-  }
-  else if (!lookforHead && (!allBBHasFTInstruction(I, nullptr, false))) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-static void ftSimple(Function &F) {
-  errs() << "FT: simple optimization \n";
-  /* 1st step: leave the head voteR only, and leave tail VoteL only */
-  SmallVector <Instruction *, 4> removableInstr;
-  for (auto & BB: F) {
-    for (auto &I: BB) {
-      if (!getFTInstr(&I, FT_MASK_AUTO, nullptr)) continue;	// only for FT_AUTO
-      if (isHeadRHSOrTailLHSFTInstr(&I, true, removableInstr) == true) { // HEAD && RHS
-        continue;
-      } else if (isHeadRHSOrTailLHSFTInstr(&I, false, removableInstr) == true) { // TAIL && LHS
-        continue;
-      } 
-      removableInstr.push_back(&I);
-    }
-  }
-  /* 2nd step: if voteR and voteL of the same variable having no vote* between them, it voteR is removable */
-  /* Actually remove those instructions */
-  for (auto *I: removableInstr) {
-    llvm::errs() << "deleted : " << *I << "\n";
-    I->eraseFromParent();
-  }
-}
-
 static void printDL(DataDependenceGraph::DependenceList &Dependences) {
   for (auto && Dependence : Dependences) {
-//    llvm::errs() << "Source Instruction: " << *Dependence->getSrc() << "\n";
     llvm::errs() << "Destination Instruction: " << *Dependence->getDst() << "\n";
     std::string deptype;
     if (Dependence->isInput()) deptype = "input";
@@ -234,22 +185,32 @@ static void printDL(DataDependenceGraph::DependenceList &Dependences) {
     else if (Dependence->isAnti()) deptype = "anti";
     else deptype = "none";
     llvm::errs() << "Dependency Type: " << deptype << "\n";
-//    llvm::errs() << "----------------------------------\n";
   }
-#if 0
-  for (auto && Dependence : Dependences) {
-    llvm::errs() << "Source Instruction: " << *Dependence->getSrc() << "\n";
-//    llvm::errs() << "Destination Instruction: " << *Dependence->getDst() << "\n";
-    std::string deptype;
-    if (Dependence->isInput()) deptype = "input";
-    else if (Dependence->isOutput()) deptype = "output";
-    else if (Dependence->isFlow()) deptype = "flow";
-    else if (Dependence->isAnti()) deptype = "anti";
-    else deptype = "none";
-    llvm::errs() << "Dependency Type: " << deptype << "\n";
-//    llvm::errs() << "----------------------------------\n";
+}
+
+static bool isWithinAutoScope(int optLevel, Instruction *inst, Instruction *vinst, llvm::DataDependenceGraph &DG, DominatorTree &DT, SmallVector<const Instruction *, 2> &AutoRangeStartI, SmallVector<const Instruction *, 2> &AutoRangeEndI) {
+
+  // Initialize AutoRangeStartI and AutoRangeEndI vectors if not initialized.
+  if (AutoRangeStartI.size() == 0) {
+    for (DDGNode *N : DG) {
+      if (!isa<SimpleDDGNode>(N)) continue;
+      for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
+        uint32_t mode = getFTInstr(I, FT_MASK_ANY, nullptr);
+        if (mode & FT_MASK_AUTO_REGION_START) AutoRangeStartI.push_back(I);
+        if (mode & FT_MASK_AUTO_REGION_END) AutoRangeEndI.push_back(I);
+      }
+    }
   }
-#endif
+
+  // if the 'inst' is within the same scope of vinst 
+  if (optLevel == 1) return true;
+  for (auto I : AutoRangeStartI) {
+    if ((DT.dominates(I, inst) ^ DT.dominates(I, vinst)) == 1) return false;
+  }
+  for (auto I : AutoRangeEndI) {
+    if ((DT.dominates(inst, I) ^ DT.dominates(vinst, I)) == 1) return false;
+  }
+  return true;
 }
 
 /* TODO: check if the pointer is the pointer of the pointer */
@@ -258,13 +219,6 @@ static bool isDependInstr(Instruction *inst, Instruction *sinst, DominatorTree &
   if (!isa<StoreInst>(inst)) return false;
   if (DT.dominates(inst, sinst)) return true;
   return false;
-#if 0
-  StoreInst * sInst = dyn_cast<StoreInst>(inst);
-  Value *storedValue = sInst->getValueOperand();
-  Type *valueType = storedValue->getType();
-  if (valueType->isPointerTy()) return false;
-#endif
-  return true;
 }
 
 static Instruction * addVoteInstrAfter(Instruction *inst, Instruction *vcallInst) {
@@ -311,17 +265,14 @@ static bool isVoted(Instruction *inst) {
   if (SI == nullptr && LI == nullptr) return false;
   Value *ptr = (SI ? SI->getPointerOperand() : LI->getPointerOperand());
   if (nInst == nullptr) return false;
-  if (CallInst *callInst = dyn_cast<CallInst>(nInst)) {
-    Function *calledFunction = callInst->getCalledFunction();
-    if (calledFunction) {
-      if (calledFunction->getName() == "__ft_votel_auto" 
-          || calledFunction->getName() == "__ft_votel_auto_debug"
-          || calledFunction->getName() == "__ft_votenow") {
-        Value * dptr = callInst->getArgOperand(0);
+  
+  Value * dptr;
+  uint32_t mode = getFTInstr(nInst, FT_MASK_ANY, &dptr);
+  if (mode == 0) return false;
+  if (((mode & FT_MASK_AUTO) && !(mode & FT_MASK_AUTO_REGION)) 
+     || (mode & FT_MASK_VOTENOW) || (mode & FT_MASK_BOTH_SIDES)) {
         if (ptr == dptr)
           return true;
-      }
-    }
   }
   return false;
 }
@@ -334,17 +285,13 @@ static Instruction * isVotedAutoL(Instruction *inst) {
   while (nInst) {
     nInst = nInst->getNextNode();
     if (nInst == nullptr) return nullptr;
-    CallInst *callInst = dyn_cast<CallInst>(nInst);
-    if (callInst == nullptr) continue;
-    Function *calledFunction = callInst->getCalledFunction();
-    if (calledFunction) {
-      if (calledFunction->getName() == "__ft_votel_auto" 
-          || calledFunction->getName() == "__ft_votel_auto_debug") {
-        Value * sValue = SI->getPointerOperand();	// stored pointer
-        Value * vValue = callInst->getArgOperand(0);	// voted pointer
-        if (sValue == vValue)
-          return nInst;
-      }
+    Value * vValue;
+    uint32_t mode = getFTInstr(nInst, FT_MASK_ANY, &vValue);
+    if (mode == 0) continue;
+    if ((mode & FT_MASK_AUTO) && !(mode & FT_MASK_AUTO_REGION)) {
+      Value * sValue = SI->getPointerOperand();	// stored pointer
+      if (sValue == vValue)
+        return nInst;
     }
   }
   return nullptr;
@@ -363,6 +310,7 @@ PreservedAnalyses FTPass::run(Function &F,
 
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
+  SmallVector<const Instruction *, 2> AutoRangeStartI, AutoRangeEndI;
 
   for (DDGNode *N : DG) {
     if (!isa<SimpleDDGNode>(N)) continue;
@@ -373,17 +321,18 @@ PreservedAnalyses FTPass::run(Function &F,
     for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
       vcallInst = isVotedAutoL(I);
       if (vcallInst == nullptr) continue;	// for voted instruction only
+      Instruction * autoStartI, * autoEndI;
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
       Instruction * insertInst = vcallInst;
-#if 1
+#ifdef DEBUG_FT
       llvm::errs() << "==================================\n";
       llvm::errs() << "Ref Instruction: " << *I << "\n";
 #endif
       for (auto *E : *N) { // look for memory edge, and 'store' instruction
         DataDependenceGraph::DependenceList DL;
         DG.getDependencies(*N, E->getTargetNode(), DL);
-#if 1
+#if DEBUG_FT
         llvm::errs() << ".................................\n";
         llvm::errs() << "Edges: " << *E << "\n";
         printDL(DL);
@@ -394,6 +343,7 @@ PreservedAnalyses FTPass::run(Function &F,
             Instruction * dInst = Dependence->getDst();
             if (isVoted(dInst)) continue;
             if (!isDependInstr(dInst, I, DT)) continue;
+            if (AutoOptimizationLevel > 0 && !isWithinAutoScope(AutoOptimizationLevel, dInst, vcallInst, DG, DT, AutoRangeStartI, AutoRangeEndI)) continue;
             nInst = addVoteInstrAfter(dInst, insertInst);	// add first
             insertInst = nInst;
             if (nInst == nullptr) continue;
@@ -402,9 +352,11 @@ PreservedAnalyses FTPass::run(Function &F,
             llvm::errs() << "---> added \n";
           }
         } 
+#if DEBUG_FT
         llvm::errs() << "----------------------------------\n";
+#endif
       }
-      if (AutoOptimizationLevel == 1 && newInstCount > 0) {	// 
+      if (AutoOptimizationLevel >= 1 && newInstCount > 0) {	// 
         BasicBlock * CurrBBsplit, * CurrBBif;
         // split the current BB into two - original + split 
         BasicBlock *CurrBB = I->getParent();
@@ -427,77 +379,38 @@ PreservedAnalyses FTPass::run(Function &F,
   }
 
 // for debugging
+#ifdef DEBUG_FT
   if (!preserved)
     F.print(llvm::outs()); 
-
+#endif
   return preserved ? PreservedAnalyses::all() : PreservedAnalyses();
 }
 
 // PreservedAnalyses FTPass::run_test(Function &F, FunctionAnalysisManager &AM) {
 static void run_test(Function &F, FunctionAnalysisManager &AM) {
-//  errs() << M.getName() << "\n";
-  errs() << "Start" << "\n";
-/*  test(M, AM); */
   auto &DI = AM.getResult<DependenceAnalysis>(F);
   llvm::DataDependenceGraph DG(F,DI);
 
   for (DDGNode *N : DG) {
-  //  errs() << *N << "\n";
     if (isa<SimpleDDGNode>(N)) {
       llvm::errs() << "==================================\n";
       llvm::errs() << "Ref Instruction: " << *N << "\n";
-//      for (const Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
-//        Value * arg;
-//        uint32_t ftType = getFTInstr(I, FT_MASK_AUTO, &arg);
-//        if (ftType) {
           for (auto *E : *N) {
               llvm::errs() << ".................................\n";
               llvm::errs() << "Edges: " << *E << "\n";
-//            if (E->isMemoryDependence()) {
               DataDependenceGraph::DependenceList DL;
               DG.getDependencies(*N, E->getTargetNode(), DL);
               printDL(DL);
               llvm::errs() << "----------------------------------\n";
-//            }
           }
-//        }
-//      }
     }
-#if 0
-    SmallVector<Instruction *, 2> SrcIList;
-    if (isa<SimpleDDGNode>(N)) {
-      errs() << " Instructions:\n";
-      for (const Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions())
-        errs() << *I << "\n";
-    } else if (isa<PiBlockDDGNode>(N)) {
-      errs() << "--- start of nodes in pi-block ---\n";
-      auto &Nodes = cast<const PiBlockDDGNode>(N)->getNodes();
-      unsigned Count = 0;
-      for (const DDGNode *N : Nodes)
-        errs() << *N << (++Count == Nodes.size() ? "" : "\n");
-      errs() << "--- end of nodes in pi-block ---\n";
-    } else {
-      errs() << " Root Node: no instruction\n";
-    }
-    errs() << " Edges: \n";
-    for (auto *E : *N) {
-      errs() << *E << "\n";
-    }
-#endif
   }
-  // ftSimple(F);
-#if 0
-  removeDuplicatedVote(F);
-  ftAuto(F, 0);
-#endif
-//  return PreservedAnalyses::all();
 }
 
 
 static bool redundant_instr(Instruction & _I, Function & _F, bool is_rhs) {
     for(auto & BB : _F) {
         for (auto & I: BB) {
-//            if (I == _I) continue;
             if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&I)) {
                 llvm::CallInst *_CI = llvm::dyn_cast<llvm::CallInst>(&_I);
                 if (CI->getCalledFunction() && 
@@ -553,17 +466,13 @@ static void ftAuto(Function &F, int mode) {
       Value * arg;
       uint32_t ftType = getFTInstr(&I, FT_MASK_AUTO, &arg);
       if (ftType == 0) continue;	// non-ft function, non-ft_auto function
-/*      auto *CI = dyn_cast<CallInst>(&I);
-      Value *arg = CI->getArgOperand(0); */
       Instruction *ftI = nullptr;
       for (Use &def: arg->uses()) {
         ftI = dyn_cast<Instruction>(def);
         break;
       }
-      // add (ft_vote* Instruction, its definition)
       if (ftChain.find(ftI) == ftChain.end()) {	// key does not exist
         ftChain[ftI] = SmallVector<Instruction*, 4>();
-        // ftChain.emplace(ftI, SmallVector<Instruction*, 4>());
       }
       ftChain[ftI].push_back(&I); 
     }
@@ -579,11 +488,9 @@ static void ftAuto(Function &F, int mode) {
 static void removeDuplicatedVote(Function &F) {
     errs() << "FT: call removeDuplicatedVote()" << "\n";
     bool is_lhs, is_rhs;
-//    for(auto &F : M) {
         for(auto & BB : F) {
             for (auto & I: BB) {
                 is_lhs = is_rhs = false;
-#if 1                
                 Value * arg;
                 uint32_t ftType = getFTInstr(&I, FT_MASK_ANY, &arg);
                 if (ftType) {
@@ -603,29 +510,6 @@ static void removeDuplicatedVote(Function &F) {
 			disp_use_def(dest);
 			disp_def_use(dest);
                 }
-#if 0
-                if (is_rhs || is_lhs) {
-                    // check if this instruction is redundant
-                    if (redundant_instr(I, F, (is_rhs ? true : false))) 
-                        remove_instr(I);
-                }
-#endif
-#else
-					for(Use &U:I.operands())
-					{
-						Value *v = U.get();
-						if(dyn_cast<Instruction>(v))
-						{
-							errs() << "\"" << *dyn_cast<Instruction>(v) << "\"" << " -> " << "\"" << I << "\"" << ";\n";
-						}
-						if (v->getName() != "") {
-							errs() << "\"" << v->getName() << "\"" << " -> " << "\"" << I << "\"" << ";\n";
-							errs() << "\"" << v->getName() << "\"" << " [ color = red ]\n";
-						}
-					}
-					errs() << "\n";
-#endif
             }
         }
-//    }
 }
