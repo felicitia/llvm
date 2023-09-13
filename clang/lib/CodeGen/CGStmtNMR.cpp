@@ -445,8 +445,6 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
 
 // mode: 0 (LHS), 1 (RHS), 9 (both), mode | 0x100 (ignore pointer)
 void CodeGenFunction::CheckVote(const Expr *E, int mode) {
-//  bool _VoteNow = VoteNow;
-//  const Expr * _VoteVar = VoteVar;
   VoteVar = nullptr;
   VoteNow = false;
   if ((mode & 0x100) == 0 && E->getType()->isPointerType() /* && mode == 0 */) return;
@@ -532,14 +530,20 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
   if (getLangOpts().FTDebugMode) isDebug = true;
   if (!HaveInsertPoint())
      return;
-   // Build call __ft_vote(&loc, var, size)
-  std::string str("__ft_vote");
-  if (whichSide & 0x1) str += "r";
-  else str += "l";
+  // Build call __ft_vote(&loc, var, size)
+  //  std::string str("__ft_vote");
+  std::string str("__ft");
+  if (isVarIncluded(*this, VoteVar, AutoSize) >= 0) {
+    if (!(whichSide & 0x1)) 	// TODO: voter_auto is temporarily disabled
+      str += "_auto";
+  }
   if (whichSide & 0x2) str += "_atomic";
-  if (isVarIncluded(*this, VoteVar, AutoSize) >= 0)
-    str += "_auto";
-  if (whichSide & 0x8) str = "__ft_votenow";
+  str += "_vote";
+  if (whichSide & 0x8) str += "now";
+  else {
+    if (whichSide & 0x1) str += "r";
+    else str += "l";
+  }
   if (isDebug)
     str += "_debug";
   const char *LibCallName = str.c_str();
