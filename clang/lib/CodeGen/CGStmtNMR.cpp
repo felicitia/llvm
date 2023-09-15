@@ -534,8 +534,9 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
   //  std::string str("__ft_vote");
   std::string str("__ft");
   if (isVarIncluded(*this, VoteVar, AutoSize) >= 0) {
-    if (!(whichSide & 0x1)) 	// TODO: voter_auto is temporarily disabled
+    if (!(whichSide & 0x1)) 	
       str += "_auto";
+    else return; // TODO: voter_auto is temporarily disabled
   }
   if (whichSide & 0x2) str += "_atomic";
   str += "_vote";
