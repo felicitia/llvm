@@ -36,12 +36,10 @@ int32_t __ft_atomic_votel(void * addr, int32_t length) {
    return 1;
 }
 
-int32_t __ft_auto_end(int32_t level, int32_t id) {
-   return 1;
+void __ft_auto_end(int32_t level, int32_t id) {
 }
 
-int32_t __ft_auto_start(int32_t level, int32_t id) {
-   return 1;
+void __ft_auto_start(int32_t level, int32_t id) {
 }
 
 int32_t __ft_auto_vote(void * addr, int32_t length) {

@@ -188,7 +188,7 @@ static void printDL(DataDependenceGraph::DependenceList &Dependences) {
   }
 }
 
-static bool isWithinAutoScope(int optLevel, Instruction *inst, Instruction *vinst, llvm::DataDependenceGraph &DG, DominatorTree &DT, SmallVector<const Instruction *, 2> &AutoRangeStartI, SmallVector<const Instruction *, 2> &AutoRangeEndI) {
+static bool isWithinAutoScope(int optLevel, Instruction *inst, Instruction *vinst, llvm::DataDependenceGraph &DG, DominatorTree &DT, SmallVector<Instruction *, 2> &AutoRangeStartI, SmallVector<Instruction *, 2> &AutoRangeEndI) {
 
   // Initialize AutoRangeStartI and AutoRangeEndI vectors if not initialized.
   if (AutoRangeStartI.size() == 0) {
@@ -310,7 +310,7 @@ PreservedAnalyses FTPass::run(Function &F,
 
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
-  SmallVector<const Instruction *, 2> AutoRangeStartI, AutoRangeEndI;
+  SmallVector<Instruction *, 2> AutoRangeStartI, AutoRangeEndI;
 
   for (DDGNode *N : DG) {
     if (!isa<SimpleDDGNode>(N)) continue;
@@ -383,6 +383,9 @@ PreservedAnalyses FTPass::run(Function &F,
   if (!preserved)
     F.print(llvm::outs()); 
 #endif
+  for (auto *I : AutoRangeStartI) I->eraseFromParent(); 
+  for (auto *I : AutoRangeEndI)   I->eraseFromParent(); 
+
   return preserved ? PreservedAnalyses::all() : PreservedAnalyses();
 }
 
