@@ -1,4 +1,3 @@
-
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -22,10 +21,20 @@
 
 using namespace llvm;
 
+/* AutoOptimizationLevel:
+      0: store instruction only, put __ft_votenow() where the instruction is
+      1: both load/store instruction, put __ft_votenow() where the instruction is
+      2: store instruction only, put __ft_votenow() only when the dependent auto() instruction has problem in voting.
+      3: both load/store instruction only, put __ft_votenow() only when the dependent auto() instruction has problem in voting.
+   + 0x10 : debugging mode
+*/
+#define MAX_OPT_LEVEL 3
+#define MIN_OPT_LEVEL 0
 static cl::opt<int>
 AutoOptimizationLevel("ft-auto-optimization-level", cl::init(0), cl::Hidden,
   cl::desc("Optimization level of FT auto clause: 0 and 1"));
 
+static bool ft_debug = false;
 static void ftAuto(Function &F, int mode) ;
 static void removeDuplicatedVote(Function &F) ;
 static void remove_instr(Instruction &I) { };
@@ -202,8 +211,8 @@ static bool isWithinAutoScope(int optLevel, Instruction *inst, Instruction *vins
     }
   }
 
-  // if the 'inst' is within the same scope of vinst 
-  if (optLevel == 1) return true;
+  // Scope is enforced regardless of optLevel
+  // if (optLevel == 1) return true;
   for (auto I : AutoRangeStartI) {
     if ((DT.dominates(I, inst) ^ DT.dominates(I, vinst)) == 1) return false;
   }
@@ -216,26 +225,48 @@ static bool isWithinAutoScope(int optLevel, Instruction *inst, Instruction *vins
 /* TODO: check if the pointer is the pointer of the pointer */
 static bool isDependInstr(Instruction *inst, Instruction *sinst, DominatorTree &DT) {
   // for now, store instruction only
+#if 0
   if (!isa<StoreInst>(inst)) return false;
+#else
+  if (!isa<StoreInst>(inst) && !isa<LoadInst>(inst)) return false;
+#endif
   if (DT.dominates(inst, sinst)) return true;
   return false;
 }
 
-static Instruction * addVoteInstrAfter(Instruction *inst, Instruction *vcallInst) {
+static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst) {
   LLVMContext &ctx = inst->getContext();
   IRBuilder<> Builder(ctx);
-  Instruction * nInst = inst->getNextNode();
-  if (AutoOptimizationLevel > 0) 
+  Instruction * nInst;
+
+  StoreInst * sInst = dyn_cast<StoreInst>(inst);
+  LoadInst * lInst = dyn_cast<LoadInst>(inst);
+  Value *storedPtr;
+  Value *storedValue;
+  Type *valueType;
+  if (sInst) {
+    storedPtr = sInst->getPointerOperand();
+    storedValue = sInst->getValueOperand();
+    valueType = storedValue->getType();
+    nInst = inst->getNextNode();
+  } else if (lInst) {
+    storedPtr = lInst->getPointerOperand();
+    valueType = lInst->getPointerOperandType();
+    nInst = inst;
+  } else 
+    return nullptr;
+
+  if (AutoOptimizationLevel == 0 || AutoOptimizationLevel == 2)  { // only 'store' instruction
+    if (sInst == nullptr) return nullptr;
+  }
+
+  if (AutoOptimizationLevel >= 2) 
     nInst = vcallInst->getNextNode();
   assert(nInst != nullptr);
   Builder.SetInsertPoint(nInst);
 
-  StoreInst * sInst = dyn_cast<StoreInst>(inst);
-  Value *storedPtr = sInst->getPointerOperand();
-  Value *storedValue = sInst->getValueOperand();
-  Module &module = *(sInst->getParent()->getParent()->getParent());
+  Module &module = *(inst->getParent()->getParent()->getParent());
   const DataLayout &dataLayout = module.getDataLayout();
-  Type *valueType = storedValue->getType();
 
   uint64_t sizeInBytes = dataLayout.getTypeAllocSize(valueType);
   llvm::Value *TSize = llvm::ConstantInt::get(Builder.getInt32Ty(), sizeInBytes);
@@ -304,13 +335,21 @@ PreservedAnalyses FTPass::run(Function &F,
   auto &DI = AM.getResult<DependenceAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
 
-  run_test(F, AM);
-  llvm::errs() << "++++++++++++++++++++++++++++++++++\n";
-  llvm::errs() << "++++++++++++++++++++++++++++++++++\n";
+//  run_test(F, AM);
+//  llvm::errs() << "++++++++++++++++++++++++++++++++++\n";
+//  llvm::errs() << "++++++++++++++++++++++++++++++++++\n";
 
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
   SmallVector<Instruction *, 2> AutoRangeStartI, AutoRangeEndI;
+
+  if (AutoOptimizationLevel & 0x10) ft_debug = true;
+  AutoOptimizationLevel = AutoOptimizationLevel & 0xf;
+
+  if (AutoOptimizationLevel > MAX_OPT_LEVEL || AutoOptimizationLevel < MIN_OPT_LEVEL) {
+    llvm::errs() << "Invalid auto-optimization-level! Forced to " << MIN_OPT_LEVEL << ".\n";
+    AutoOptimizationLevel = MIN_OPT_LEVEL;
+  }
 
   for (DDGNode *N : DG) {
     if (!isa<SimpleDDGNode>(N)) continue;
@@ -325,38 +364,42 @@ PreservedAnalyses FTPass::run(Function &F,
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
       Instruction * insertInst = vcallInst;
-#ifdef DEBUG_FT
-      llvm::errs() << "==================================\n";
-      llvm::errs() << "Ref Instruction: " << *I << "\n";
-#endif
+      if (ft_debug) {
+        llvm::errs() << "==================================\n";
+        llvm::errs() << "Ref Instruction: " << *I << "\n";
+      }
       for (auto *E : *N) { // look for memory edge, and 'store' instruction
         DataDependenceGraph::DependenceList DL;
         DG.getDependencies(*N, E->getTargetNode(), DL);
-#if DEBUG_FT
-        llvm::errs() << ".................................\n";
-        llvm::errs() << "Edges: " << *E << "\n";
-        printDL(DL);
-#endif
+        if (ft_debug) {
+          llvm::errs() << ".................................\n";
+          llvm::errs() << "Edges: " << *E << "\n";
+          printDL(DL);
+        }
         if (E->isMemoryDependence()) {	// memory dependence only
           for (auto && Dependence : DL) {
+#if 0
             if (!Dependence->isOutput()) continue;
+#else
+            if (!Dependence->isOutput() && !Dependence->isFlow()) continue;
+#endif
             Instruction * dInst = Dependence->getDst();
             if (isVoted(dInst)) continue;
             if (!isDependInstr(dInst, I, DT)) continue;
-            if (AutoOptimizationLevel > 0 && !isWithinAutoScope(AutoOptimizationLevel, dInst, vcallInst, DG, DT, AutoRangeStartI, AutoRangeEndI)) continue;
-            nInst = addVoteInstrAfter(dInst, insertInst);	// add first
-            insertInst = nInst;
+            // if (AutoOptimizationLevel > 0 && !isWithinAutoScope(AutoOptimizationLevel, dInst, vcallInst, DG, DT, AutoRangeStartI, AutoRangeEndI)) continue;
+            if (!isWithinAutoScope(AutoOptimizationLevel, dInst, vcallInst, DG, DT, AutoRangeStartI, AutoRangeEndI)) continue;
+            nInst = addVoteInstr(dInst, insertInst);	// add first
             if (nInst == nullptr) continue;
+            insertInst = nInst;
             preserved = false;
             newInstCount++;
-            llvm::errs() << "---> added \n";
+//            llvm::errs() << "---> added \n";
           }
         } 
-#if DEBUG_FT
-        llvm::errs() << "----------------------------------\n";
-#endif
+        if (ft_debug)
+          llvm::errs() << "----------------------------------\n";
       }
-      if (AutoOptimizationLevel >= 1 && newInstCount > 0) {	// 
+      if (AutoOptimizationLevel >= 2 && newInstCount > 0) {	// 
         BasicBlock * CurrBBsplit, * CurrBBif;
         // split the current BB into two - original + split 
         BasicBlock *CurrBB = I->getParent();
@@ -379,12 +422,13 @@ PreservedAnalyses FTPass::run(Function &F,
   }
 
 // for debugging
-#ifdef DEBUG_FT
-  if (!preserved)
-    F.print(llvm::outs()); 
-#endif
-  for (auto *I : AutoRangeStartI) I->eraseFromParent(); 
-  for (auto *I : AutoRangeEndI)   I->eraseFromParent(); 
+  if (ft_debug) {
+    if (!preserved)
+      F.print(llvm::outs()); 
+  } else {
+      for (auto *I : AutoRangeStartI) I->eraseFromParent(); 
+      for (auto *I : AutoRangeEndI)   I->eraseFromParent(); 
+  }
 
   return preserved ? PreservedAnalyses::all() : PreservedAnalyses();
 }

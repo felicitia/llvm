@@ -296,14 +296,16 @@ static llvm::Value * Expr2VarPtr (CodeGenFunction &CGF, const Expr * Var, Source
   return VarPtr;
 }
 
-static void emitAutoPlaceholder(CodeGenFunction &CGF, SmallVector<const Expr *, 4> CurAutoVarSize, int level, int id, bool isStart, SourceLocation Loc) {
+static void emitAutoPlaceholder(CodeGenFunction &CGF, SmallVector<const Expr *, 4> CurAutoVarSize, int level, bool isStart, SourceLocation Loc) {
   std::string str("__ft_auto_");
   str += (isStart ? "start" : "end");
+  SourceManager &SM = CGF.CGM.getContext().getSourceManager();
+  int lineNo = SM.getPresumedLoc(Loc).getLine();
   llvm::Type *Params[] = {/* VarPtr->getType(), */ CGF.CGM.Int32Ty, CGF.CGM.Int32Ty};
   llvm::Value *Args[] = {
 /*      VarPtr, */
     CGF.Builder.CreateIntCast(llvm::ConstantInt::get(CGF.CGM.Int32Ty, level), CGF.CGM.Int32Ty, /*isSigned*/ true),
-    CGF.Builder.CreateIntCast(llvm::ConstantInt::get(CGF.CGM.Int32Ty, id), CGF.CGM.Int32Ty, /*isSigned*/ true)
+    CGF.Builder.CreateIntCast(llvm::ConstantInt::get(CGF.CGM.Int32Ty, lineNo), CGF.CGM.Int32Ty, /*isSigned*/ true)
   };
   auto *FTy = llvm::FunctionType::get(CGF.CGM.VoidTy, Params, /*isVarArg=*/false);
   const char *LibCallName = str.c_str();
@@ -391,9 +393,7 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
   std::vector<int> LvarsIndex, RvarsIndex;
 
   int CurFTNestLevel = FTNestLevel;
-  int CurFTNestId = FTNestId;
   FTNestLevel++;
-  FTNestId++;
   SaveLVarSize = LVarSize;
   SaveRVarSize = RVarSize;
   SaveAutoSize = AutoSize;
@@ -421,18 +421,20 @@ void CodeGenFunction::EmitFTNmrDirective(const FTNmrDirective &S) {
   LexicalScope Scope(*this, S.getSourceRange());
   EmitStopPoint(&S);
   const auto *CS = cast_or_null<Stmt>(S.getAssociatedStmt());
+
+  SourceManager &SM = CGM.getContext().getSourceManager();
   if (HaveInsertPoint() && AutoClause) 
-    emitAutoPlaceholder(*this, AutoSize, CurFTNestLevel, CurFTNestId, true, S.getBeginLoc());
+    emitAutoPlaceholder(*this, AutoSize, CurFTNestLevel, true, S.getBeginLoc());
   EmitStmt(CS);
   if (AutoClause) {
     if (!HaveInsertPoint()) {
       auto ftendBB = createBasicBlock("FTautoEnd");
       Builder.SetInsertPoint(ftendBB);
-      emitAutoPlaceholder(*this, AutoSize, CurFTNestLevel, CurFTNestId, false, CS->getEndLoc());
+      emitAutoPlaceholder(*this, AutoSize, CurFTNestLevel, false, CS->getEndLoc());
       EmitBlock(ftendBB);
       Builder.ClearInsertionPoint();
     } else {
-      emitAutoPlaceholder(*this, AutoSize, CurFTNestLevel, CurFTNestId, false, CS->getEndLoc());
+      emitAutoPlaceholder(*this, AutoSize, CurFTNestLevel, false, CS->getEndLoc());
     }
   }
 
