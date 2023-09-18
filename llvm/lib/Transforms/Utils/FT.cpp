@@ -251,7 +251,7 @@ static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst) {
     nInst = inst->getNextNode();
   } else if (lInst) {
     storedPtr = lInst->getPointerOperand();
-    valueType = lInst->getPointerOperandType();
+    valueType = lInst->getType();
     nInst = inst;
   } else 
     return nullptr;
