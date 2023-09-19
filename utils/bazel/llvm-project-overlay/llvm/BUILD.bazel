@@ -4134,6 +4134,7 @@ cc_binary(
         ":Object",
         ":Option",
         ":Support",
+        ":Symbolize",
         ":TargetParser",
     ],
 )
