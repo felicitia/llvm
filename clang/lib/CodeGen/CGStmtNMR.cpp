@@ -520,6 +520,7 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, QualType dataType, int
 
 void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr, int whichSide, bool keep_status) {
   bool isDebug = false;
+  bool isAutoVoteL = false;
   const DeclRefExpr * DR = cast<DeclRefExpr>(VoteVar);
   const VarDecl *VD = dyn_cast<VarDecl>(DR->getDecl());
   llvm::Constant* constStr = llvm::ConstantDataArray::getString(getLLVMContext(), VD->getQualifiedNameAsString());
@@ -539,6 +540,7 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
     if (!(whichSide & 0x1)) 	
       str += "_auto";
     else return; // TODO: voter_auto is temporarily disabled
+    isAutoVoteL = true;
   }
   if (whichSide & 0x2) str += "_atomic";
   str += "_vote";
@@ -559,8 +561,17 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
     };
     auto *FTy = llvm::FunctionType::get(CGM.Int32Ty, Params, /*isVarArg=*/false);
     llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
-    EmitRuntimeCall(Func, Args);
-    } else {
+    llvm::Value* res = EmitRuntimeCall(Func, Args);
+    if (isAutoVoteL) {	// add dummy function call to prevent TailOptimizer to move __ft_auto_votel() instruction
+      llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.Int32Ty};
+      llvm::Value *Args[] = { AddrPtr, res, 
+         Builder.CreateIntCast(llvm::ConstantInt::get(Int32Ty, lineNo), Int32Ty, /*isSigned*/ true)
+      };
+      auto *FTy = llvm::FunctionType::get(CGM.Int32Ty, Params, /*isVarArg=*/false);
+      llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, "__ft_dummy");
+      EmitRuntimeCall(Func, Args);
+    } 
+  } else {
       llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.VoidPtrTy, CGM.Int32Ty};
       llvm::Value *Args[] = {
          AddrPtr,
