@@ -40,14 +40,6 @@ int32_t ft_atomic_votel(void * addr, int32_t length) {
    return 1;
 }
 
-void ft_auto_end(int32_t level, int32_t id) 
-{
-}
-
-void ft_auto_start(int32_t level, int32_t id) 
-{
-}
-
 int32_t ft_auto_vote(void * addr, int32_t length) {
    return 1;
 }

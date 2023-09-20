@@ -44,6 +44,8 @@
     extern int32_t __ft_auto_atomic_vote_debug(void *, int32_t , void *,  int32_t);
     extern int32_t __ft_auto_atomic_voter_debug(void *, int32_t , void *,  int32_t);
     extern int32_t __ft_auto_atomic_votel_debug(void *, int32_t , void *,  int32_t);
+  
+    extern int32_t __ft_dummy(void *, int32_t, int32_t);
 
 #   ifdef __cplusplus
     }

@@ -60,6 +60,7 @@ static SmallVector<const BasicBlock *, 4> BBVisitedHas, BBVisited;
 #define FT_AUTO (0x1 << 5) 
 #define FT_AUTO_REGION_START (0x1 << 6)
 #define FT_AUTO_REGION_END   (0x1 << 7)
+#define FT_DUMMY (0x1 << 16)
 #define FT_AUTO_REGION (FT_AUTO_REGION_START | FT_AUTO_REGION_END) 
 #define FT_MASK_LHS FT_LHS
 #define FT_MASK_RHS FT_RHS
@@ -70,7 +71,8 @@ static SmallVector<const BasicBlock *, 4> BBVisitedHas, BBVisited;
 #define FT_MASK_AUTO_REGION_END   FT_AUTO_REGION_END
 #define FT_MASK_AUTO_REGION (FT_AUTO_REGION)
 #define FT_MASK_VOTENOW FT_VOTENOW
-#define FT_MASK_ANY (FT_MASK_LHS | FT_MASK_RHS | FT_MASK_BOTH_SIDES | FT_MASK_ATOMIC | FT_MASK_VOTENOW | FT_MASK_AUTO | FT_MASK_AUTO_REGION)
+#define FT_MASK_DUMMY FT_DUMMY
+#define FT_MASK_ANY (FT_MASK_LHS | FT_MASK_RHS | FT_MASK_BOTH_SIDES | FT_MASK_ATOMIC | FT_MASK_VOTENOW | FT_MASK_AUTO | FT_MASK_AUTO_REGION | FT_MASK_DUMMY)
 
 /*
    getFTInstr: returns nonzero mode of FT instruction
@@ -83,6 +85,7 @@ uint32_t getFTInstr(const Instruction *I, uint32_t ftmask, Value ** arg) {
   if (!CI->getCalledFunction()) return mode;
   if (arg != nullptr) * arg = nullptr;
   llvm::StringRef name = CI->getCalledFunction()->getName();
+  if (name.find("__ft_dummy") != std::string::npos) return (FT_DUMMY);
   if ((name.find("__ft_") != std::string::npos) && (name.find("_vote") != std::string::npos)) {
     if (name.find("_auto") != std::string::npos) mode = mode | FT_AUTO;
     if (name.find("_atomic") != std::string::npos) mode = mode | FT_ATOMIC;
@@ -349,6 +352,16 @@ PreservedAnalyses FTPass::run(Function &F,
   if (ft_debug) 
     run_test(F, AM);
 
+  for (BasicBlock &BB : F) {
+    BasicBlock::iterator I = BB.begin();
+    while (I != BB.end()) { 
+     Instruction *Inst = &(*I);
+     I++;
+     if (getFTInstr(Inst, FT_MASK_AUTO, nullptr) == FT_DUMMY)
+        Inst->eraseFromParent();	// erase __ft_dummy() call 
+    }
+  }
+
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
   SmallVector<Instruction *, 2> AutoRangeStartI, AutoRangeEndI;
@@ -372,7 +385,6 @@ PreservedAnalyses FTPass::run(Function &F,
       SmallVector<Value *, 2> vListL;
       vcallInst = isVotedAutoL(I);
       if (vcallInst == nullptr) continue;	// for voted instruction only
-      Instruction * autoStartI, * autoEndI;
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
       Instruction * insertInst = vcallInst;
@@ -534,10 +546,8 @@ static void ftAuto(Function &F, int mode) {
 
 static void removeDuplicatedVote(Function &F) {
     errs() << "FT: call removeDuplicatedVote()" << "\n";
-    bool is_lhs, is_rhs;
         for(auto & BB : F) {
             for (auto & I: BB) {
-                is_lhs = is_rhs = false;
                 Value * arg;
                 uint32_t ftType = getFTInstr(&I, FT_MASK_ANY, &arg);
                 if (ftType) {
