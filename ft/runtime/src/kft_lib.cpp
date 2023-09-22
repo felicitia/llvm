@@ -4,7 +4,7 @@
 
 extern "C" {
 
-int32_t __ft_dummy (void * addr, int32_t res, int32_t loc) {
+int32_t __ft_dummy (int32_t res, int32_t loc) {
    return 1;
 }
 

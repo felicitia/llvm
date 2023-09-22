@@ -203,18 +203,6 @@ static void printDL(DataDependenceGraph::DependenceList &Dependences) {
 
 static bool isWithinAutoScope(Instruction *inst, Instruction *vinst, llvm::DataDependenceGraph &DG, DominatorTree &DT, SmallVector<Instruction *, 2> &AutoRangeStartI, SmallVector<Instruction *, 2> &AutoRangeEndI) {
 
-  // Initialize AutoRangeStartI and AutoRangeEndI vectors if not initialized.
-  if (AutoRangeStartI.size() == 0) {
-    for (DDGNode *N : DG) {
-      if (!isa<SimpleDDGNode>(N)) continue;
-      for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
-        uint32_t mode = getFTInstr(I, FT_MASK_ANY, nullptr);
-        if (mode & FT_MASK_AUTO_REGION_START) AutoRangeStartI.push_back(I);
-        if (mode & FT_MASK_AUTO_REGION_END) AutoRangeEndI.push_back(I);
-      }
-    }
-  }
-
   for (auto I : AutoRangeStartI) {
     if ((DT.dominates(I, inst) ^ DT.dominates(I, vinst)) == 1) return false;
   }
@@ -269,7 +257,8 @@ static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst, Sma
       if (vv == storedPtr) return nullptr;
     }
     tList->push_back(storedPtr);
-    nInst = vcallInst->getNextNode();	
+    // the location of insertion is after auto_votel() only for store instruction
+    if (sInst) nInst = vcallInst->getNextNode();	
   }
 
   assert(nInst != nullptr);
@@ -291,6 +280,7 @@ static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst, Sma
   llvm::FunctionCallee Func = module.getOrInsertFunction(LibCallName, FTy);
   nInst = Builder.CreateCall(Func, Args, "");
 
+  if (lInst || (option == 0)) return vcallInst;
   return nInst;
 }
 
@@ -322,21 +312,43 @@ static bool isVoted(Instruction *inst) {
   return false;
 }
 
-static Instruction * isVotedAutoL(Instruction *inst) {
-  auto * SI = dyn_cast<StoreInst>(inst);
-  if (SI == nullptr) return nullptr;
+/*
+   if (dependOnStore):
+      inst: Store instr;   return Vote instr;
+   else
+      inst: Vote instr;    return Store instr; 
+*/
+
+static Instruction * isVotedAutoL(Instruction *inst, bool dependOnStore) {
+  StoreInst * SI;
+  Value * vValue;
+  Value * sValue;
+  if (dependOnStore) {	// store instruction
+    SI = dyn_cast<StoreInst>(inst);
+    if (SI == nullptr) return nullptr;
+    sValue = SI->getPointerOperand();	// stored pointer
+  } else {		// vote instruction itself
+    uint32_t mode = getFTInstr(inst, FT_MASK_ANY, &vValue);
+    if (!((mode & FT_MASK_AUTO) && !(mode & FT_MASK_AUTO_REGION))) return nullptr;
+  }
+
   // assume that vote instruction is in the same BB
   Instruction * nInst = inst;
   while (nInst) {
-    nInst = nInst->getNextNode();
+    if (dependOnStore) nInst = nInst->getNextNode();
+    else nInst = nInst->getPrevNode();
     if (nInst == nullptr) return nullptr;
-    Value * vValue;
-    uint32_t mode = getFTInstr(nInst, FT_MASK_ANY, &vValue);
-    if (mode == 0) continue;
-    if ((mode & FT_MASK_AUTO) && !(mode & FT_MASK_AUTO_REGION)) {
-      Value * sValue = SI->getPointerOperand();	// stored pointer
-      if (sValue == vValue)
-        return nInst;
+    if (dependOnStore) {
+      uint32_t mode = getFTInstr(nInst, FT_MASK_ANY, &vValue);
+      if ((mode & FT_MASK_AUTO) && !(mode & FT_MASK_AUTO_REGION)) {
+        if (sValue == vValue) return nInst;
+      }
+      continue; 
+    } else {
+      SI = dyn_cast<StoreInst>(nInst);
+      if (SI == nullptr) continue;
+      sValue = SI->getPointerOperand();	// stored pointer
+      if (sValue == vValue) return nInst;
     }
   }
   return nullptr;
@@ -348,49 +360,62 @@ PreservedAnalyses FTPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   auto &DI = AM.getResult<DependenceAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
-
+  
+  int NewOptimizationLevel = AutoOptimizationLevel;
+  if (NewOptimizationLevel & 0x10) ft_debug = true;
   if (ft_debug) 
     run_test(F, AM);
-
-  for (BasicBlock &BB : F) {
-    BasicBlock::iterator I = BB.begin();
-    while (I != BB.end()) { 
-     Instruction *Inst = &(*I);
-     I++;
-     if (getFTInstr(Inst, FT_MASK_AUTO, nullptr) == FT_DUMMY)
-        Inst->eraseFromParent();	// erase __ft_dummy() call 
-    }
-  }
 
   llvm::DataDependenceGraph DG(F,DI);
   bool preserved = true;
   SmallVector<Instruction *, 2> AutoRangeStartI, AutoRangeEndI;
 
-  if (AutoOptimizationLevel & 0x10) ft_debug = true;
-  AutoOptimizationLevel = AutoOptimizationLevel & 0xf;
+  bool dependOnStore = false;
+  if (NewOptimizationLevel & 0x20) dependOnStore = true;
+    NewOptimizationLevel = NewOptimizationLevel & 0xf;
 
-  if (AutoOptimizationLevel > MAX_OPT_LEVEL || AutoOptimizationLevel < MIN_OPT_LEVEL) {
+  if (NewOptimizationLevel > MAX_OPT_LEVEL || NewOptimizationLevel < MIN_OPT_LEVEL) {
     llvm::errs() << "Invalid auto-optimization-level! Forced to " << MIN_OPT_LEVEL << ".\n";
-    AutoOptimizationLevel = MIN_OPT_LEVEL;
+    NewOptimizationLevel = MIN_OPT_LEVEL;
   }
 
+  // collect _ft_auto_{start, end} calls for scope 
+  for (DDGNode *N : DG) {
+    if (!isa<SimpleDDGNode>(N)) continue;
+    for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
+      uint32_t mode = getFTInstr(I, FT_MASK_ANY, nullptr);
+      if (mode & FT_MASK_AUTO_REGION_START) AutoRangeStartI.push_back(I);
+      if (mode & FT_MASK_AUTO_REGION_END) AutoRangeEndI.push_back(I);
+    }
+  }
+  
   for (DDGNode *N : DG) {
     if (!isa<SimpleDDGNode>(N)) continue;
     // look for __ft_vote() call
-    Instruction * vcallInst = nullptr;	// vote call inst
-    Instruction * nInst = nullptr;	// new inst
+    Instruction * DInst = nullptr;	// new inst
+    Instruction * SInst = nullptr;	// new inst
+    Instruction * VInst = nullptr;	// vote call inst
     for (Instruction *I : cast<const SimpleDDGNode>(*N).getInstructions()) {
-      int newInstCount = 0;
+      int newInstCount, newInstForStoreCount;
       SmallVector<Value *, 2> vListS;
       SmallVector<Value *, 2> vListL;
-      vcallInst = isVotedAutoL(I);
-      if (vcallInst == nullptr) continue;	// for voted instruction only
+      newInstCount = newInstForStoreCount = 0;
+      Instruction * tInst = isVotedAutoL(I, dependOnStore);	// if dependOnstore DInst = voteInstr
+      if (tInst == nullptr) continue;	// for voted instruction only
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
-      Instruction * insertInst = vcallInst;
+      Instruction * insertInst;
+      /* if (dependOnStore):  DInst = store instr; VInst = vote instr; SInst = store instr
+         else              :  DInst = vote instr;  VInst = vote instr; SInst = store instr */
+      if (dependOnStore) {
+        DInst = I; VInst = tInst; SInst = I; insertInst = VInst;
+      } else {
+        DInst = I; VInst = I; SInst = tInst; insertInst = VInst;
+      }
       if (ft_debug) {
-        llvm::errs() << "R: " << *I << "\n";
-        llvm::errs() << "V: " << *vcallInst << "\n";
+        llvm::errs() << "R: " << *DInst << "\n";
+        llvm::errs() << "V: " << *VInst << "\n";
+        llvm::errs() << "S: " << *SInst << "\n";
       }
       for (auto *E : *N) { // look for memory edge, and 'store' instruction
         DataDependenceGraph::DependenceList DL;
@@ -400,32 +425,36 @@ PreservedAnalyses FTPass::run(Function &F,
             if (!Dependence->isOutput() && !Dependence->isFlow()) continue;
             Instruction * dInst = Dependence->getDst();
             if (isVoted(dInst)) continue;
-            if (!isDependInstr(dInst, I, DT)) continue;
-            if (!isWithinAutoScope(dInst, vcallInst, DG, DT, AutoRangeStartI, AutoRangeEndI)) continue;
+            if (!isDependInstr(dInst, DInst, DT)) continue;
+            if (!isWithinAutoScope(dInst, VInst, DG, DT, AutoRangeStartI, AutoRangeEndI)) continue;
+            StoreInst * sInst = dyn_cast<StoreInst>(dInst);
             Instruction * tInst = addVoteInstr(dInst, insertInst, vListS, vListL);	// add first
             if (tInst == nullptr) continue;
-            nInst = tInst;
-            insertInst = nInst;
+            if (sInst) { 
+              newInstForStoreCount++;
+              insertInst = tInst;
+            } 
             preserved = false;
             newInstCount++;
           }
         } 
       }
-      if (AutoOptimizationLevel >= 2 && newInstCount > 0) {	// 
+      // move the __ft_votenow() for store instruction after __ft_auto_votel() 
+      if (NewOptimizationLevel >= 2 && newInstForStoreCount > 0) {	// 
         BasicBlock * CurrBBsplit, * CurrBBif;
         // split the current BB into two - original + split 
         BasicBlock *CurrBB = I->getParent();
-        CurrBBsplit = CurrBB->splitBasicBlock(nInst->getNextNode(), CurrBB->getName() + ".split");
+        CurrBBsplit = CurrBB->splitBasicBlock(insertInst->getNextNode(), CurrBB->getName() + ".split");
         // split the current BB into two - original + ifblock 
-        CurrBBif = CurrBB->splitBasicBlock(vcallInst->getNextNode(), CurrBB->getName() + ".IfBlock");
+        CurrBBif = CurrBB->splitBasicBlock(VInst->getNextNode(), CurrBB->getName() + ".IfBlock");
         // now branch instruction is added
-        Instruction *defaultBrInstr = vcallInst->getNextNode();
+        Instruction *defaultBrInstr = VInst->getNextNode();
         // add if statement to the original BB 
         Builder.SetInsertPoint(defaultBrInstr);
         // Create a constant integer for comparison
         ConstantInt* cmpValue = ConstantInt::get(Builder.getInt32Ty(), -1);
         // Create an ICmp instruction for comparison
-        Value* callResult = vcallInst;
+        Value* callResult = VInst;
         Value* comparison = Builder.CreateICmpEQ(callResult, cmpValue, "cmpResult");
         Builder.CreateCondBr(comparison, CurrBBif, CurrBBsplit);
         defaultBrInstr->eraseFromParent();	// erase br instruction generated by splitBasicBlock
