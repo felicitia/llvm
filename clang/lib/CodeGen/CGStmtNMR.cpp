@@ -563,8 +563,8 @@ void CodeGenFunction::EmitVoteCall(llvm::Value * AddrPtr, llvm::Value * sizeExpr
     llvm::FunctionCallee Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
     llvm::Value* res = EmitRuntimeCall(Func, Args);
     if (isAutoVoteL) {	// add dummy function call to prevent TailOptimizer to move __ft_auto_votel() instruction
-      llvm::Type *Params[] = {AddrPtr->getType(), CGM.Int32Ty, CGM.Int32Ty};
-      llvm::Value *Args[] = { AddrPtr, res, 
+      llvm::Type *Params[] = {CGM.Int32Ty, CGM.Int32Ty};
+      llvm::Value *Args[] = { res, 
          Builder.CreateIntCast(llvm::ConstantInt::get(Int32Ty, lineNo), Int32Ty, /*isSigned*/ true)
       };
       auto *FTy = llvm::FunctionType::get(CGM.Int32Ty, Params, /*isVarArg=*/false);
