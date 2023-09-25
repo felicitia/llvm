@@ -230,6 +230,7 @@ static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst, Sma
   Value *storedPtr;
   Value *storedValue;
   Type *valueType;
+  Type *valueTypeElement;
   if (sInst) {
     storedPtr = sInst->getPointerOperand();
     storedValue = sInst->getValueOperand();
@@ -241,6 +242,9 @@ static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst, Sma
     nInst = inst;
   } else 
     return nullptr;
+
+  // if the voted value is pointer type, do not vote!
+  if (valueType->isPointerTy()) return nullptr;
 
   int option = AutoOptimizationLevel % 0xF;	// 0x10 is for debugging
   if (option == 0 || option == 2)  { // only 'store' instruction
