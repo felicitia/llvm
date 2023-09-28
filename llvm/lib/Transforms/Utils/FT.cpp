@@ -246,7 +246,7 @@ static Instruction * addVoteInstr(Instruction *inst, Instruction *vcallInst, Sma
   // if the voted value is pointer type, do not vote!
   if (valueType->isPointerTy()) return nullptr;
 
-  int option = AutoOptimizationLevel % 0xF;	// 0x10 is for debugging
+  int option = AutoOptimizationLevel & 0xF;	// 0x10 is for debugging
   if (option == 0 || option == 2)  { // only 'store' instruction
     if (sInst == nullptr) return nullptr;
   }
@@ -404,7 +404,7 @@ PreservedAnalyses FTPass::run(Function &F,
       SmallVector<Value *, 2> vListS;
       SmallVector<Value *, 2> vListL;
       newInstCount = newInstForStoreCount = 0;
-      Instruction * tInst = isVotedAutoL(I, dependOnStore);	// if dependOnstore DInst = voteInstr
+      Instruction * tInst = isVotedAutoL(I, dependOnStore);	// if dependOnstore DInst = StoreInstr
       if (tInst == nullptr) continue;	// for voted instruction only
       LLVMContext &ctx = I->getContext();
       IRBuilder<> Builder(ctx);
