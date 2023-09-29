@@ -901,6 +901,9 @@ CGOpenMPRuntimeGPU::CGOpenMPRuntimeGPU(CodeGenModule &CGM)
   if (CGM.getLangOpts().NoGPULib || CGM.getLangOpts().OMPHostIRFile.empty())
     return;
 
+  if (CGM.getLangOpts().OpenMPCUDAMode)
+    CurrentDataSharingMode = CGOpenMPRuntimeGPU::DS_CUDA;
+
   OMPBuilder.createGlobalFlag(CGM.getLangOpts().OpenMPTargetDebug,
                               "__omp_rtl_debug_kind");
   OMPBuilder.createGlobalFlag(CGM.getLangOpts().OpenMPTeamSubscription,
