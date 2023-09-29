@@ -997,7 +997,6 @@ void OMPClauseProfiler::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
 }
 void OMPClauseProfiler::VisitOMPXAttributeClause(const OMPXAttributeClause *C) {
 }
-void OMPClauseProfiler::VisitOMPXBareClause(const OMPXBareClause *C) {}
 } // namespace
 
 void
