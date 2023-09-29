@@ -3262,6 +3262,7 @@ cc_binary(
         ":Object",
         ":OrcJIT",
         ":OrcTargetProcess",
+        ":OrcDebugging",
         ":Support",
         ":TargetParser",
         ":config",
