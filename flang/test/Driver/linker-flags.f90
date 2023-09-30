@@ -33,8 +33,7 @@
 ! DARWIN-LABEL:  "{{.*}}ld{{(\.exe)?}}"
 ! DARWIN-SAME: "[[object_file]]"
 ! DARWIN-SAME: -lFortran_main
-! DARWIN-SAME: -lFortranRuntime
-! DARWIN-SAME: -lFortranDecimal
+! DARWIN-SAME: -lflang-rt
 
 ! HAIKU-LABEL:  "{{.*}}ld{{(\.exe)?}}"
 ! HAIKU-SAME: "[[object_file]]"
@@ -43,8 +42,7 @@
 ! MINGW-LABEL:  "{{.*}}ld{{(\.exe)?}}"
 ! MINGW-SAME: "[[object_file]]"
 ! MINGW-SAME: -lFortran_main
-! MINGW-SAME: -lFortranRuntime
-! MINGW-SAME: -lFortranDecimal
+! MINGW-SAME: -lflang-rt
 
 ! NOTE: This also matches lld-link (when CLANG_DEFAULT_LINKER=lld) and
 !       any .exe suffix that is added when resolving to the full path of
