@@ -2429,6 +2429,15 @@ public:
                                                  EndLoc);
   }
 
+  /// Build a new OpenMP 'ompx_bare' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPXBareClause(SourceLocation StartLoc,
+                                   SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPXBareClause(StartLoc, EndLoc);
+  }
+
   /// Build a new OpenMP 'align' clause.
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
@@ -10864,6 +10873,11 @@ TreeTransform<Derived>::TransformOMPXAttributeClause(OMPXAttributeClause *C) {
     NewAttrs.push_back(getDerived().TransformAttr(A));
   return getDerived().RebuildOMPXAttributeClause(
       NewAttrs, C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *TreeTransform<Derived>::TransformOMPXBareClause(OMPXBareClause *C) {
+  return getDerived().RebuildOMPXBareClause(C->getBeginLoc(), C->getEndLoc());
 }
 
 //===----------------------------------------------------------------------===//
