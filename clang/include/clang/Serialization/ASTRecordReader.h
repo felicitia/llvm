@@ -156,6 +156,8 @@ public:
   /// Reads a TemplateArgumentLoc, advancing Idx.
   TemplateArgumentLoc readTemplateArgumentLoc();
 
+  void readTemplateArgumentListInfo(TemplateArgumentListInfo &Result);
+
   const ASTTemplateArgumentListInfo*
   readASTTemplateArgumentListInfo();
 
