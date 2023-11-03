@@ -3258,14 +3258,17 @@ def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>,
   "Some stack unwinding cases, such as profilers and sanitizers, may prefer specifying -fno-omit-frame-pointer. "
   "On many targets, -O1 and higher omit the frame pointer by default. "
   "-m[no-]omit-leaf-frame-pointer takes precedence for leaf functions">;
-def fft : Flag<["-"], "fft">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
+def fft : Flag<["-"], "fft">, Group<f_Group>, Flags<[NoArgumentUnused]>,
+  Visibility<[ClangOption, CC1Option]>,
   HelpText<"Parse FT pragmas and generate fault tolerant code.">;
 def fno_ft : Flag<["-"], "fno-ft">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fft_debug_mode : Flag<["-"], "fft-debug-mode">, Group<f_Group>,
-  Flags<[CC1Option, NoArgumentUnused]>,
+  Flags<[NoArgumentUnused]>,
+  Visibility<[ClangOption, CC1Option]>,
   HelpText<"Display debug meesage of FT pragmas.">;
 def fft_nodebug_mode : Flag<["-"], "fft-nodebug-mode">, Group<f_Group>,
-  Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
+  Flags<[NoArgumentUnused, HelpHidden]>,
+  Visibility<[ClangOption, CC1Option]>;
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
   Flags<[NoArgumentUnused]>,
   Visibility<[ClangOption, CC1Option, FlangOption, FC1Option]>,

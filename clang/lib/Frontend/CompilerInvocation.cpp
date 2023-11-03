@@ -3490,10 +3490,10 @@ void CompilerInvocationBase::GenerateLangArgs(const LangOptions &Opts,
 
   // FT was requested via '-fft'
   if (Opts.FT) {
-    GenerateArg(Args, OPT_fft, SA);
+    GenerateArg(Consumer, OPT_fft);
   }
   if (Opts.FTDebugMode) {
-    GenerateArg(Args, OPT_fft_debug_mode, SA);
+    GenerateArg(Consumer, OPT_fft_debug_mode);
   }
 
   // OpenMP was requested via '-fopenmp', not implied by '-fopenmp-simd' or

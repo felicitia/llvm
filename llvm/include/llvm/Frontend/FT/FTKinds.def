@@ -23,6 +23,7 @@
 #endif
 
 #define __FT_TYPE(VarName) FT_TYPE(VarName, Type::get##VarName##Ty(Ctx))
+#define __FT_PTR_TYPE(VarName) FT_TYPE(VarName, PointerType::get(Ctx, 0))
 
 __FT_TYPE(Void)
 __FT_TYPE(Int1)
@@ -30,23 +31,21 @@ __FT_TYPE(Int8)
 __FT_TYPE(Int16)
 __FT_TYPE(Int32)
 __FT_TYPE(Int64)
-__FT_TYPE(Int8Ptr)
-__FT_TYPE(Int16Ptr)
-__FT_TYPE(Int32Ptr)
-__FT_TYPE(Int64Ptr)
+__FT_PTR_TYPE(Int8Ptr)
+__FT_PTR_TYPE(Int16Ptr)
+__FT_PTR_TYPE(Int32Ptr)
+__FT_PTR_TYPE(Int64Ptr)
 __FT_TYPE(Double)
 
 FT_TYPE(SizeTy, M.getDataLayout().getIntPtrType(Ctx))
 FT_TYPE(Int63, Type::getIntNTy(Ctx, 63))
 
-#define __FT_PTR_TYPE(NAME, BASE) FT_TYPE(NAME, BASE->getPointerTo())
+__FT_PTR_TYPE(VoidPtr)
+__FT_PTR_TYPE(VoidPtrPtr)
+__FT_PTR_TYPE(VoidPtrPtrPtr)
 
-__FT_PTR_TYPE(VoidPtr, Int8)
-__FT_PTR_TYPE(VoidPtrPtr, VoidPtr)
-__FT_PTR_TYPE(VoidPtrPtrPtr, VoidPtrPtr)
-
-__FT_PTR_TYPE(Int8PtrPtr, Int8Ptr)
-__FT_PTR_TYPE(Int8PtrPtrPtr, Int8PtrPtr)
+__FT_PTR_TYPE(Int8PtrPtr)
+__FT_PTR_TYPE(Int8PtrPtrPtr)
 
 #undef __FT_PTR_TYPE
 
