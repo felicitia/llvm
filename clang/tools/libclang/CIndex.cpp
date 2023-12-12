@@ -2261,7 +2261,6 @@ private:
   void EnqueueChildren(const OMPClause *S);
   void EnqueueChildren(const AnnotateAttr *A);
   void EnqueueChildren(const FTClause *S);
-  void EnqueueChildren(const AnnotateAttr *A);
 };
 } // namespace
 

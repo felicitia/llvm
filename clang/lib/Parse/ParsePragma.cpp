@@ -166,6 +166,12 @@ struct PragmaFPHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+struct PragmaFTHandler : public PragmaHandler {
+  PragmaFTHandler() : PragmaHandler("ft") { }
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &FirstToken) override;
+};
+
 // A pragma handler to be the base of the NoOpenMPHandler and NoOpenACCHandler,
 // which are identical other than the name given to them, and the diagnostic
 // emitted.
