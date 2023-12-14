@@ -508,11 +508,11 @@ public:
   Value *VisitSYCLUniqueStableNameExpr(SYCLUniqueStableNameExpr *E);
 
   Value *VisitOpaqueValueExpr(OpaqueValueExpr *E) {
-    if (E->isGLValue())
+    if (E->isGLValue()) {
       CheckVote(E, 1);
       return EmitLoadOfLValue(CGF.getOrCreateOpaqueLValueMapping(E),
                               E->getExprLoc());
-
+    }
     // Otherwise, assume the mapping is the scalar directly.
     return CGF.getOrCreateOpaqueRValueMapping(E).getScalarVal();
   }
