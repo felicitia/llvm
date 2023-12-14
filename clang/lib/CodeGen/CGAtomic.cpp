@@ -698,6 +698,12 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
     break;
   }
 
+  CGF.CheckVote(E,1);
+  if (E->getPtr()->getType()->isPointerType())
+    CGF.EmitVote(Ptr, E->getPtr()->getType()->getPointeeType(), 3, false);
+  else
+    CGF.EmitVote(Ptr, E->getPtr()->getType(), 3, false);
+
   llvm::Value *LoadVal1 = CGF.Builder.CreateLoad(Val1);
   llvm::AtomicRMWInst *RMWI =
       CGF.Builder.CreateAtomicRMW(Op, Ptr.getPointer(), LoadVal1, Order, Scope);
@@ -716,6 +722,13 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch)
     Result = CGF.Builder.CreateNot(Result);
   CGF.Builder.CreateStore(Result, Dest);
+
+  // DK: assumes that Ptr and dest has the same type
+  CGF.CheckVote(E,0);
+  if (E->getPtr()->getType()->isPointerType())
+    CGF.EmitVote(Dest, E->getPtr()->getType()->getPointeeType(), 2, false);
+  else
+    CGF.EmitVote(Dest, E->getPtr()->getType(), 2, false);
 }
 
 // This function emits any expression (scalar, complex, or aggregate)
@@ -993,6 +1006,15 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
     Dest = Atomics.CreateTempAlloca();
     if (ShouldCastToIntPtrTy)
       Dest = Atomics.castToAtomicIntPointer(Dest);
+  }
+
+  // For RHS
+  if (Val2.isValid()) {
+  CheckVote(E,1);
+  if (E->getVal2()->getType()->isPointerType())
+      EmitVote(Val2, E->getVal2()->getType()->getPointeeType(), 3, false);
+  else
+      EmitVote(Val2, E->getVal2()->getType(), 3, false);
   }
 
   // Use a library call.  See: http://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary .
@@ -1457,6 +1479,15 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
   Builder.CreateBr(ContBB);
   SI->addCase(Builder.getInt32((int)llvm::AtomicOrderingCABI::seq_cst),
               SeqCstBB);
+
+  CheckVote(E,0);
+
+  if (Dest.isValid()) {
+  if (E->getVal1()->getType()->isPointerType())
+    EmitVote(Dest, E->getVal1()->getType()->getPointeeType(), 2, false);
+  else
+    EmitVote(Dest, E->getVal1()->getType(), 2, false);
+  }
 
   // Cleanup and return
   Builder.SetInsertPoint(ContBB);
@@ -2056,6 +2087,7 @@ void CodeGenFunction::EmitAtomicStore(RValue rvalue, LValue dest,
   if (LVal.isSimple()) {
     if (isInit) {
       atomics.emitCopyIntoMemory(rvalue);
+      EmitVote(LVal, 2, false);
       return;
     }
 
@@ -2074,6 +2106,7 @@ void CodeGenFunction::EmitAtomicStore(RValue rvalue, LValue dest,
           RValue::get(llvm::ConstantInt::get(IntTy, (int)llvm::toCABI(AO))),
           getContext().IntTy);
       emitAtomicLibcall(*this, "__atomic_store", getContext().VoidTy, args);
+      EmitVote(LVal, 2, false);
       return;
     }
 
@@ -2098,11 +2131,13 @@ void CodeGenFunction::EmitAtomicStore(RValue rvalue, LValue dest,
     if (IsVolatile)
       store->setVolatile(true);
     CGM.DecorateInstructionWithTBAA(store, dest.getTBAAInfo());
+    EmitVote(LVal, 2, false);
     return;
   }
 
   // Emit simple atomic update operation.
   atomics.EmitAtomicUpdate(AO, rvalue, IsVolatile);
+  EmitVote(LVal, 2, false);
 }
 
 /// Emit a compare-and-exchange op for atomic type.

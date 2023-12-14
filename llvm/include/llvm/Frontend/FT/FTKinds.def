@@ -1,0 +1,102 @@
+//===--- FTKinds.def - FT directives, clauses, rt-calls -*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+/// \file
+///
+/// This file defines the list of supported FT runtime
+/// calls, and other things that need to be listed in enums.
+///
+/// This file is under transition to FT.td with TableGen code generation.
+///
+//===----------------------------------------------------------------------===//
+
+/// Types used in runtime structs or runtime functions
+///
+///{
+
+#ifndef FT_TYPE
+#define FT_TYPE(VarName, InitValue)
+#endif
+
+#define __FT_TYPE(VarName) FT_TYPE(VarName, Type::get##VarName##Ty(Ctx))
+#define __FT_PTR_TYPE(VarName) FT_TYPE(VarName, PointerType::get(Ctx, 0))
+
+__FT_TYPE(Void)
+__FT_TYPE(Int1)
+__FT_TYPE(Int8)
+__FT_TYPE(Int16)
+__FT_TYPE(Int32)
+__FT_TYPE(Int64)
+__FT_PTR_TYPE(Int8Ptr)
+__FT_PTR_TYPE(Int16Ptr)
+__FT_PTR_TYPE(Int32Ptr)
+__FT_PTR_TYPE(Int64Ptr)
+__FT_TYPE(Double)
+
+FT_TYPE(SizeTy, M.getDataLayout().getIntPtrType(Ctx))
+FT_TYPE(Int63, Type::getIntNTy(Ctx, 63))
+
+__FT_PTR_TYPE(VoidPtr)
+__FT_PTR_TYPE(VoidPtrPtr)
+__FT_PTR_TYPE(VoidPtrPtrPtr)
+
+__FT_PTR_TYPE(Int8PtrPtr)
+__FT_PTR_TYPE(Int8PtrPtrPtr)
+
+#undef __FT_PTR_TYPE
+
+#undef __FT_TYPE
+#undef FT_TYPE
+
+///}
+
+/// Runtime library function (and their attributes)
+///
+///{
+
+#ifndef FT_RTL
+#define FT_RTL(Enum, Str, IsVarArg, ReturnType, ...)
+#endif
+
+#define __FT_RTL(Name, IsVarArg, ReturnType, ...)                             \
+  FT_RTL(FTRTL_##Name, #Name, IsVarArg, ReturnType, __VA_ARGS__)
+
+__FT_RTL(__ft_vote, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_votenow, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_votel, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_voter, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_vote, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_votenow, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_votel, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_voter, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_end, Int32, Int32)
+__FT_RTL(__ft_auto_start, Int32, Int32)
+__FT_RTL(__ft_auto_vote, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_votel, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_voter, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_atomic_vote, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_atomic_votel, false, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_atomic_voter, false, Int32, VoidPtr, Int32)
+
+__FT_RTL(__ft_vote_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_votenow_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_votel_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_voter_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_vote_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_votenow_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_votel_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_atomic_voter_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_vote_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_votel_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_voter_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_atomic_vote_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_atomic_votel_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+__FT_RTL(__ft_auto_atomic_voter_debug, false, Int32, VoidPtr, Int32, VoidPtr, Int32)
+
+#undef __FT_RTL
+#undef FT_RTL
+///}

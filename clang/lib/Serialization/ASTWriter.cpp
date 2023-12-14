@@ -6375,6 +6375,90 @@ void ASTWriter::AddedCXXTemplateSpecialization(const FunctionTemplateDecl *TD,
 }
 
 //===----------------------------------------------------------------------===//
+//// FTClause Serialization
+////===----------------------------------------------------------------------===//
+
+namespace {
+class FTClauseWriter : public FTClauseVisitor<FTClauseWriter> {
+  ASTRecordWriter &Record;
+
+public:
+  FTClauseWriter(ASTRecordWriter &Record) : Record(Record) {}
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) void Visit##Class(Class *S);
+#include "llvm/Frontend/FT/FT.inc"
+  void writeClause(FTClause *C);
+};
+}
+
+void ASTRecordWriter::writeFTClause(FTClause *C) {
+  FTClauseWriter(*this).writeClause(C);
+}
+
+void FTClauseWriter::writeClause(FTClause *C) {
+  Record.push_back(unsigned(C->getClauseKind()));
+  Visit(C);
+  Record.AddSourceLocation(C->getBeginLoc());
+  Record.AddSourceLocation(C->getEndLoc());
+}
+
+void FTClauseWriter::VisitFTVoteClause(FTVoteClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void FTClauseWriter::VisitFTLhsClause(FTLhsClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void FTClauseWriter::VisitFTRhsClause(FTRhsClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void FTClauseWriter::VisitFTNovoteClause(FTNovoteClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void FTClauseWriter::VisitFTNolhsClause(FTNolhsClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void FTClauseWriter::VisitFTNorhsClause(FTNorhsClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void FTClauseWriter::VisitFTAutoClause(FTAutoClause *C) {
+  Record.push_back(C->varlist_size());
+  Record.AddSourceLocation(C->getLParenLoc());
+  for (auto *VE : C->varlists())
+    Record.AddStmt(VE);
+}
+void ASTRecordWriter::writeFTChildren(FTChildren *Data) {
+  if (!Data)
+    return;
+  writeUInt32(Data->getNumClauses());
+  writeUInt32(Data->getNumChildren());
+  writeBool(Data->hasAssociatedStmt());
+  for (unsigned I = 0, E = Data->getNumClauses(); I < E; ++I)
+    writeFTClause(Data->getClauses()[I]);
+  if (Data->hasAssociatedStmt())
+    AddStmt(Data->getAssociatedStmt());
+  for (unsigned I = 0, E = Data->getNumChildren(); I < E; ++I)
+    AddStmt(Data->getChildren()[I]);
+}
+
+//===----------------------------------------------------------------------===//
 //// OMPClause Serialization
 ////===----------------------------------------------------------------------===//
 

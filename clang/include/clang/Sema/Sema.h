@@ -32,6 +32,7 @@
 #include "clang/AST/NSAPI.h"
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/AST/StmtFT.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeOrdering.h"
@@ -39,6 +40,7 @@
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/DarwinSDKInfo.h"
 #include "clang/Basic/ExpressionTraits.h"
+#include "clang/Basic/FTKinds.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenCLOptions.h"
 #include "clang/Basic/OpenMPKinds.h"
@@ -64,6 +66,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TinyPtrVector.h"
+#include "llvm/Frontend/FT/FTConstants.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 #include <deque>
 #include <memory>
@@ -130,6 +133,7 @@ namespace clang {
   class ExtVectorType;
   class FormatAttr;
   class FriendDecl;
+  class FTClause;
   class FunctionDecl;
   class FunctionProtoType;
   class FunctionTemplateDecl;
@@ -11151,6 +11155,43 @@ private:
   SmallVector<AssumptionAttr *, 4> OMPAssumeGlobal;
 
 public:
+  void StartFTDSABlock(FTDirectiveKind K,
+                           const DeclarationNameInfo &DirName, Scope *CurScope,
+                           SourceLocation Loc);
+  /// Called on end of data sharing attribute block.
+  void EndFTDSABlock(Stmt *CurDirective);
+  /// Start analysis of clauses.
+  void StartFTClause(FTClauseKind K);
+  /// End analysis of clauses.
+  void EndFTClause();
+
+  StmtResult ActOnFTExecutableDirective(
+      FTDirectiveKind Kind, const DeclarationNameInfo &DirName,
+      ArrayRef<FTClause *> Clauses,
+      Stmt *AStmt, SourceLocation StartLoc, SourceLocation EndLoc);
+  StmtResult ActOnFTVoteDirective(ArrayRef<FTClause *> Clauses,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+  StmtResult ActOnFTNmrDirective(ArrayRef<FTClause *> Clauses,
+                                          Stmt *AStmt,
+                                          SourceLocation StartLoc,
+                                          SourceLocation EndLoc);
+
+  FTClause *ActOnFTVarSizeListClause(
+      FTClauseKind Kind, ArrayRef<Expr *> Vars, 
+      					ArrayRef<Expr *> Sizes,
+      					ArrayRef<Expr *> Ptrs,
+                                        SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc);
+
+  FTClause *ActOnFTVoteClause( ArrayRef<Expr *> VarList,
+		  		    ArrayRef<Expr *> SizeList,
+		  		    ArrayRef<Expr *> PtrList,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc);
+
   /// The declarator \p D defines a function in the scope \p S which is nested
   /// in an `omp begin/end declare variant` scope. In this method we create a
   /// declaration for \p D and rename \p D according to the OpenMP context

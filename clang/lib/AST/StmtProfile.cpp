@@ -18,6 +18,7 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
+#include "clang/AST/FTClause.h"
 #include "clang/AST/ODRHash.h"
 #include "clang/AST/OpenMPClause.h"
 #include "clang/AST/StmtVisitor.h"
@@ -423,6 +424,70 @@ void StmtProfiler::VisitObjCAtThrowStmt(const ObjCAtThrowStmt *S) {
 void
 StmtProfiler::VisitObjCAutoreleasePoolStmt(const ObjCAutoreleasePoolStmt *S) {
   VisitStmt(S);
+}
+
+namespace {
+class FTClauseProfiler : public ConstFTClauseVisitor<FTClauseProfiler> {
+  StmtProfiler *Profiler;
+  /// Process clauses with list of variables.
+  template <typename T>
+  void VisitFTClauseList(T *Node);
+
+public:
+  FTClauseProfiler(StmtProfiler *P) : Profiler(P) { }
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) void Visit##Class(const Class *C);
+#include "llvm/Frontend/FT/FT.inc"
+};
+
+template<typename T>
+void FTClauseProfiler::VisitFTClauseList(T *Node) {
+  for (auto *E : Node->varlists()) {
+    if (E)
+      Profiler->VisitStmt(E);
+  }
+}
+
+void FTClauseProfiler::VisitFTVoteClause(const FTVoteClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTLhsClause(const FTLhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTRhsClause(const FTRhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTNovoteClause(const FTNovoteClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTNolhsClause(const FTNolhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTNorhsClause(const FTNorhsClause *C) {
+  VisitFTClauseList(C);
+}
+void FTClauseProfiler::VisitFTAutoClause(const FTAutoClause *C) {
+  VisitFTClauseList(C);
+}
+} // namespace
+
+void
+StmtProfiler::VisitFTExecutableDirective(const FTExecutableDirective *S) {
+  VisitStmt(S);
+  FTClauseProfiler P(this);
+  ArrayRef<FTClause *> Clauses = S->clauses();
+  for (ArrayRef<FTClause *>::iterator I = Clauses.begin(), E = Clauses.end();
+       I != E; ++I)
+    if (*I)
+      P.Visit(*I);
+}
+
+void StmtProfiler::VisitFTNmrDirective(const FTNmrDirective *S) {
+  VisitFTExecutableDirective(S);
+}
+
+void StmtProfiler::VisitFTVoteDirective(const FTVoteDirective *S) {
+  VisitFTExecutableDirective(S);
 }
 
 namespace {

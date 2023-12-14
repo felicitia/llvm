@@ -87,6 +87,7 @@ class CodeGenFunction;
 class CodeGenTBAA;
 class CGCXXABI;
 class CGDebugInfo;
+class CGFTRuntime;
 class CGObjCRuntime;
 class CGOpenCLRuntime;
 class CGOpenMPRuntime;
@@ -329,6 +330,7 @@ private:
   std::unique_ptr<CGObjCRuntime> ObjCRuntime;
   std::unique_ptr<CGOpenCLRuntime> OpenCLRuntime;
   std::unique_ptr<CGOpenMPRuntime> OpenMPRuntime;
+  std::unique_ptr<CGFTRuntime> FTRuntime;
   std::unique_ptr<CGCUDARuntime> CUDARuntime;
   std::unique_ptr<CGHLSLRuntime> HLSLRuntime;
   std::unique_ptr<CGDebugInfo> DebugInfo;
@@ -545,6 +547,7 @@ private:
 
   void createOpenCLRuntime();
   void createOpenMPRuntime();
+  void createFTRuntime();
   void createCUDARuntime();
   void createHLSLRuntime();
 
@@ -643,6 +646,12 @@ public:
   CGOpenMPRuntime &getOpenMPRuntime() {
     assert(OpenMPRuntime != nullptr);
     return *OpenMPRuntime;
+  }
+
+  /// Return a reference to the configured FT runtime.
+  CGFTRuntime &getFTRuntime() {
+    assert(FTRuntime != nullptr);
+    return *FTRuntime;
   }
 
   /// Return a reference to the configured CUDA runtime.

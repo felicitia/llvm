@@ -840,6 +840,11 @@ Parser::ParseExternalDeclaration(ParsedAttributes &Attrs,
   case tok::annot_pragma_opencl_extension:
     HandlePragmaOpenCLExtension();
     return nullptr;
+  case tok::annot_attr_ft:
+  case tok::annot_pragma_ft: {
+    AccessSpecifier AS = AS_none;
+    return ParseFTDeclarativeDirectiveWithExtDecl(AS, Attrs);
+  }
   case tok::annot_attr_openmp:
   case tok::annot_pragma_openmp: {
     AccessSpecifier AS = AS_none;

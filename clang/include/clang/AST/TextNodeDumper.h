@@ -183,6 +183,8 @@ public:
 
   void Visit(const CXXCtorInitializer *Init);
 
+  void Visit(const FTClause *C);
+
   void Visit(const OMPClause *C);
 
   void Visit(const BlockDecl::Capture &C);
@@ -339,6 +341,7 @@ public:
   void VisitVarDecl(const VarDecl *D);
   void VisitBindingDecl(const BindingDecl *D);
   void VisitCapturedDecl(const CapturedDecl *D);
+  void VisitFTExecutableDirective(const FTExecutableDirective *D);
   void VisitImportDecl(const ImportDecl *D);
   void VisitPragmaCommentDecl(const PragmaCommentDecl *D);
   void VisitPragmaDetectMismatchDecl(const PragmaDetectMismatchDecl *D);

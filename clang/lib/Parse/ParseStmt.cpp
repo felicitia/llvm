@@ -464,6 +464,17 @@ Retry:
     ProhibitAttributes(GNUAttrs);
     return HandlePragmaCaptured();
 
+  case tok::annot_pragma_ft:
+    // Prohibit attributes that are not FT attributes, but only before
+    // processing a #pragma ft clause.
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    [[fallthrough]];
+  case tok::annot_attr_ft:
+    // Do not prohibit attributes if they were FT attributes.
+      // return ParseFTDeclarativeOrExecutableDirective(StmtCtx);
+      return ParseFTDeclarativeOrExecutableDirective(StmtCtx);
+
   case tok::annot_pragma_openmp:
     // Prohibit attributes that are not OpenMP attributes, but only before
     // processing a #pragma omp clause.

@@ -9,6 +9,7 @@ set(LLVM_LINK_COMPONENTS
   Coverage
   Demangle
   Extensions
+  FrontendFT
   FrontendHLSL
   FrontendOpenMP
   IPO
@@ -55,6 +56,7 @@ add_clang_library(clangCodeGen
   CGExprComplex.cpp
   CGExprConstant.cpp
   CGExprScalar.cpp
+  CGFTRuntime.cpp
   CGGPUBuiltin.cpp
   CGHLSLRuntime.cpp
   CGLoopInfo.cpp
@@ -68,6 +70,7 @@ add_clang_library(clangCodeGen
   CGOpenMPRuntimeGPU.cpp
   CGRecordLayoutBuilder.cpp
   CGStmt.cpp
+  CGStmtNMR.cpp
   CGStmtOpenMP.cpp
   CGVTT.cpp
   CGVTables.cpp

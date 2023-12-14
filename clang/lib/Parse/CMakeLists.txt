@@ -1,4 +1,5 @@
 set(LLVM_LINK_COMPONENTS
+  FrontendFT
   FrontendOpenMP
   MC
   MCParser
@@ -13,6 +14,7 @@ add_clang_library(clangParse
   ParseDeclCXX.cpp
   ParseExpr.cpp
   ParseExprCXX.cpp
+  ParseFT.cpp
   ParseHLSL.cpp
   ParseInit.cpp
   ParseObjc.cpp

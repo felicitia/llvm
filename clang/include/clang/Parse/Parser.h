@@ -40,6 +40,7 @@ namespace clang {
   class DeclGroupRef;
   class DiagnosticBuilder;
   struct LoopHint;
+  class FTClause;
   class Parser;
   class ParsingDeclRAIIObject;
   class ParsingDeclSpec;
@@ -182,6 +183,7 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> WeakHandler;
   std::unique_ptr<PragmaHandler> RedefineExtnameHandler;
   std::unique_ptr<PragmaHandler> FPContractHandler;
+  std::unique_ptr<PragmaHandler> FTHandler;
   std::unique_ptr<PragmaHandler> OpenCLExtensionHandler;
   std::unique_ptr<PragmaHandler> OpenMPHandler;
   std::unique_ptr<PragmaHandler> PCSectionHandler;
@@ -1249,6 +1251,12 @@ public:
   bool SkipUntil(tok::TokenKind T1, tok::TokenKind T2, tok::TokenKind T3,
                  SkipUntilFlags Flags = static_cast<SkipUntilFlags>(0)) {
     tok::TokenKind TokArray[] = {T1, T2, T3};
+    return SkipUntil(TokArray, Flags);
+  }
+  bool SkipUntil(tok::TokenKind T1, tok::TokenKind T2, tok::TokenKind T3,
+		  tok::TokenKind T4,
+                 SkipUntilFlags Flags = static_cast<SkipUntilFlags>(0)) {
+    tok::TokenKind TokArray[] = {T1, T2, T3, T4};
     return SkipUntil(TokArray, Flags);
   }
   bool SkipUntil(ArrayRef<tok::TokenKind> Toks,
@@ -3276,6 +3284,25 @@ private:
   bool ParseUnqualifiedIdOperator(CXXScopeSpec &SS, bool EnteringContext,
                                   ParsedType ObjectType,
                                   UnqualifiedId &Result);
+
+  //===--------------------------------------------------------------------===//
+  // FT: Directives and clauses.
+  /// Parses declarative FT directives.
+  DeclGroupPtrTy ParseFTDeclarativeDirectiveWithExtDecl(
+      AccessSpecifier &AS, ParsedAttributes &Attrs, bool Delayed = false,
+      DeclSpec::TST TagType = DeclSpec::TST_unspecified,
+      Decl *TagDecl = nullptr);
+
+  StmtResult ParseFTDeclarativeOrExecutableDirective(
+      ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective = false);
+
+  void skipUntilPragmaFTEnd(FTDirectiveKind DKind);
+
+  FTClause *ParseFTClause(FTDirectiveKind mDKind,
+                               FTClauseKind CKind, bool FirstClause);
+
+  FTClause *ParseFTDoubleVarListClause(FTDirectiveKind DKind,
+                                      FTClauseKind Kind, bool ParseOnly);
 
   //===--------------------------------------------------------------------===//
   // OpenMP: Directives and clauses.

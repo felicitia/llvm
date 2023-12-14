@@ -10027,6 +10027,154 @@ Expected<unsigned> ASTRecordReader::readRecord(llvm::BitstreamCursor &Cursor,
   Record.clear();
   return Cursor.readRecord(AbbrevID, Record);
 }
+
+//===----------------------------------------------------------------------===//
+//// FTClauseReader implementation
+////===----------------------------------------------------------------------===//
+
+// This has to be in namespace clang because it's friended by all
+// of the FT clauses.
+namespace clang {
+
+class FTClauseReader : public FTClauseVisitor<FTClauseReader> {
+  ASTRecordReader &Record;
+  ASTContext &Context;
+
+public:
+  FTClauseReader(ASTRecordReader &Record)
+      : Record(Record), Context(Record.getContext()) {}
+#define GEN_CLANG_CLAUSE_CLASS
+#define CLAUSE_CLASS(Enum, Str, Class) void Visit##Class(Class *C);
+#include "llvm/Frontend/FT/FT.inc"
+  FTClause *readClause();
+/*  void VisitFTClauseWithPreInit(FTClauseWithPreInit *C);
+  void VisitFTClauseWithPostUpdate(FTClauseWithPostUpdate *C);
+*/
+};
+
+} // end namespace clang
+
+FTClause *ASTRecordReader::readFTClause() {
+  return FTClauseReader(*this).readClause();
+}
+
+FTClause *FTClauseReader::readClause() {
+  FTClause *C = nullptr;
+  switch (llvm::ft::Clause(Record.readInt())) {
+  case llvm::ft::FTC_vote:
+    C = FTVoteClause::CreateEmpty(Context, Record.readInt());
+    break;
+  case llvm::ft::FTC_lhs:
+    C = FTLhsClause::CreateEmpty(Context, Record.readInt());
+    break;
+  case llvm::ft::FTC_rhs:
+    C = FTRhsClause::CreateEmpty(Context, Record.readInt());
+    break;
+  case llvm::ft::FTC_nolhs:
+    C = FTNolhsClause::CreateEmpty(Context, Record.readInt());
+    break;
+  case llvm::ft::FTC_norhs:
+    C = FTNorhsClause::CreateEmpty(Context, Record.readInt());
+    break;
+  case llvm::ft::FTC_novote:
+    C = FTNovoteClause::CreateEmpty(Context, Record.readInt());
+    break;
+  case llvm::ft::FTC_auto:
+    C = FTAutoClause::CreateEmpty(Context, Record.readInt());
+    break;
+  default:
+    break;
+  }
+  assert(C && "Unknown FTClause type");
+
+  Visit(C);
+  C->setLocStart(Record.readSourceLocation());
+  C->setLocEnd(Record.readSourceLocation());
+
+  return C;
+}
+
+void FTClauseReader::VisitFTVoteClause(FTVoteClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+void FTClauseReader::VisitFTLhsClause(FTLhsClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+void FTClauseReader::VisitFTRhsClause(FTRhsClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+void FTClauseReader::VisitFTNovoteClause(FTNovoteClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+void FTClauseReader::VisitFTNolhsClause(FTNolhsClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+void FTClauseReader::VisitFTNorhsClause(FTNorhsClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+void FTClauseReader::VisitFTAutoClause(FTAutoClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+
+void ASTRecordReader::readFTChildren(FTChildren *Data) {
+  if (!Data)
+    return;
+  if (Reader->ReadingKind == ASTReader::Read_Stmt) {
+    // Skip NumClauses, NumChildren and HasAssociatedStmt fields.
+    skipInts(3);
+  }
+  SmallVector<FTClause *, 4> Clauses(Data->getNumClauses());
+  for (unsigned I = 0, E = Data->getNumClauses(); I < E; ++I)
+    Clauses[I] = readFTClause();
+  Data->setClauses(Clauses);
+  if (Data->hasAssociatedStmt())
+    Data->setAssociatedStmt(readStmt());
+  for (unsigned I = 0, E = Data->getNumChildren(); I < E; ++I)
+    Data->getChildren()[I] = readStmt();
+}
+
 //===----------------------------------------------------------------------===//
 //// OMPClauseReader implementation
 ////===----------------------------------------------------------------------===//

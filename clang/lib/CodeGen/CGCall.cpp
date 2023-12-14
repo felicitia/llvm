@@ -4600,6 +4600,7 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
     if (DestroyedInCallee)
       Slot.setExternallyDestructed();
 
+    CheckVote(E,1);
     EmitAggExpr(E, Slot);
     RValue RV = Slot.asRValue();
     args.add(RV, type);
@@ -4619,10 +4620,17 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
 
   if (HasAggregateEvalKind && isa<ImplicitCastExpr>(E) &&
       cast<CastExpr>(E)->getCastKind() == CK_LValueToRValue) {
+    CheckVote(E,1);
     LValue L = EmitLValue(cast<CastExpr>(E)->getSubExpr());
+    EmitVote(L, 1, false);
     assert(L.isSimple());
     args.addUncopiedAggregate(L, type);
     return;
+  }
+
+  if (type->isPointerType()) {	// vote now
+    CheckVote(E, 9 | 0x100);
+    EmitVote(9,false);
   }
 
   args.add(EmitAnyExprToTemp(E), type);
