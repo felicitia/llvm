@@ -47,6 +47,44 @@ void HPSCCFAPass::setupGlobalVariables(Module &M) {
       ConstantInt::get(Type::getInt32Ty(Context), 0), "RuntimeSignatureAdj");
 }
 
+void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
+    CFABBNode *node, IRBuilder<> &Builder, LoadInst *currentSig,
+    ConstantInt *precomputedSig, ConstantInt *precomputedSigDiff, BinaryOperator *xorResult) {
+
+  BasicBlock *BB = node->node;
+  LLVMContext &Context = BB->getContext();
+
+  // Print the current and expected signature values and the match result
+  FunctionCallee printfFunc = BB->getModule()->getOrInsertFunction(
+      "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
+                                  {Type::getInt8PtrTy(Context)}, true));
+  Value *message = Builder.CreateGlobalStringPtr(
+      "Current Runtime Sig: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: %d\n XOR Result of PreComputed Diff and Current Runtime Sig: %d\n");
+  Builder.CreateCall(printfFunc, {message, currentSig, precomputedSig, precomputedSigDiff, xorResult});
+}
+
+/**
+ * LLVM IR cannot have br instruction in the middle of the BB
+ * Thus we create a new BB to perform branching based on the signature match
+ * */
+void HPSCCFAPass::splitBBforCFABranch(Instruction *instToSplit) {
+
+  // Create copy of instToSplit because split function invalidates it (i.e.,
+  // where instToSplit points to will no longer be valid)
+  Instruction *instToSplitClone = instToSplit->clone();
+  instToSplitClone->insertBefore(instToSplit);
+  instToSplitClone->setName(instToSplit->getName());
+  // Split the current BB into two BBs: original (currBB) + split (new BB
+  // newBBsplit)
+  BasicBlock *currBB = instToSplit->getParent();
+  BasicBlock *newBBsplit =
+      currBB->splitBasicBlock(instToSplit, currBB->getName() + ".split");
+  // make new terminator for the old BB
+  currBB->getTerminator()->eraseFromParent();
+  BranchInst *newBranchInst = BranchInst::Create(newBBsplit, this->errorBlock, instToSplitClone, currBB);
+  instToSplit->eraseFromParent();
+}
+
 void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
@@ -59,9 +97,9 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
     Builder.SetInsertPoint(BB);
   }
 
-  ConstantInt *expectedSig =
+  ConstantInt *precomputedSig =
       ConstantInt::get(Type::getInt32Ty(Context), node->sig);
-  ConstantInt *expectedSigDiff =
+  ConstantInt *precomputedSigDiff =
       ConstantInt::get(Type::getInt32Ty(Context), node->sigDiff);
 
   // Load the runtime signature from a global variable
@@ -69,20 +107,24 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
                                             RuntimeSignature, "currentSig");
 
   Builder.SetInsertPoint(currentSig->getNextNode());
-  errs() << "Before modification:\n";
-  BB->dump();
 
   // XOR the current signature with the expected difference
-  BinaryOperator *xorResult = BinaryOperator::Create(
-      Instruction::BinaryOps::Xor, currentSig, expectedSigDiff,
-      Twine("xorResult"));
+  BinaryOperator *xorResult =
+      BinaryOperator::Create(Instruction::BinaryOps::Xor, currentSig,
+                             precomputedSigDiff, Twine("xorResult"));
   Builder.Insert(xorResult);
 
-  // Compare the XOR result with the expected signature
-  Value *sigMatch = Builder.CreateICmpEQ(xorResult, expectedSig, "sigMatch");
+  if (DEBUG_FLAG) {
+    DEBUG_insertPrintSigCheckingInfo(node, Builder, currentSig, precomputedSig, precomputedSigDiff, xorResult);
+  }
 
-  errs() << "After modification:\n";
-  BB->dump();
+  // Compare the XOR result with the expected signature
+  Value *sigMatch = Builder.CreateICmpEQ(xorResult, precomputedSig, "sigMatch");
+  Instruction *sigMatchInst = dyn_cast<Instruction>(sigMatch);
+  splitBBforCFABranch(sigMatchInst);
+
+  // errs() << "After modification:\n";
+  // BB->dump();
 }
 
 // void HPSCCFAPass::insertStoreInsts(CFABBNode *node, IRBuilder<> &Builder,
@@ -109,7 +151,7 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
     if (entry.second->node == &entryBlock) {
       errs() << "Entry Block sig: " << entry.second->sig << "\n";
     } else {
-      errs() << "NON Entry Block sid: " << entry.second->sig << "\n";
+      errs() << "NON-Entry Block sid: " << entry.second->sig << "\n";
       // Insert comparison instructions for each non-entry node in the beginning
       insertComparisonInsts(entry.second, Builder); // entry.second is CFABBNode
     }
@@ -117,10 +159,28 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
 }
 
 void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
+  // Create a new error handling block
   BasicBlock *errorBlock =
       BasicBlock::Create(F.getContext(), "error_handler", &F);
+  this->errorBlock = errorBlock;
+
+  // Set the insertion point to the new error block
   Builder.SetInsertPoint(errorBlock);
-  // Insert an unreachable instruction as a placeholder
+
+  // Create instructions to print an error message
+  FunctionCallee printfFunc = F.getParent()->getOrInsertFunction(
+      "printf", FunctionType::get(IntegerType::getInt32Ty(F.getContext()),
+                                  {Type::getInt8PtrTy(F.getContext())}, true));
+  Value *errorMessage =
+      Builder.CreateGlobalStringPtr("Error: Control flow error detected!\n");
+  Builder.CreateCall(printfFunc, {errorMessage});
+
+  // Insert a call to abort the program
+  FunctionCallee abortFunc = F.getParent()->getOrInsertFunction(
+      "abort", FunctionType::get(Type::getVoidTy(F.getContext()), false));
+  Builder.CreateCall(abortFunc, {});
+
+  // No need to continue after abort; insert an unreachable instruction
   Builder.CreateUnreachable();
 }
 
@@ -235,6 +295,8 @@ void HPSCCFAPass::printCurrentInsertionPoint(IRBuilder<> &Builder) {
 }
 
 PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
+
+  DEBUG_FLAG = true;
 
   LLVMContext &Context = F.getContext();
   IRBuilder<> Builder(Context);

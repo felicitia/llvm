@@ -4,6 +4,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/BasicBlock.h"
 #include <map>
 
 using namespace llvm;
@@ -30,8 +31,11 @@ public:
 class HPSCCFAPass : public PassInfoMixin<HPSCCFAPass> {
 public:
   std::map<BasicBlock *, CFABBNode *> graph;
+  bool DEBUG_FLAG;
+  BasicBlock* errorBlock; // each function has one error block
   GlobalVariable* RuntimeSignature;  // Runtime signature global variable
   GlobalVariable* RuntimeSignatureAdj;  // Runtime signature adjuster global variable
+
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   void createErrorBlock(Function &F, IRBuilder<> &Builder);
   void setupGlobalVariables(Module &M);
@@ -43,6 +47,16 @@ public:
   void insertComparisonInsts(CFABBNode* node, IRBuilder<>& Builder);
   void insertStoreInsts(CFABBNode* node, IRBuilder<>& Builder, Instruction* insertSpot);
   void printCurrentInsertionPoint(IRBuilder<> &Builder);
+  void splitBBforCFABranch(Instruction *instToSplit);
+
+  /**
+   * DEBUG functions to intrument code for runtime information
+   * No need to use in production
+   * **/
+  void DEBUG_insertPrintSigCheckingInfo(
+    CFABBNode *node, IRBuilder<> &Builder, LoadInst *currentSig,
+    ConstantInt *expectedSig, ConstantInt *precomputedSigDiff, BinaryOperator *xorResult);
+
 };
 
 #endif // LLVM_TRANSFORMS_UTILS_HPSCCFA_H
