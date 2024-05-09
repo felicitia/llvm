@@ -59,7 +59,7 @@ void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
       "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
                                   {Type::getInt8PtrTy(Context)}, true));
   Value *message = Builder.CreateGlobalStringPtr(
-      "Current Runtime Sig: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: %d\n XOR Result of PreComputed Diff and Current Runtime Sig: %d\n");
+      "Runtime Sig of Parent: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: %d\n XOR Result (Runtime Current Sig): %d\n");
   Builder.CreateCall(printfFunc, {message, currentSig, precomputedSig, precomputedSigDiff, xorResult});
 }
 
@@ -81,10 +81,13 @@ void HPSCCFAPass::splitBBforCFABranch(Instruction *instToSplit) {
       currBB->splitBasicBlock(instToSplit, currBB->getName() + ".split");
   // make new terminator for the old BB
   currBB->getTerminator()->eraseFromParent();
-  BranchInst *newBranchInst = BranchInst::Create(newBBsplit, this->errorBlock, instToSplitClone, currBB);
+  BranchInst::Create(newBBsplit, this->errorBlock, instToSplitClone, currBB);
   instToSplit->eraseFromParent();
 }
 
+/**
+ * Insert CFA checking instructions in the beginning of the BB
+ * **/
 void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
@@ -127,32 +130,55 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
   // BB->dump();
 }
 
-// void HPSCCFAPass::insertStoreInsts(CFABBNode *node, IRBuilder<> &Builder,
-//                                    Instruction *insertSpot) {
-//   LLVMContext &Context = insertSpot->getContext();
-//   IntegerType *IT1 = Type::getInt32Ty(Context);
+/**
+ * Insert runtime signature update instructions in the end of the BB
+ * **/
+void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Builder) {
+  BasicBlock *BB = node->node;
+  LLVMContext &Context = BB->getContext();
+  IntegerType *IT1 = Type::getInt32Ty(Context);
 
-//   // Update the current signature
-//   ConstantInt *currentSig = ConstantInt::get(IT1, node->sig, false);
-//   StoreInst *storeCurrentSig =
-//       new StoreInst(currentSig, RuntimeSignature, false, insertSpot);
+  // Get the terminator instruction of the basic block
+  Instruction *terminator = BB->getTerminator();
+  Builder.SetInsertPoint(terminator);
 
-//   // Update the signature adjuster
-//   ConstantInt *sigAdjVal = ConstantInt::get(IT1, node->sigAdj, false);
-//   StoreInst *storeSigAdj =
-//       new StoreInst(sigAdjVal, RuntimeSignatureAdj, false, insertSpot);
-// }
+  // Update the current signature
+  ConstantInt *precomputedSig = ConstantInt::get(IT1, node->sig, false);
+  Builder.CreateStore(precomputedSig, RuntimeSignature);
+
+  // Update the signature adjuster
+  ConstantInt *precomputedSigAdj = ConstantInt::get(IT1, node->sigAdj, false);
+  Builder.CreateStore(precomputedSigAdj, RuntimeSignatureAdj);
+}
 
 void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
   BasicBlock &entryBlock = F.getEntryBlock();
 
+  errs() << "insert signature checking instructions...\n";
   for (auto &entry : graph) {
 
     if (entry.second->node == &entryBlock) {
-      errs() << "Entry Block sig: " << entry.second->sig << "\n";
+      if (DEBUG_FLAG){
+        errs() << "Entry Block sig: " << entry.second->sig << "\n";
+      }
+      // Insert runtime signature updating instructions in the end
+      if(DEBUG_FLAG){
+        errs() << "insert runtime signature update instructions...\n";
+      }
+      insertUpdateRuntimeSigInsts(entry.second, Builder);
     } else {
-      errs() << "NON-Entry Block sid: " << entry.second->sig << "\n";
+      if (DEBUG_FLAG){
+        errs() << "NON-Entry Block sig: " << entry.second->sig << "\n";
+      }
+      // Insert runtime signature updating instructions in the end
+      if(DEBUG_FLAG){
+        errs() << "insert runtime signature update instructions...\n";
+      }
+      insertUpdateRuntimeSigInsts(entry.second, Builder);
       // Insert comparison instructions for each non-entry node in the beginning
+      if(DEBUG_FLAG){
+        errs() << "insert signature comparison instructions...\n";
+      }
       insertComparisonInsts(entry.second, Builder); // entry.second is CFABBNode
     }
   }
@@ -167,13 +193,16 @@ void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
   // Set the insertion point to the new error block
   Builder.SetInsertPoint(errorBlock);
 
-  // Create instructions to print an error message
+   // Create instructions to print an error message including the block's signature
   FunctionCallee printfFunc = F.getParent()->getOrInsertFunction(
       "printf", FunctionType::get(IntegerType::getInt32Ty(F.getContext()),
-                                  {Type::getInt8PtrTy(F.getContext())}, true));
+                                  {Type::getInt8PtrTy(F.getContext()), IntegerType::getInt32Ty(F.getContext())}, true));
   Value *errorMessage =
-      Builder.CreateGlobalStringPtr("Error: Control flow error detected!\n");
-  Builder.CreateCall(printfFunc, {errorMessage});
+      Builder.CreateGlobalStringPtr("Error: Control flow error detected! Runtime Signature: %d\n");
+
+  // Assuming that RuntimeSignature is a global variable holding the signature
+  LoadInst *runtimeSig = Builder.CreateLoad(IntegerType::getInt32Ty(F.getContext()), RuntimeSignature, "runtimeSig");
+  Builder.CreateCall(printfFunc, {errorMessage, runtimeSig});
 
   // Insert a call to abort the program
   FunctionCallee abortFunc = F.getParent()->getOrInsertFunction(
@@ -188,7 +217,10 @@ void HPSCCFAPass::populateGraph(Function &F) {
   // Clear previous graph entries
   graph.clear();
   for (auto &BB : F) {
-    errs() << "Processing Basic Block: " << BB.getName() << "\n";
+    if (DEBUG_FLAG)
+    {
+      errs() << "Adding Pre-Computed Values to Basic Block: " << BB.getName() << "\n";
+    }
     if (graph.find(&BB) == graph.end()) {
       auto node = new CFABBNode(&BB);
       graph[&BB] = node;

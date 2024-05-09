@@ -45,7 +45,7 @@ public:
   void updateGraphEdges(CFABBNode* node);
   void logGraphToDotFile(const std::string &filename);
   void insertComparisonInsts(CFABBNode* node, IRBuilder<>& Builder);
-  void insertStoreInsts(CFABBNode* node, IRBuilder<>& Builder, Instruction* insertSpot);
+  void insertUpdateRuntimeSigInsts(CFABBNode* node, IRBuilder<>& Builder);
   void printCurrentInsertionPoint(IRBuilder<> &Builder);
   void splitBBforCFABranch(Instruction *instToSplit);
 
