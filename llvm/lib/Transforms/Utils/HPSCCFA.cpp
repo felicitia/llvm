@@ -49,7 +49,8 @@ void HPSCCFAPass::setupGlobalVariables(Module &M) {
 
 void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
     CFABBNode *node, IRBuilder<> &Builder, LoadInst *currentSig,
-    ConstantInt *precomputedSig, ConstantInt *precomputedSigDiff, BinaryOperator *xorResult) {
+    ConstantInt *precomputedSig, ConstantInt *precomputedSigDiff,
+    BinaryOperator *xorResult) {
 
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
@@ -59,8 +60,10 @@ void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
       "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
                                   {Type::getInt8PtrTy(Context)}, true));
   Value *message = Builder.CreateGlobalStringPtr(
-      "Runtime Sig of Parent: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: %d\n XOR Result (Runtime Current Sig): %d\n");
-  Builder.CreateCall(printfFunc, {message, currentSig, precomputedSig, precomputedSigDiff, xorResult});
+      "Runtime Sig of Parent: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: "
+      "%d\n XOR Result (Runtime Current Sig): %d\n");
+  Builder.CreateCall(printfFunc, {message, currentSig, precomputedSig,
+                                  precomputedSigDiff, xorResult});
 }
 
 /**
@@ -83,6 +86,49 @@ void HPSCCFAPass::splitBBforCFABranch(Instruction *instToSplit) {
   currBB->getTerminator()->eraseFromParent();
   BranchInst::Create(newBBsplit, this->errorBlock, instToSplitClone, currBB);
   instToSplit->eraseFromParent();
+}
+
+/**
+ * Insert CFA checking instructions in the beginning of the entry BB
+ * The checking instruction checks whether the current RuntimeSignature value is
+ * 0
+ * **/
+void HPSCCFAPass::insertComparisonInstsForEntryBB(CFABBNode *node,
+                                                  IRBuilder<> &Builder) {
+  BasicBlock *BB = node->node;
+  LLVMContext &Context = BB->getContext();
+
+  Instruction *firstNonPhi =
+      BB->getFirstNonPHI(); // Get the first non-PHI instruction
+  if (firstNonPhi != nullptr) {
+    Builder.SetInsertPoint(firstNonPhi);
+  } else {
+    Builder.SetInsertPoint(BB);
+  }
+
+  ConstantInt *precomputedSig =
+      ConstantInt::get(Type::getInt32Ty(Context), node->sig);
+  ConstantInt *precomputedSigDiff =
+      ConstantInt::get(Type::getInt32Ty(Context), node->sigDiff);
+
+  // For entry node, we directly check if the RuntimeSignature is zero
+  LoadInst *currentSig = Builder.CreateLoad(Type::getInt32Ty(Context),
+                                            RuntimeSignature, "currentSig");
+  ConstantInt *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+  if (DEBUG_FLAG) {
+    // Print the current and expected signature values
+    FunctionCallee printfFunc = BB->getModule()->getOrInsertFunction(
+        "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
+                                    {Type::getInt8PtrTy(Context)}, true));
+    Value *message = Builder.CreateGlobalStringPtr(
+        "Runtime Sig of Parent: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: %d\n");
+    Builder.CreateCall(
+        printfFunc, {message, currentSig, precomputedSig, precomputedSigDiff});
+  }
+
+  Value *isInitZero = Builder.CreateICmpEQ(currentSig, zero, "isInitZero");
+  Instruction *checkInitInst = dyn_cast<Instruction>(isInitZero);
+  splitBBforCFABranch(checkInitInst);
 }
 
 /**
@@ -111,14 +157,31 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
 
   Builder.SetInsertPoint(currentSig->getNextNode());
 
-  // XOR the current signature with the expected difference
-  BinaryOperator *xorResult =
-      BinaryOperator::Create(Instruction::BinaryOps::Xor, currentSig,
-                             precomputedSigDiff, Twine("xorResult"));
+  BinaryOperator *xorResult;
+
+  if (node->isBranchFanIn) {
+    // Load the runtime signature from a global variable
+    LoadInst *currentSigAdj = Builder.CreateLoad(
+        Type::getInt32Ty(Context), RuntimeSignatureAdj, "currentSigAdj");
+    BinaryOperator *adjustedSigXor =
+        BinaryOperator::Create(Instruction::BinaryOps::Xor, currentSig,
+                               currentSigAdj, Twine("adjustedSigXor"));
+    Builder.Insert(adjustedSigXor);
+    xorResult =
+        BinaryOperator::Create(Instruction::BinaryOps::Xor, adjustedSigXor,
+                               precomputedSigDiff, Twine("xorResult"));
+  } else {
+
+    // XOR the current signature with the expected difference
+    xorResult = BinaryOperator::Create(Instruction::BinaryOps::Xor, currentSig,
+                                       precomputedSigDiff, Twine("xorResult"));
+  }
+
   Builder.Insert(xorResult);
 
   if (DEBUG_FLAG) {
-    DEBUG_insertPrintSigCheckingInfo(node, Builder, currentSig, precomputedSig, precomputedSigDiff, xorResult);
+    DEBUG_insertPrintSigCheckingInfo(node, Builder, currentSig, precomputedSig,
+                                     precomputedSigDiff, xorResult);
   }
 
   // Compare the XOR result with the expected signature
@@ -133,7 +196,8 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
 /**
  * Insert runtime signature update instructions in the end of the BB
  * **/
-void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Builder) {
+void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node,
+                                              IRBuilder<> &Builder) {
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
   IntegerType *IT1 = Type::getInt32Ty(Context);
@@ -158,25 +222,30 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
   for (auto &entry : graph) {
 
     if (entry.second->node == &entryBlock) {
-      if (DEBUG_FLAG){
+      if (DEBUG_FLAG) {
         errs() << "Entry Block sig: " << entry.second->sig << "\n";
       }
       // Insert runtime signature updating instructions in the end
-      if(DEBUG_FLAG){
+      if (DEBUG_FLAG) {
         errs() << "insert runtime signature update instructions...\n";
       }
       insertUpdateRuntimeSigInsts(entry.second, Builder);
+      if (DEBUG_FLAG) {
+        errs() << "insert signature comparison instructions for entry BB...\n";
+      }
+      insertComparisonInstsForEntryBB(entry.second,
+                                      Builder); // entry.second is CFABBNode
     } else {
-      if (DEBUG_FLAG){
+      if (DEBUG_FLAG) {
         errs() << "NON-Entry Block sig: " << entry.second->sig << "\n";
       }
       // Insert runtime signature updating instructions in the end
-      if(DEBUG_FLAG){
+      if (DEBUG_FLAG) {
         errs() << "insert runtime signature update instructions...\n";
       }
       insertUpdateRuntimeSigInsts(entry.second, Builder);
       // Insert comparison instructions for each non-entry node in the beginning
-      if(DEBUG_FLAG){
+      if (DEBUG_FLAG) {
         errs() << "insert signature comparison instructions...\n";
       }
       insertComparisonInsts(entry.second, Builder); // entry.second is CFABBNode
@@ -193,15 +262,19 @@ void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
   // Set the insertion point to the new error block
   Builder.SetInsertPoint(errorBlock);
 
-   // Create instructions to print an error message including the block's signature
+  // Create instructions to print an error message including the block's
+  // signature
   FunctionCallee printfFunc = F.getParent()->getOrInsertFunction(
       "printf", FunctionType::get(IntegerType::getInt32Ty(F.getContext()),
-                                  {Type::getInt8PtrTy(F.getContext()), IntegerType::getInt32Ty(F.getContext())}, true));
-  Value *errorMessage =
-      Builder.CreateGlobalStringPtr("Error: Control flow error detected! Runtime Signature: %d\n");
+                                  {Type::getInt8PtrTy(F.getContext()),
+                                   IntegerType::getInt32Ty(F.getContext())},
+                                  true));
+  Value *errorMessage = Builder.CreateGlobalStringPtr(
+      "Error: Control flow error detected! Runtime Signature: %d\n");
 
   // Assuming that RuntimeSignature is a global variable holding the signature
-  LoadInst *runtimeSig = Builder.CreateLoad(IntegerType::getInt32Ty(F.getContext()), RuntimeSignature, "runtimeSig");
+  LoadInst *runtimeSig = Builder.CreateLoad(
+      IntegerType::getInt32Ty(F.getContext()), RuntimeSignature, "runtimeSig");
   Builder.CreateCall(printfFunc, {errorMessage, runtimeSig});
 
   // Insert a call to abort the program
@@ -217,9 +290,9 @@ void HPSCCFAPass::populateGraph(Function &F) {
   // Clear previous graph entries
   graph.clear();
   for (auto &BB : F) {
-    if (DEBUG_FLAG)
-    {
-      errs() << "Adding Pre-Computed Values to Basic Block: " << BB.getName() << "\n";
+    if (DEBUG_FLAG) {
+      errs() << "Adding Pre-Computed Values to Basic Block: " << BB.getName()
+             << "\n";
     }
     if (graph.find(&BB) == graph.end()) {
       auto node = new CFABBNode(&BB);
@@ -245,11 +318,12 @@ unsigned HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
       // then we haven't seen any predecessors before
       sigDiff = pred->sig ^ succ->sig;
     } else {
-      // we have seen a predecessor before and need to adjust the signature
-      // keep sigDiff unchanged
+      // we have seen a predecessor before and need to adjust the signature, but
+      // keep sigDiff the same
       sigDiff = succ->sigDiff;
-      // make the predecessor adjuster whatever is needed to make
-      // pn->sigAdj ^ pn->sig ^ sn->sigDiff = sn->sig
+      // update predecessor's adjuster such that
+      // runtime signature 𝐺4(runtime succ sig) = 𝐺3(runtime pred
+      // sig)⊕𝑑4(succ->sigDiff)⊕𝐷3(pred->sigAdj)
       pred->sigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
     }
 
@@ -328,7 +402,7 @@ void HPSCCFAPass::printCurrentInsertionPoint(IRBuilder<> &Builder) {
 
 PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
-  DEBUG_FLAG = true;
+  DEBUG_FLAG = false;
 
   LLVMContext &Context = F.getContext();
   IRBuilder<> Builder(Context);
