@@ -308,9 +308,10 @@ void HPSCCFAPass::populateGraph(Function &F) {
   }
 }
 
-unsigned HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
+void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
                                                    CFABBNode *succ) {
   unsigned sigDiff = 0;
+  errs() << "Precomputing  for pred sig: " << pred->sig << ", succ sig: " << succ->sig << "\n";
 
   if (succ->isBranchFanIn) {
     // Adjust the signature only if there is a branching fan-in scenario
@@ -331,9 +332,11 @@ unsigned HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
     pred->sigAdj = 0; // No adjustment needed if there is no fan-in
     sigDiff = pred->sig ^ succ->sig;
   }
-
-  return sigDiff;
+  errs() << "Precomputed pred sigadj is: " << pred->sigAdj << ", succ sigDiff is: " << sigDiff << "\n";
+  succ->sigDiff = sigDiff;
 }
+
+
 
 void HPSCCFAPass::updateGraphEdges(CFABBNode *node) {
   BasicBlock *BB = node->node;
@@ -345,7 +348,7 @@ void HPSCCFAPass::updateGraphEdges(CFABBNode *node) {
     CFABBNode *succNode = graph[Succ];
 
     // Calculate signature differences
-    succNode->sigDiff = calculateSignatureDifference(node, succNode);
+    calculateSignatureDifference(node, succNode);
   }
 }
 
@@ -402,7 +405,7 @@ void HPSCCFAPass::printCurrentInsertionPoint(IRBuilder<> &Builder) {
 
 PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
-  DEBUG_FLAG = false;
+  DEBUG_FLAG = true;
 
   LLVMContext &Context = F.getContext();
   IRBuilder<> Builder(Context);

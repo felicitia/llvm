@@ -41,7 +41,7 @@ public:
   void setupGlobalVariables(Module &M);
   void insertSignatureChecks(Function &F, IRBuilder<> &Builder);
   void populateGraph(Function &F);
-  unsigned calculateSignatureDifference(CFABBNode* pred, CFABBNode* succ);
+  void calculateSignatureDifference(CFABBNode* pred, CFABBNode* succ);
   void updateGraphEdges(CFABBNode* node);
   void logGraphToDotFile(const std::string &filename);
   void insertComparisonInsts(CFABBNode* node, IRBuilder<>& Builder);
