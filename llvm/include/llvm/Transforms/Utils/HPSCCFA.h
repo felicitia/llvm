@@ -16,6 +16,7 @@ public:
   unsigned sigDiff;   // Signature difference for control flow checking
   unsigned sigAdj;    // Signature adjuster for complex flow scenarios
   bool isBranchFanIn; // True if this node has multiple predecessors
+  bool isBuffer; // Ture if this node is a buffer node
 
   // Constructor to initialize the node
   CFABBNode(BasicBlock *bb);
@@ -40,7 +41,7 @@ public:
   void createErrorBlock(Function &F, IRBuilder<> &Builder);
   void setupGlobalVariables(Module &M);
   void insertSignatureChecks(Function &F, IRBuilder<> &Builder);
-  void populateGraph(Function &F);
+  void populateGraph(Function &F, IRBuilder<> &Builder);
   void calculateSignatureDifference(CFABBNode* pred, CFABBNode* succ);
   void updateGraphEdges(CFABBNode* node);
   void logGraphToDotFile(const std::string &filename);
@@ -49,6 +50,10 @@ public:
   void insertUpdateRuntimeSigInsts(CFABBNode* node, IRBuilder<>& Builder);
   void printCurrentInsertionPoint(IRBuilder<> &Builder);
   void splitBBforCFABranch(Instruction *instToSplit);
+  void addBufferNodesAll(Function &F, IRBuilder<> &Builder);
+  CFABBNode* addBufferNode(Function &F, IRBuilder<> &Builder, CFABBNode* pred, CFABBNode* succ);
+  void updatePhiNodes(CFABBNode* pred, CFABBNode* buff, CFABBNode* succ);
+  void updateBranchInst(CFABBNode* pred, CFABBNode* buff, CFABBNode* succ);
 
   /**
    * DEBUG functions to intrument code for runtime information
