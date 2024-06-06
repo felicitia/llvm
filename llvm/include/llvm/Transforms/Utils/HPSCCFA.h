@@ -15,8 +15,11 @@ public:
   unsigned sig;       // Signature of this basic block
   unsigned sigDiff;   // Signature difference for control flow checking
   unsigned sigAdj;    // Signature adjuster for complex flow scenarios
+  unsigned selfLoopSigAdj;    // Signature adjuster for self-loop node, as sigAdj may be a different value when it has fan-in children
   bool isBranchFanIn; // True if this node has multiple predecessors
   bool isBuffer; // Ture if this node is a buffer node
+  bool isSelfLoop; // True if the node has an edge to itself
+  
 
   // Constructor to initialize the node
   CFABBNode(BasicBlock *bb);
@@ -36,6 +39,7 @@ public:
   BasicBlock* errorBlock; // each function has one error block
   GlobalVariable* RuntimeSignature;  // Runtime signature global variable
   GlobalVariable* RuntimeSignatureAdj;  // Runtime signature adjuster global variable
+  GlobalVariable* RuntimeSelfLoopSignatureAdj;  // Runtime self-loop signature adjuster global variable
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   void createErrorBlock(Function &F, IRBuilder<> &Builder);
