@@ -434,7 +434,7 @@ void HPSCCFAPass::updatePhiNodes(CFABBNode *pred, CFABBNode *buff, CFABBNode *su
  */
 void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
                                                CFABBNode *succ) {
-  unsigned sigDiff = 0;
+                                                
   errs() << "Precomputing  for pred sig: " << pred->sig
          << ", succ sig: " << succ->sig << "\n";
 
@@ -449,18 +449,18 @@ void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
     if (succ->sigDiff == 0 && pred->isSelfLoop == false) {
       // then this is the first predecessor of the fan-in node, we do not adjust
       // (sigAdj = 0)
-      sigDiff = pred->sig ^ succ->sig;
+      succ->sigDiff = pred->sig ^ succ->sig;
     } else {
-
       // update predecessor's adjuster such that
       // runtime signature 𝐺4(runtime succ sig) = 𝐺3(runtime pred
       // sig)⊕𝑑4(succ->sigDiff)⊕𝐷3(pred->sigAdj)
       if (pred == succ) {
         pred->selfLoopSigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
       } else {
-        // we have seen a predecessor before and need to adjust the signature,
-        // but keep sigDiff the same
-        sigDiff = succ->sigDiff;
+        // we have seen a predecessor before and need to adjust the signature
+        if (succ->sigDiff == 0){
+          succ->sigDiff = pred->sig ^ succ->sig;
+        }
         pred->sigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
       }
     }
@@ -468,17 +468,16 @@ void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
   } else {
     pred->sigAdj =
         0; // No adjustment needed if there is no fan-in (no self-loop either)
-    sigDiff = pred->sig ^ succ->sig;
+    succ->sigDiff = pred->sig ^ succ->sig;
   }
 
-  succ->sigDiff = sigDiff;
 
   if (pred == succ) {
     errs() << "Precomputed pred selfLoopigadj is: " << pred->sigAdj
-           << ", succ sigDiff is: " << sigDiff << "\n";
+           << ", succ sigDiff is: " << succ->sigDiff << "\n";
   } else {
     errs() << "Precomputed pred sigadj is: " << pred->sigAdj
-           << ", succ sigDiff is: " << sigDiff << "\n";
+           << ", succ sigDiff is: " << succ->sigDiff << "\n";
   }
 }
 
@@ -563,7 +562,7 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   createErrorBlock(F, Builder);
 
-  insertSignatureChecks(F, Builder);
+  // insertSignatureChecks(F, Builder);
 
   logGraphToDotFile("graph.dot");
 
