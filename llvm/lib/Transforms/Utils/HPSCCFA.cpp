@@ -27,8 +27,8 @@ unsigned generateUniqueSignature(BasicBlock *BB) {
 
 // Constructor implementation
 CFABBNode::CFABBNode(BasicBlock *bb)
-    : node(bb), sig(0), sigDiff(0), sigAdj(0), isBranchFanIn(false),
-      isBuffer(false) {}
+    : node(bb), sig(0), sigDiff(0), sigAdj(0), selfLoopSigAdj(0),
+      isBranchFanIn(false), isBuffer(false), isSelfLoop(false) {}
 
 // Method to set the signature
 void CFABBNode::setSignature(unsigned s) { sig = s; }
@@ -46,6 +46,10 @@ void HPSCCFAPass::setupGlobalVariables(Module &M) {
   RuntimeSignatureAdj = new GlobalVariable(
       M, Type::getInt32Ty(Context), false, GlobalVariable::InternalLinkage,
       ConstantInt::get(Type::getInt32Ty(Context), 0), "RuntimeSignatureAdj");
+  RuntimeSelfLoopSignatureAdj = new GlobalVariable(
+      M, Type::getInt32Ty(Context), false, GlobalVariable::InternalLinkage,
+      ConstantInt::get(Type::getInt32Ty(Context), 0),
+      "RuntimeSelfLoopSignatureAdj");
 }
 
 void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
@@ -307,11 +311,14 @@ void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
 
       if (fanInSuccs.size() > 1) {
         // Iterate over all but the first fan-in successor to add buffer nodes
-        for (auto it = std::next(fanInSuccs.begin()); it != fanInSuccs.end(); ++it) {
+        for (auto it = std::next(fanInSuccs.begin()); it != fanInSuccs.end();
+             ++it) {
           // Use the existing addBufferNode function to handle insertion
-          CFABBNode *bufferNode = addBufferNode(F, Builder, graph[BB], graph[*it]);
+          CFABBNode *bufferNode =
+              addBufferNode(F, Builder, graph[BB], graph[*it]);
 
-          // Redirect the original block's terminator to point to the buffer block
+          // Redirect the original block's terminator to point to the buffer
+          // block
           Instruction *TI = BB->getTerminator();
           for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
             if (TI->getSuccessor(i) == *it) {
@@ -324,17 +331,16 @@ void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
   }
 }
 
-
-
-CFABBNode* HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder, CFABBNode *pred, CFABBNode *succ) {
+CFABBNode *HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder,
+                                      CFABBNode *pred, CFABBNode *succ) {
   errs() << "-Inserting a buffer node-\n";
-  errs() << "  Between " << pred->node->getName() << " and " <<
-  succ->node->getName() << "\n";
+  errs() << "  Between " << pred->node->getName() << " and "
+         << succ->node->getName() << "\n";
 
   Twine name = "Buffer_" + pred->node->getName() + "_" + succ->node->getName();
   BasicBlock *bufferBB =
       BasicBlock::Create(F.getContext(), name, &F, succ->node);
-  CFABBNode* CFAbuffer = new CFABBNode(bufferBB);
+  CFABBNode *CFAbuffer = new CFABBNode(bufferBB);
   graph[bufferBB] = CFAbuffer;
   CFAbuffer->isBuffer = true;
 
@@ -351,20 +357,19 @@ CFABBNode* HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder, CFABBNo
   return CFAbuffer;
 }
 
-void HPSCCFAPass::updateBranchInst(CFABBNode* pred, CFABBNode* buff, CFABBNode* succ) {
-    // Get the terminator instruction of the predecessor block
-    llvm::Instruction* TI = pred->node->getTerminator();
+void HPSCCFAPass::updateBranchInst(CFABBNode *pred, CFABBNode *buff,
+                                   CFABBNode *succ) {
+  // Get the terminator instruction of the predecessor block
+  llvm::Instruction *TI = pred->node->getTerminator();
 
-    // Iterate through all successors of the terminator instruction
-    for (unsigned i = 0, NSucc = TI->getNumSuccessors(); i < NSucc; ++i) {
-        if (TI->getSuccessor(i) == succ->node) {
-            // Update the successor to point to the buffer node
-            TI->setSuccessor(i, buff->node);
-        }
+  // Iterate through all successors of the terminator instruction
+  for (unsigned i = 0, NSucc = TI->getNumSuccessors(); i < NSucc; ++i) {
+    if (TI->getSuccessor(i) == succ->node) {
+      // Update the successor to point to the buffer node
+      TI->setSuccessor(i, buff->node);
     }
+  }
 }
-
-
 
 void HPSCCFAPass::populateGraph(Function &F, IRBuilder<> &Builder) {
   // Clear previous graph entries
@@ -380,18 +385,20 @@ void HPSCCFAPass::populateGraph(Function &F, IRBuilder<> &Builder) {
 
   addBufferNodesAll(F, Builder);
 
-for (auto &BB : F) {
+  for (auto &BB : F) {
     if (DEBUG_FLAG) {
-      errs() << "Adding Pre-Computed Values to Basic Block: " << BB.getName() << "\n";
+      errs() << "Adding Pre-Computed Values to Basic Block: " << BB.getName()
+             << "\n";
     }
     auto currentNode = graph.find(&BB);
     if (currentNode != graph.end()) {
       // Node already exists, just update its properties
       CFABBNode *node = currentNode->second;
       node->setSignature(generateUniqueSignature(&BB));
-    }else{
+    } else {
       // Handle error: Basic block not found in the graph
-      errs() << "Error: Basic Block '" << BB.getName() << "' not found in graph.\n";
+      errs() << "Error: Basic Block '" << BB.getName()
+             << "' not found in graph.\n";
       errs() << "Aborting program.\n";
       abort();
     }
@@ -404,52 +411,75 @@ for (auto &BB : F) {
 }
 
 void HPSCCFAPass::updatePhiNodes(CFABBNode *pred, CFABBNode *buff, CFABBNode *succ) {
-    // This function will change the phi node predecessors in succ from pred to buff
-    BasicBlock *succBB = succ->node;
-    for (auto &I : *succBB) {
-        // Check if the instruction is a phi node
-        if (PHINode *phi = dyn_cast<PHINode>(&I)) {
-            // Iterate through each of the incoming edges
-            int incomingIndex = phi->getBasicBlockIndex(pred->node);
-            if (incomingIndex != -1) { // Check if pred is an incoming block
-                // Replace the incoming block (pred) with the buffer block (buff)
-                phi->setIncomingBlock(incomingIndex, buff->node);
-            }
-        } else {
-            // Stop modifying if it's not a phi node since all phi nodes are at the beginning
-            break;
-        }
+  // This function will change the phi node predecessors in succ from pred to buff
+  BasicBlock *succBB = succ->node;
+  for (auto &I : *succBB) {
+    // Check if the instruction is a phi node
+    if (PHINode *phi = dyn_cast<PHINode>(&I)) {
+      // Iterate through each of the incoming edges
+      int incomingIndex = phi->getBasicBlockIndex(pred->node);
+      if (incomingIndex != -1) { // Check if pred is an incoming block
+        // Replace the incoming block (pred) with the buffer block (buff)
+        phi->setIncomingBlock(incomingIndex, buff->node);
+      }
+    } else {
+      // Stop modifying if it's not a phi node since all phi nodes are at the beginning
+      break;
     }
+  }
 }
-
+/***
+ * update sigDiff, sigAdj, selfLoopSigAdj, isSelfLoop when iterating each edge
+ * in the graph
+ */
 void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
                                                CFABBNode *succ) {
   unsigned sigDiff = 0;
   errs() << "Precomputing  for pred sig: " << pred->sig
          << ", succ sig: " << succ->sig << "\n";
 
+  if (pred == succ) {
+    pred->isSelfLoop = true;
+  }
+
+  // Adjust the signature only if there is a branching fan-in scenario
   if (succ->isBranchFanIn) {
-    // Adjust the signature only if there is a branching fan-in scenario
-    if (succ->sigDiff == 0) {
-      // then we haven't seen any predecessors before
+    // It's possible when self-loop edge is visited before and the sigDiff is
+    // still 0
+    if (succ->sigDiff == 0 && pred->isSelfLoop == false) {
+      // then this is the first predecessor of the fan-in node, we do not adjust
+      // (sigAdj = 0)
       sigDiff = pred->sig ^ succ->sig;
     } else {
-      // we have seen a predecessor before and need to adjust the signature,
-      // but keep sigDiff the same
-      sigDiff = succ->sigDiff;
+
       // update predecessor's adjuster such that
       // runtime signature 𝐺4(runtime succ sig) = 𝐺3(runtime pred
       // sig)⊕𝑑4(succ->sigDiff)⊕𝐷3(pred->sigAdj)
-      pred->sigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
+      if (pred == succ) {
+        pred->selfLoopSigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
+      } else {
+        // we have seen a predecessor before and need to adjust the signature,
+        // but keep sigDiff the same
+        sigDiff = succ->sigDiff;
+        pred->sigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
+      }
     }
 
   } else {
-    pred->sigAdj = 0; // No adjustment needed if there is no fan-in
+    pred->sigAdj =
+        0; // No adjustment needed if there is no fan-in (no self-loop either)
     sigDiff = pred->sig ^ succ->sig;
   }
-  errs() << "Precomputed pred sigadj is: " << pred->sigAdj
-         << ", succ sigDiff is: " << sigDiff << "\n";
+
   succ->sigDiff = sigDiff;
+
+  if (pred == succ) {
+    errs() << "Precomputed pred selfLoopigadj is: " << pred->sigAdj
+           << ", succ sigDiff is: " << sigDiff << "\n";
+  } else {
+    errs() << "Precomputed pred sigadj is: " << pred->sigAdj
+           << ", succ sigDiff is: " << sigDiff << "\n";
+  }
 }
 
 void HPSCCFAPass::updateGraphEdges(CFABBNode *node) {
@@ -484,6 +514,8 @@ void HPSCCFAPass::logGraphToDotFile(const std::string &filename) {
     file << "  \"" << node->node->getName().str() << "\" [label=\""
          << node->node->getName().str() << "\\nSig: " << node->sig
          << "\\nSigDiff: " << node->sigDiff << "\\nSigAdj: " << node->sigAdj
+         << "\\nSelfLoopSigAdj: " << node->selfLoopSigAdj
+         << "\\nSelfLoop: " << node->isSelfLoop
          << "\\nFanIn: " << node->isBranchFanIn << "\"];\n";
 
     // Log edges
@@ -531,7 +563,7 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   createErrorBlock(F, Builder);
 
-  // insertSignatureChecks(F, Builder);
+  insertSignatureChecks(F, Builder);
 
   logGraphToDotFile("graph.dot");
 
