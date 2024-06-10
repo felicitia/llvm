@@ -293,14 +293,46 @@ void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
 }
 
 /***
+ * Add buffer nodes in the complicated cases when the sigAdj can be overwritten
+ */
+void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
+  
+  addBufferNodeForSelfLoop(F, Builder);
+  addBufferNodeForFanIn(F, Builder);
+}
+
+/***
+ * Handle self-loop nodes by inserting a buffer node to break the self-loop.
+ */
+void HPSCCFAPass::addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder){
+  for (auto &entry : graph) {
+    BasicBlock *BB = entry.first;
+    CFABBNode *node = entry.second;
+
+    // Handle self-loops
+    if (std::find(successors(BB).begin(), successors(BB).end(), BB) != successors(BB).end()) {
+      // This block is a self-loop; add a buffer node
+      CFABBNode *bufferNode = addBufferNode(F, Builder, node, node);
+      Instruction *TI = BB->getTerminator();
+      for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
+        if (TI->getSuccessor(i) == BB) {
+          TI->setSuccessor(i, bufferNode->node);
+        }
+      }
+    }
+  }
+}
+
+/***
  * Handle fan-in problem when the parent has multiple children who are both
  * fan-in nodes. This will override signature adjuster. Solution: We insert
  * buffer node that does not need the adjuster to avoid this case.
  */
-void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
-  for (auto &entry : graph) {
+void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder){
+   for (auto &entry : graph) {
     BasicBlock *BB = entry.first;
-
+    CFABBNode *node = entry.second;
+   // Handle multipe fan-in nodes
     if (llvm::succ_size(BB) > 1) {
       std::vector<BasicBlock *> fanInSuccs;
       for (BasicBlock *Succ : successors(BB)) {
@@ -328,7 +360,7 @@ void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
         }
       }
     }
-  }
+   }
 }
 
 CFABBNode *HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder,
@@ -562,7 +594,7 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   createErrorBlock(F, Builder);
 
-  // insertSignatureChecks(F, Builder);
+  // insertSignatureChecks(F, Builder); // graph structure will be invalid after inserting instructions as BB gets split
 
   logGraphToDotFile("graph.dot");
 
