@@ -296,21 +296,36 @@ void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
  * Add buffer nodes in the complicated cases when the sigAdj can be overwritten
  */
 void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
-  
+
   addBufferNodeForSelfLoop(F, Builder);
+
+  // Update isBranchFanIn field after inserting buffer node to self-loop nodes
+  for (auto &BB : F) {
+    auto currentNode = graph.find(&BB);
+    if (currentNode != graph.end()) {
+      // Node already exists, just update its properties
+      currentNode->second->checkAndUpdateBranchFanIn();
+    } else {
+      errs() << "Error: BasicBlock " << BB.getName()
+             << " not found in graph.\n";
+      std::abort(); 
+    }
+  }
+
   addBufferNodeForFanIn(F, Builder);
 }
 
 /***
  * Handle self-loop nodes by inserting a buffer node to break the self-loop.
  */
-void HPSCCFAPass::addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder){
+void HPSCCFAPass::addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder) {
   for (auto &entry : graph) {
     BasicBlock *BB = entry.first;
     CFABBNode *node = entry.second;
 
     // Handle self-loops
-    if (std::find(successors(BB).begin(), successors(BB).end(), BB) != successors(BB).end()) {
+    if (std::find(successors(BB).begin(), successors(BB).end(), BB) !=
+        successors(BB).end()) {
       // This block is a self-loop; add a buffer node
       CFABBNode *bufferNode = addBufferNode(F, Builder, node, node);
       Instruction *TI = BB->getTerminator();
@@ -328,11 +343,10 @@ void HPSCCFAPass::addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder){
  * fan-in nodes. This will override signature adjuster. Solution: We insert
  * buffer node that does not need the adjuster to avoid this case.
  */
-void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder){
-   for (auto &entry : graph) {
+void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder) {
+  for (auto &entry : graph) {
     BasicBlock *BB = entry.first;
-    CFABBNode *node = entry.second;
-   // Handle multipe fan-in nodes
+    // Handle multipe fan-in nodes
     if (llvm::succ_size(BB) > 1) {
       std::vector<BasicBlock *> fanInSuccs;
       for (BasicBlock *Succ : successors(BB)) {
@@ -360,7 +374,7 @@ void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder){
         }
       }
     }
-   }
+  }
 }
 
 CFABBNode *HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder,
@@ -406,12 +420,12 @@ void HPSCCFAPass::updateBranchInst(CFABBNode *pred, CFABBNode *buff,
 void HPSCCFAPass::populateGraph(Function &F, IRBuilder<> &Builder) {
   // Clear previous graph entries
   graph.clear();
+
+  // initiate nodes in the graph
   for (auto &BB : F) {
     if (graph.find(&BB) == graph.end()) {
       auto node = new CFABBNode(&BB);
       graph[&BB] = node;
-      // Initialize node properties
-      node->checkAndUpdateBranchFanIn();
     }
   }
 
@@ -419,8 +433,8 @@ void HPSCCFAPass::populateGraph(Function &F, IRBuilder<> &Builder) {
 
   for (auto &BB : F) {
     if (DEBUG_FLAG) {
-      errs() << "Adding Pre-Computed Values to Basic Block: " << BB.getName()
-             << "\n";
+      errs() << "Adding Pre-Computed Signatures to Basic Block: "
+             << BB.getName() << "\n";
     }
     auto currentNode = graph.find(&BB);
     if (currentNode != graph.end()) {
@@ -442,8 +456,10 @@ void HPSCCFAPass::populateGraph(Function &F, IRBuilder<> &Builder) {
   }
 }
 
-void HPSCCFAPass::updatePhiNodes(CFABBNode *pred, CFABBNode *buff, CFABBNode *succ) {
-  // This function will change the phi node predecessors in succ from pred to buff
+void HPSCCFAPass::updatePhiNodes(CFABBNode *pred, CFABBNode *buff,
+                                 CFABBNode *succ) {
+  // This function will change the phi node predecessors in succ from pred to
+  // buff
   BasicBlock *succBB = succ->node;
   for (auto &I : *succBB) {
     // Check if the instruction is a phi node
@@ -455,7 +471,8 @@ void HPSCCFAPass::updatePhiNodes(CFABBNode *pred, CFABBNode *buff, CFABBNode *su
         phi->setIncomingBlock(incomingIndex, buff->node);
       }
     } else {
-      // Stop modifying if it's not a phi node since all phi nodes are at the beginning
+      // Stop modifying if it's not a phi node since all phi nodes are at the
+      // beginning
       break;
     }
   }
@@ -466,12 +483,14 @@ void HPSCCFAPass::updatePhiNodes(CFABBNode *pred, CFABBNode *buff, CFABBNode *su
  */
 void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
                                                CFABBNode *succ) {
-                                                
+
   errs() << "Precomputing  for pred sig: " << pred->sig
          << ", succ sig: " << succ->sig << "\n";
 
   if (pred == succ) {
-    pred->isSelfLoop = true;
+    errs() << "Error: Self-loop detected at " << pred->node->getName()
+           << ". Aborting.\n";
+    abort();
   }
 
   // Adjust the signature only if there is a branching fan-in scenario
@@ -490,7 +509,7 @@ void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
         pred->selfLoopSigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
       } else {
         // we have seen a predecessor before and need to adjust the signature
-        if (succ->sigDiff == 0){
+        if (succ->sigDiff == 0) {
           succ->sigDiff = pred->sig ^ succ->sig;
         }
         pred->sigAdj = pred->sig ^ succ->sigDiff ^ succ->sig;
@@ -502,7 +521,6 @@ void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
         0; // No adjustment needed if there is no fan-in (no self-loop either)
     succ->sigDiff = pred->sig ^ succ->sig;
   }
-
 
   if (pred == succ) {
     errs() << "Precomputed pred selfLoopigadj is: " << pred->sigAdj
@@ -594,7 +612,8 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   createErrorBlock(F, Builder);
 
-  // insertSignatureChecks(F, Builder); // graph structure will be invalid after inserting instructions as BB gets split
+  // insertSignatureChecks(F, Builder); // graph structure will be invalid after
+  // inserting instructions as BB gets split
 
   logGraphToDotFile("graph.dot");
 
