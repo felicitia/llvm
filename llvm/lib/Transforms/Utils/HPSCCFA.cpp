@@ -287,7 +287,7 @@ void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
                                    IntegerType::getInt32Ty(F.getContext())},
                                   true));
   Value *errorMessage = Builder.CreateGlobalStringPtr(
-      "Error: Control flow error detected! Runtime Signature: %d\n");
+      "[HPSC-CFA] Error: Control flow error detected! Runtime Signature: %d\n");
 
   // Assuming that RuntimeSignature is a global variable holding the signature
   LoadInst *runtimeSig = Builder.CreateLoad(
@@ -528,8 +528,8 @@ void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
     }
 
   } else {
-    pred->sigAdj =
-        0; // No adjustment needed if there is no fan-in (no self-loop either)
+    // pred->sigAdj =
+    //     0; // No adjustment needed if there is no fan-in (no self-loop either)
     succ->sigDiff = pred->sig ^ succ->sig;
   }
 
