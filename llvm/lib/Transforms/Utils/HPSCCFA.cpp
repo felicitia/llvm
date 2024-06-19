@@ -8,6 +8,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 #include <cstdlib>
 #include <fstream>
 #include <unordered_map>
@@ -16,6 +17,16 @@ using namespace llvm;
 
 static unsigned NextSignature =
     1; // Global variable for unique signature generation
+
+static llvm::cl::opt<int> Mode(
+    "mode", 
+    llvm::cl::desc("Specify the operational mode of the pass: \n"
+                   "1 - Debug mode with signature checks\n"
+                   "2 - Debug mode without signature checks to generate graph.dot\n"
+                   "3 - Production mode with signature checks"),
+    llvm::cl::init(1) // Default mode
+);
+
 
 unsigned generateUniqueSignature(BasicBlock *BB) {
   static std::unordered_map<BasicBlock *, unsigned> signatureMap;
@@ -598,9 +609,8 @@ void HPSCCFAPass::printCurrentInsertionPoint(IRBuilder<> &Builder) {
   }
 }
 
-PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
-  DEBUG_FLAG = true;
+PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   LLVMContext &Context = F.getContext();
   IRBuilder<> Builder(Context);
@@ -608,14 +618,34 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
   setupGlobalVariables(*F.getParent());
   errs() << "Function name: " << F.getName() << "\n";
 
-  populateGraph(F, Builder);
+  
 
-  createErrorBlock(F, Builder);
-
-  // insertSignatureChecks(F, Builder); // graph structure will be invalid after
-  // inserting instructions as BB gets split
-
-  logGraphToDotFile("graph.dot");
+  switch (Mode) {
+        case 1:
+            DEBUG_FLAG = true; // Turn on debug flag
+            errs() << "Running in debug mode with signature checks.\n";
+            populateGraph(F, Builder);
+            createErrorBlock(F, Builder);
+            insertSignatureChecks(F, Builder); // graph structure will be invalid after inserting instructions as BB gets split
+            break;
+        case 2:
+            DEBUG_FLAG = true; // Turn on debug flag
+            errs() << "Running in debug mode without signature checks to generate graph.dot.\n";
+            populateGraph(F, Builder);
+            createErrorBlock(F, Builder);
+            logGraphToDotFile("graph.dot");
+            break;
+        case 3:
+            DEBUG_FLAG = false; // Turn off debug flag
+            errs() << "Running in production mode with signature checks.\n";
+            populateGraph(F, Builder);
+            createErrorBlock(F, Builder);
+            insertSignatureChecks(F, Builder); // graph structure will be invalid after inserting instructions as BB gets split
+            break;
+        default:
+            errs() << "Invalid mode specified.\n";
+            break;
+    }
 
   return PreservedAnalyses::all();
 }
