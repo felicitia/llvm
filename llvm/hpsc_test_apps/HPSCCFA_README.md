@@ -47,7 +47,52 @@ Negated userInput is -3
 Total program running time: 0.024188 seconds
 Bye bye! :)
 ```
-5. Demo with faults (specify 3 iterations and we expect -3 as the Negated userInput)
+5. Demo with faults (specify 3 iterations, but jump to EVEN number's for loop instead)
+
+Original:
+(gdb) break 32  # Line 32: int loopCount = userInput (right after Line 31: printf("The ODD user input is %d\n", userInput);)
+(gdb) run 3
+(gdb) set $pc=0x00000000000107e4  # Jump to for loop for EVEN number's if condition instead (`0x00000000000107e4 <+86>:	blez	s7,0x108c2 <main+308>` Branch if Less Than or Equal to Zero)
+(gdb) c
+Continuing.
+EVEN loop iteration: 0
+Time spent in iteration 0: 0.006483 seconds
+EVEN loop iteration: 1
+Time spent in iteration 1: 0.003742 seconds
+EVEN loop iteration: 2
+Time spent in iteration 2: 0.001514 seconds
+EVEN loop iteration: 3
+^Z
+Program received signal SIGTSTP, Stopped (user).
+0x000000000003edb4 in clock_nanosleep ()
+
+RISCV64-Production:
+(gdb) break 32  # Line 32: int loopCount = userInput (right after Line 31: printf("The ODD user input is %d\n", userInput);)
+(gdb) run 3
+(gdb) set $pc=0x0000000000010834 # Jump to for loop for EVEN number's if condition instead (`0x0000000000010834 <+166>:	blez	s6,0x10998 <main+522>` Branch if Less Than or Equal to Zero)
+(gdb) c
+Continuing.
+[HPSC-CFA] Error: Control flow error detected! Runtime Signature: 3
+
+Program received signal SIGABRT, Aborted.
+0x000000000001f2a6 in __pthread_kill_implementation.constprop.0 ()
+
+RISCV64-Debug:
+(gdb) break 32  # Line 32: int loopCount = userInput (right after Line 31: printf("The ODD user input is %d\n", userInput);)
+(gdb) run 3
+(gdb) set $pc=0x0000000000010892 # Jump to for loop for EVEN number's if condition instead (`0x0000000000010892 <+260>:	blez	s8,0x10a88 <main+762>` Branch if Less Than or Equal to Zero)
+(gdb) c
+Continuing.
+Runtime Sig of Parent: 3
+ PreComputed Sig: 5
+ PreComputed Sig Diff: 1
+ XOR Result (Runtime Current Sig): 2
+[HPSC-CFA] Error: Control flow error detected! Runtime Signature: 3
+
+Program received signal SIGABRT, Aborted.
+0x000000000001f3d6 in __pthread_kill_implementation.constprop.0 ()
+
+<!-- 5. Demo with faults (specify 3 iterations and we expect -3 as the Negated userInput)
 Set PC value to `negw` instruction, and the CFE will be detected at the beginning of the "return" Basic Block because we check CFA in the beginning of BB (before the `negw` instruction).
 
 ```sh
@@ -143,4 +188,4 @@ You can continue the GDB session
     Program received signal SIGABRT, Aborted.
     0x000000000001f3d6 in __pthread_kill_implementation.constprop.0 ()
 
-```
+``` -->
