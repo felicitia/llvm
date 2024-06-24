@@ -50,6 +50,8 @@ Bye bye! :)
 5. Demo with faults (specify 3 iterations, but jump to EVEN number's for loop instead)
 
 Original:
+
+```sh
 (gdb) break 32  # Line 32: int loopCount = userInput (right after Line 31: printf("The ODD user input is %d\n", userInput);)
 (gdb) run 3
 (gdb) set $pc=0x00000000000107e4  # Jump to for loop for EVEN number's if condition instead (`0x00000000000107e4 <+86>:	blez	s7,0x108c2 <main+308>` Branch if Less Than or Equal to Zero)
@@ -65,8 +67,11 @@ EVEN loop iteration: 3
 ^Z
 Program received signal SIGTSTP, Stopped (user).
 0x000000000003edb4 in clock_nanosleep ()
+```
 
 RISCV64-Production:
+
+```sh
 (gdb) break 32  # Line 32: int loopCount = userInput (right after Line 31: printf("The ODD user input is %d\n", userInput);)
 (gdb) run 3
 (gdb) set $pc=0x0000000000010834 # Jump to for loop for EVEN number's if condition instead (`0x0000000000010834 <+166>:	blez	s6,0x10998 <main+522>` Branch if Less Than or Equal to Zero)
@@ -76,8 +81,11 @@ Continuing.
 
 Program received signal SIGABRT, Aborted.
 0x000000000001f2a6 in __pthread_kill_implementation.constprop.0 ()
+```
 
 RISCV64-Debug:
+
+```sh
 (gdb) break 32  # Line 32: int loopCount = userInput (right after Line 31: printf("The ODD user input is %d\n", userInput);)
 (gdb) run 3
 (gdb) set $pc=0x0000000000010892 # Jump to for loop for EVEN number's if condition instead (`0x0000000000010892 <+260>:	blez	s8,0x10a88 <main+762>` Branch if Less Than or Equal to Zero)
@@ -91,6 +99,7 @@ Runtime Sig of Parent: 3
 
 Program received signal SIGABRT, Aborted.
 0x000000000001f3d6 in __pthread_kill_implementation.constprop.0 ()
+```
 
 <!-- 5. Demo with faults (specify 3 iterations and we expect -3 as the Negated userInput)
 Set PC value to `negw` instruction, and the CFE will be detected at the beginning of the "return" Basic Block because we check CFA in the beginning of BB (before the `negw` instruction).
