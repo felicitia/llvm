@@ -14,7 +14,8 @@ int main(int argc, char *argv[]) {
     clock_t start = clock();
     if (userInput % 2 == 0) {
         printf("The EVEN user input is %d\n", userInput);
-        int loopCount = userInput * 1000;
+        int loopCount = userInput;
+        double total_loop_time = 0;
 
         for (int i = 0; i < loopCount; i++) {
             clock_t loop_start = clock();
@@ -23,13 +24,16 @@ int main(int argc, char *argv[]) {
             sleep(1);
             clock_t loop_end = clock();
             double loop_time = (double)(loop_end - loop_start) / CLOCKS_PER_SEC;
-            printf("Time spent in iteration %d: %f seconds\n", i, loop_time);
+            total_loop_time += loop_time;
+            // printf("Time spent in iteration %d: %f seconds\n", i, loop_time);
         }
         printf("End EVEN Loop\n");
+        printf("Average execution time per loop: %f seconds\n", total_loop_time / loopCount);
 
     } else {
         printf("The ODD user input is %d\n", userInput);
-        int loopCount = userInput;
+        int loopCount = userInput * 1000;
+        double total_loop_time = 0;
 
         for (int i = 0; i < loopCount; i++) {
             clock_t loop_start = clock();
@@ -38,9 +42,11 @@ int main(int argc, char *argv[]) {
             sleep(1);
             clock_t loop_end = clock();
             double loop_time = (double)(loop_end - loop_start) / CLOCKS_PER_SEC;
-            printf("Time spent in iteration %d: %f seconds\n", i, loop_time);
+            total_loop_time += loop_time;
+            // printf("Time spent in iteration %d: %f seconds\n", i, loop_time);
         }
         printf("End ODD Loop\n");
+        printf("Average execution time per loop: %f seconds\n", total_loop_time / loopCount);
     }
 
     userInput = -userInput;
