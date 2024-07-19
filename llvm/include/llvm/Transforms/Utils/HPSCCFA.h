@@ -53,7 +53,7 @@ public:
   void logGraphToDotFile(const std::string &filename);
   void insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder);
   void insertComparisonInstsForEntryBB(CFABBNode *node, IRBuilder<> &Builder);
-  void insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Builder);
+  void insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Builder, Instruction *insertBefore);
   void printCurrentInsertionPoint(IRBuilder<> &Builder);
   void splitBBforCFABranch(Instruction *instToSplit);
   void addBufferNodesAll(Function &F, IRBuilder<> &Builder);

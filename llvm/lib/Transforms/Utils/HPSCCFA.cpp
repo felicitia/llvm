@@ -145,6 +145,7 @@ void HPSCCFAPass::insertComparisonInstsForEntryBB(CFABBNode *node,
 
   Value *isInitZero = Builder.CreateICmpEQ(currentSig, zero, "isInitZero");
   Instruction *checkInitInst = dyn_cast<Instruction>(isInitZero);
+  insertUpdateRuntimeSigInsts(node, Builder, checkInitInst);  
   splitBBforCFABranch(checkInitInst);
 }
 
@@ -204,6 +205,7 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
   // Compare the XOR result with the expected signature
   Value *sigMatch = Builder.CreateICmpEQ(xorResult, precomputedSig, "sigMatch");
   Instruction *sigMatchInst = dyn_cast<Instruction>(sigMatch);
+  insertUpdateRuntimeSigInsts(node, Builder, sigMatchInst);
   splitBBforCFABranch(sigMatchInst);
 
   // errs() << "After modification:\n";
@@ -211,17 +213,15 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
 }
 
 /**
- * Insert runtime signature update instructions in the end of the BB
+ * Insert runtime signature update instructions before the insertBefore instruction
  * **/
-void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node,
-                                              IRBuilder<> &Builder) {
+void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Builder, Instruction *insertBefore) {
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
   IntegerType *IT1 = Type::getInt32Ty(Context);
 
-  // Get the terminator instruction of the basic block
-  Instruction *terminator = BB->getTerminator();
-  Builder.SetInsertPoint(terminator);
+  // Set the insertion point before the specified instruction
+  Builder.SetInsertPoint(insertBefore);
 
   // Update the current signature
   ConstantInt *precomputedSig = ConstantInt::get(IT1, node->sig, false);
@@ -231,6 +231,7 @@ void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node,
   ConstantInt *precomputedSigAdj = ConstantInt::get(IT1, node->sigAdj, false);
   Builder.CreateStore(precomputedSigAdj, RuntimeSignatureAdj);
 }
+
 
 void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
   BasicBlock &entryBlock = F.getEntryBlock();
@@ -242,11 +243,6 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
       if (DEBUG_FLAG) {
         errs() << "Entry Block sig: " << entry.second->sig << "\n";
       }
-      // Insert runtime signature updating instructions in the end
-      if (DEBUG_FLAG) {
-        errs() << "insert runtime signature update instructions...\n";
-      }
-      insertUpdateRuntimeSigInsts(entry.second, Builder);
       if (DEBUG_FLAG) {
         errs() << "insert signature comparison instructions for entry BB...\n";
       }
@@ -256,11 +252,6 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
       if (DEBUG_FLAG) {
         errs() << "NON-Entry Block sig: " << entry.second->sig << "\n";
       }
-      // Insert runtime signature updating instructions in the end
-      if (DEBUG_FLAG) {
-        errs() << "insert runtime signature update instructions...\n";
-      }
-      insertUpdateRuntimeSigInsts(entry.second, Builder);
       // Insert comparison instructions for each non-entry node in the beginning
       if (DEBUG_FLAG) {
         errs() << "insert signature comparison instructions...\n";
