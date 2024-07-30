@@ -7,8 +7,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
 #include <fstream>
 #include <unordered_map>
@@ -18,15 +18,15 @@ using namespace llvm;
 static unsigned NextSignature =
     1; // Global variable for unique signature generation
 
-static llvm::cl::opt<int> Mode(
-    "mode", 
-    llvm::cl::desc("Specify the operational mode of the pass: \n"
-                   "1 - Debug mode with signature checks\n"
-                   "2 - Debug mode without signature checks to generate graph.dot\n"
-                   "3 - Production mode with signature checks"),
-    llvm::cl::init(1) // Default mode
-);
-
+static llvm::cl::opt<int>
+    Mode("mode",
+         llvm::cl::desc(
+             "Specify the operational mode of the pass: \n"
+             "1 - Debug mode with signature checks\n"
+             "2 - Debug mode without signature checks to generate graph.dot\n"
+             "3 - Production mode with signature checks"),
+         llvm::cl::init(1) // Default mode
+    );
 
 unsigned generateUniqueSignature(BasicBlock *BB) {
   static std::unordered_map<BasicBlock *, unsigned> signatureMap;
@@ -145,7 +145,7 @@ void HPSCCFAPass::insertComparisonInstsForEntryBB(CFABBNode *node,
 
   Value *isInitZero = Builder.CreateICmpEQ(currentSig, zero, "isInitZero");
   Instruction *checkInitInst = dyn_cast<Instruction>(isInitZero);
-  insertUpdateRuntimeSigInsts(node, Builder, checkInitInst);  
+  insertUpdateRuntimeSigInsts(node, Builder, checkInitInst);
   splitBBforCFABranch(checkInitInst);
 }
 
@@ -213,9 +213,12 @@ void HPSCCFAPass::insertComparisonInsts(CFABBNode *node, IRBuilder<> &Builder) {
 }
 
 /**
- * Insert runtime signature update instructions before the insertBefore instruction
+ * Insert runtime signature update instructions before the insertBefore
+ * instruction
  * **/
-void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Builder, Instruction *insertBefore) {
+void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node,
+                                              IRBuilder<> &Builder,
+                                              Instruction *insertBefore) {
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
   IntegerType *IT1 = Type::getInt32Ty(Context);
@@ -231,7 +234,6 @@ void HPSCCFAPass::insertUpdateRuntimeSigInsts(CFABBNode *node, IRBuilder<> &Buil
   ConstantInt *precomputedSigAdj = ConstantInt::get(IT1, node->sigAdj, false);
   Builder.CreateStore(precomputedSigAdj, RuntimeSignatureAdj);
 }
-
 
 void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
   BasicBlock &entryBlock = F.getEntryBlock();
@@ -250,7 +252,8 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
                                       Builder); // entry.second is CFABBNode
     } else {
       if (DEBUG_FLAG) {
-        errs() << "NON-Entry Block sig: " << entry.second->sig << "\n";
+        errs() << "NON-Entry Block sig: " << entry.second->sig
+               << "\tBB: " << entry.first->getName() << "\n";
       }
       // Insert comparison instructions for each non-entry node in the beginning
       if (DEBUG_FLAG) {
@@ -300,7 +303,8 @@ void HPSCCFAPass::createErrorBlock(Function &F, IRBuilder<> &Builder) {
 void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
 
   addBufferNodeForSelfLoop(F, Builder);
-
+  std::string filename = (F.getName() + "_noSelfLoop.dot").str();
+  logGraphToDotFile(filename);
   // Update isBranchFanIn field after inserting buffer node to self-loop nodes
   for (auto &BB : F) {
     auto currentNode = graph.find(&BB);
@@ -310,7 +314,7 @@ void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
     } else {
       errs() << "Error: BasicBlock " << BB.getName()
              << " not found in graph.\n";
-      std::abort(); 
+      std::abort();
     }
   }
 
@@ -430,7 +434,8 @@ void HPSCCFAPass::populateGraph(Function &F, IRBuilder<> &Builder) {
       graph[&BB] = node;
     }
   }
-
+  std::string filename = (F.getName() + "_init.dot").str();
+  logGraphToDotFile(filename);
   addBufferNodesAll(F, Builder);
 
   for (auto &BB : F) {
@@ -520,7 +525,8 @@ void HPSCCFAPass::calculateSignatureDifference(CFABBNode *pred,
 
   } else {
     // pred->sigAdj =
-    //     0; // No adjustment needed if there is no fan-in (no self-loop either)
+    //     0; // No adjustment needed if there is no fan-in (no self-loop
+    //     either)
     succ->sigDiff = pred->sig ^ succ->sig;
   }
 
@@ -544,6 +550,7 @@ void HPSCCFAPass::updateGraphEdges(CFABBNode *node) {
 
     // Calculate signature differences
     calculateSignatureDifference(node, succNode);
+    BB->dump();
   }
 }
 
@@ -600,7 +607,6 @@ void HPSCCFAPass::printCurrentInsertionPoint(IRBuilder<> &Builder) {
   }
 }
 
-
 PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   LLVMContext &Context = F.getContext();
@@ -609,34 +615,38 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
   setupGlobalVariables(*F.getParent());
   errs() << "Function name: " << F.getName() << "\n";
 
-  
-
   switch (Mode) {
-        case 1:
-            DEBUG_FLAG = true; // Turn on debug flag
-            errs() << "Running in debug mode with signature checks.\n";
-            populateGraph(F, Builder);
-            createErrorBlock(F, Builder);
-            insertSignatureChecks(F, Builder); // graph structure will be invalid after inserting instructions as BB gets split
-            break;
-        case 2:
-            DEBUG_FLAG = true; // Turn on debug flag
-            errs() << "Running in debug mode without signature checks to generate graph.dot.\n";
-            populateGraph(F, Builder);
-            createErrorBlock(F, Builder);
-            logGraphToDotFile("graph.dot");
-            break;
-        case 3:
-            DEBUG_FLAG = false; // Turn off debug flag
-            errs() << "Running in production mode with signature checks.\n";
-            populateGraph(F, Builder);
-            createErrorBlock(F, Builder);
-            insertSignatureChecks(F, Builder); // graph structure will be invalid after inserting instructions as BB gets split
-            break;
-        default:
-            errs() << "Invalid mode specified.\n";
-            break;
-    }
+  case 1:
+    DEBUG_FLAG = true; // Turn on debug flag
+    errs() << "Running in debug mode with signature checks.\n";
+    populateGraph(F, Builder);
+    createErrorBlock(F, Builder);
+    insertSignatureChecks(F,
+                          Builder); // graph structure will be invalid after
+                                    // inserting instructions as BB gets split
+    break;
+  case 2: {
+    DEBUG_FLAG = true; // Turn on debug flag
+    errs() << "Running in debug mode without signature checks to generate "
+              "graph.dot.\n";
+    populateGraph(F, Builder);
+    createErrorBlock(F, Builder);
+    std::string filename = (F.getName() + ".dot").str();
+    logGraphToDotFile(filename);
+  } break;
+  case 3:
+    DEBUG_FLAG = false; // Turn off debug flag
+    errs() << "Running in production mode with signature checks.\n";
+    populateGraph(F, Builder);
+    createErrorBlock(F, Builder);
+    insertSignatureChecks(F,
+                          Builder); // graph structure will be invalid after
+                                    // inserting instructions as BB gets split
+    break;
+  default:
+    errs() << "Invalid mode specified.\n";
+    break;
+  }
 
   return PreservedAnalyses::all();
 }
