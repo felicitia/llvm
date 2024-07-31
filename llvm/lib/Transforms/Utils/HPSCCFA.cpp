@@ -317,8 +317,11 @@ void HPSCCFAPass::addBufferNodesAll(Function &F, IRBuilder<> &Builder) {
       std::abort();
     }
   }
-
+  filename = (F.getName() + "_beforeFanIn.dot").str();
+  logGraphToDotFile(filename);
   addBufferNodeForFanIn(F, Builder);
+  filename = (F.getName() + "_afterFanIn.dot").str();
+  logGraphToDotFile(filename);
 }
 
 /***
@@ -352,25 +355,22 @@ void HPSCCFAPass::addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder) {
 void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder) {
   for (auto &entry : graph) {
     BasicBlock *BB = entry.first;
-    // Handle multipe fan-in nodes
+    // Handle multiple fan-in nodes
     if (llvm::succ_size(BB) > 1) {
-      std::vector<BasicBlock *> fanInSuccs;
+      std::set<BasicBlock *> fanInSuccs;
       for (BasicBlock *Succ : successors(BB)) {
         if (graph[Succ]->isBranchFanIn) {
-          fanInSuccs.push_back(Succ);
+          fanInSuccs.insert(Succ);
         }
       }
 
       if (fanInSuccs.size() > 1) {
         // Iterate over all but the first fan-in successor to add buffer nodes
-        for (auto it = std::next(fanInSuccs.begin()); it != fanInSuccs.end();
-             ++it) {
+        for (auto it = std::next(fanInSuccs.begin()); it != fanInSuccs.end(); ++it) {
           // Use the existing addBufferNode function to handle insertion
-          CFABBNode *bufferNode =
-              addBufferNode(F, Builder, graph[BB], graph[*it]);
+          CFABBNode *bufferNode = addBufferNode(F, Builder, graph[BB], graph[*it]);
 
-          // Redirect the original block's terminator to point to the buffer
-          // block
+          // Redirect the original block's terminator to point to the buffer block
           Instruction *TI = BB->getTerminator();
           for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
             if (TI->getSuccessor(i) == *it) {
@@ -382,6 +382,7 @@ void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder) {
     }
   }
 }
+
 
 CFABBNode *HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder,
                                       CFABBNode *pred, CFABBNode *succ) {
@@ -550,7 +551,10 @@ void HPSCCFAPass::updateGraphEdges(CFABBNode *node) {
 
     // Calculate signature differences
     calculateSignatureDifference(node, succNode);
-    BB->dump();
+    errs() << "\nFunction:" << BB->getParent()->getName()
+           << "\nUpdating edge from " << BB->getName() << " to "
+           << Succ->getName() << "\n";
+    // BB->dump();
   }
 }
 
