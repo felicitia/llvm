@@ -71,16 +71,20 @@ void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
   BasicBlock *BB = node->node;
   LLVMContext &Context = BB->getContext();
 
+  // Print the function name
+  Function *parentFunc = BB->getParent();
+  Value *funcName = Builder.CreateGlobalStringPtr(parentFunc->getName());
+
   // Print the current and expected signature values and the match result
   FunctionCallee printfFunc = BB->getModule()->getOrInsertFunction(
       "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
                                   {Type::getInt8PtrTy(Context)}, true));
   Value *message = Builder.CreateGlobalStringPtr(
-      "Runtime Sig of Parent: %d\n PreComputed Sig: %d\n PreComputed Sig Diff: "
-      "%d\n XOR Result (Runtime Current Sig): %d\n");
-  Builder.CreateCall(printfFunc, {message, currentSig, precomputedSig,
+      "Function: %s\nRuntime Sig of Parent: %d\nPreComputed Sig: %d\nPreComputed Sig Diff: %d\nXOR Result (Runtime Current Sig): %d\n");
+  Builder.CreateCall(printfFunc, {message, funcName, currentSig, precomputedSig,
                                   precomputedSigDiff, xorResult});
 }
+
 
 /**
  * LLVM IR cannot have br instruction in the middle of the BB
@@ -127,26 +131,25 @@ void HPSCCFAPass::insertComparisonInstsForEntryBB(CFABBNode *node,
   ConstantInt *precomputedSigDiff =
       ConstantInt::get(Type::getInt32Ty(Context), node->sigDiff);
 
-  // For entry node, we directly check if the RuntimeSignature is zero
   LoadInst *currentSig = Builder.CreateLoad(Type::getInt32Ty(Context),
                                             RuntimeSignature, "currentSig");
-  ConstantInt *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
+  // ConstantInt *zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
   if (DEBUG_FLAG) {
     // Print the current and expected signature values
     FunctionCallee printfFunc = BB->getModule()->getOrInsertFunction(
         "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
                                     {Type::getInt8PtrTy(Context)}, true));
     Value *message =
-        Builder.CreateGlobalStringPtr("Runtime Sig of Parent: %d\n PreComputed "
+        Builder.CreateGlobalStringPtr("ENTRY Runtime Sig of Parent: %d\n PreComputed "
                                       "Sig: %d\n PreComputed Sig Diff: %d\n");
     Builder.CreateCall(
         printfFunc, {message, currentSig, precomputedSig, precomputedSigDiff});
   }
 
-  Value *isInitZero = Builder.CreateICmpEQ(currentSig, zero, "isInitZero");
-  Instruction *checkInitInst = dyn_cast<Instruction>(isInitZero);
-  insertUpdateRuntimeSigInsts(node, Builder, checkInitInst);
-  splitBBforCFABranch(checkInitInst);
+  // Value *isInitZero = Builder.CreateICmpEQ(currentSig, zero, "isInitZero");
+  // Instruction *checkInitInst = dyn_cast<Instruction>(isInitZero);
+  insertUpdateRuntimeSigInsts(node, Builder, BB->getTerminator());
+  // splitBBforCFABranch(checkInitInst);
 }
 
 /**
@@ -244,9 +247,7 @@ void HPSCCFAPass::insertSignatureChecks(Function &F, IRBuilder<> &Builder) {
     if (entry.second->node == &entryBlock) {
       if (DEBUG_FLAG) {
         errs() << "Entry Block sig: " << entry.second->sig << "\n";
-      }
-      if (DEBUG_FLAG) {
-        errs() << "insert signature comparison instructions for entry BB...\n";
+        errs() << "insert signature updating instructions for entry BB...\n";
       }
       insertComparisonInstsForEntryBB(entry.second,
                                       Builder); // entry.second is CFABBNode
@@ -620,22 +621,24 @@ PreservedAnalyses HPSCCFAPass::run(Function &F, FunctionAnalysisManager &AM) {
   errs() << "Function name: " << F.getName() << "\n";
 
   switch (Mode) {
-  case 1:
+  case 1: {
     DEBUG_FLAG = true; // Turn on debug flag
     errs() << "Running in debug mode with signature checks.\n";
     populateGraph(F, Builder);
     createErrorBlock(F, Builder);
+    std::string filename = (F.getName() + "_final.dot").str();
+    logGraphToDotFile(filename);
     insertSignatureChecks(F,
                           Builder); // graph structure will be invalid after
                                     // inserting instructions as BB gets split
-    break;
+  } break;
   case 2: {
     DEBUG_FLAG = true; // Turn on debug flag
     errs() << "Running in debug mode without signature checks to generate "
               "graph.dot.\n";
     populateGraph(F, Builder);
     createErrorBlock(F, Builder);
-    std::string filename = (F.getName() + ".dot").str();
+    std::string filename = (F.getName() + "_final.dot").str();
     logGraphToDotFile(filename);
   } break;
   case 3:
