@@ -80,11 +80,11 @@ void HPSCCFAPass::DEBUG_insertPrintSigCheckingInfo(
       "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
                                   {Type::getInt8PtrTy(Context)}, true));
   Value *message = Builder.CreateGlobalStringPtr(
-      "Function: %s\nRuntime Sig of Parent: %d\nPreComputed Sig: %d\nPreComputed Sig Diff: %d\nXOR Result (Runtime Current Sig): %d\n");
+      "Function: %s\nRuntime Sig of Parent: %d\nPreComputed Sig: "
+      "%d\nPreComputed Sig Diff: %d\nXOR Result (Runtime Current Sig): %d\n");
   Builder.CreateCall(printfFunc, {message, funcName, currentSig, precomputedSig,
                                   precomputedSigDiff, xorResult});
 }
-
 
 /**
  * LLVM IR cannot have br instruction in the middle of the BB
@@ -139,9 +139,9 @@ void HPSCCFAPass::insertComparisonInstsForEntryBB(CFABBNode *node,
     FunctionCallee printfFunc = BB->getModule()->getOrInsertFunction(
         "printf", FunctionType::get(IntegerType::getInt32Ty(Context),
                                     {Type::getInt8PtrTy(Context)}, true));
-    Value *message =
-        Builder.CreateGlobalStringPtr("ENTRY Runtime Sig of Parent: %d\n PreComputed "
-                                      "Sig: %d\n PreComputed Sig Diff: %d\n");
+    Value *message = Builder.CreateGlobalStringPtr(
+        "ENTRY Runtime Sig of Parent: %d\n PreComputed "
+        "Sig: %d\n PreComputed Sig Diff: %d\n");
     Builder.CreateCall(
         printfFunc, {message, currentSig, precomputedSig, precomputedSigDiff});
   }
@@ -348,6 +348,22 @@ void HPSCCFAPass::addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder) {
   }
 }
 
+void HPSCCFAPass::addBufferNodeToEdge(
+    Function &F, IRBuilder<> &Builder,
+    std::set<BasicBlock *>::const_iterator it, BasicBlock *BB,
+    std::map<BasicBlock *, CFABBNode *> &graph) {
+  // Use the existing addBufferNode function to handle insertion
+  CFABBNode *bufferNode = addBufferNode(F, Builder, graph[BB], graph[*it]);
+  // Redirect the original block's terminator to point to the buffer
+  // block
+  Instruction *TI = BB->getTerminator();
+  for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
+    if (TI->getSuccessor(i) == *it) {
+      TI->setSuccessor(i, bufferNode->node);
+    }
+  }
+}
+
 /***
  * Handle fan-in problem when the parent has multiple children who are both
  * fan-in nodes. This will override signature adjuster. Solution: We insert
@@ -359,23 +375,85 @@ void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder) {
     // Handle multiple fan-in nodes
     if (llvm::succ_size(BB) > 1) {
       std::set<BasicBlock *> fanInSuccs;
+      std::set<BasicBlock *> fanInDuplicateSuccs;
+      std::vector<BasicBlock *> fanInSuccsList;
       for (BasicBlock *Succ : successors(BB)) {
         if (graph[Succ]->isBranchFanIn) {
+          if (fanInSuccs.find(Succ) != fanInSuccs.end()) {
+            fanInDuplicateSuccs.insert(Succ);
+          }
           fanInSuccs.insert(Succ);
+          fanInSuccsList.push_back(Succ);
         }
       }
 
       if (fanInSuccs.size() > 1) {
-        // Iterate over all but the first fan-in successor to add buffer nodes
-        for (auto it = std::next(fanInSuccs.begin()); it != fanInSuccs.end(); ++it) {
-          // Use the existing addBufferNode function to handle insertion
-          CFABBNode *bufferNode = addBufferNode(F, Builder, graph[BB], graph[*it]);
+        // Handle the cases where there are fan-in nodes with duplicated edges
+        // of the same parent and child
+        if (fanInDuplicateSuccs.size() > 0) {
+          // If only one fan-in node has duplicated edges, we treat it as the
+          // first node without adding buffer node, and add buffer node to the
+          // rest of the fan-in nodes
+          if (fanInDuplicateSuccs.size() == 1) {
+            for (auto it = fanInSuccs.begin(); it != fanInSuccs.end(); ++it) {
+              if (std::find(fanInDuplicateSuccs.begin(),
+                            fanInDuplicateSuccs.end(),
+                            *it) == fanInDuplicateSuccs.end()) {
+                addBufferNodeToEdge(F, Builder, it, BB, graph);
+              }
+            }
+          } else { // If there are multiple fan-in nodes with duplicated edges
+            auto firstDuplicateToSkip = std::next(fanInDuplicateSuccs.begin());
+            for (size_t i = 0; i < fanInSuccsList.size(); ++i) {
+              BasicBlock *current = fanInSuccsList[i];
+              // Check if current is in fanInDuplicateSuccs
+              bool isInDuplicateSuccs =
+                  std::find(fanInDuplicateSuccs.begin(),
+                            fanInDuplicateSuccs.end(),
+                            current) != fanInDuplicateSuccs.end();
+              // Check if current is not the first duplicate to skip
+              bool isNotFirstDuplicateToSkip =
+                  std::find(firstDuplicateToSkip, fanInDuplicateSuccs.end(),
+                            current) == fanInDuplicateSuccs.end();
+              if (isInDuplicateSuccs && isNotFirstDuplicateToSkip) {
+                auto it = std::find(fanInSuccsList.begin(),
+                                    fanInSuccsList.end(), current);
+                CFABBNode *bufferNode =
+                    addBufferNode(F, Builder, graph[BB], graph[*it]);
+                // Redirect the original block's terminator to point to the
+                // buffer block
+                Instruction *TI = BB->getTerminator();
+                for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
+                  if (TI->getSuccessor(i) == *it) {
+                    TI->setSuccessor(i, bufferNode->node);
+                  }
+                }
+              }
+            }
+            // add buffer node to all the non-duplicated fan-in nodes
+            for (auto it = fanInSuccs.begin(); it != fanInSuccs.end(); ++it) {
+              if (std::find(fanInDuplicateSuccs.begin(),
+                            fanInDuplicateSuccs.end(),
+                            *it) == fanInDuplicateSuccs.end()) {
+                addBufferNodeToEdge(F, Builder, it, BB, graph);
+              }
+            }
+          }
 
-          // Redirect the original block's terminator to point to the buffer block
-          Instruction *TI = BB->getTerminator();
-          for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
-            if (TI->getSuccessor(i) == *it) {
-              TI->setSuccessor(i, bufferNode->node);
+        } else {
+          // Iterate over all but the first fan-in successor to add buffer nodes
+          for (auto it = std::next(fanInSuccs.begin()); it != fanInSuccs.end();
+               ++it) {
+            // Use the existing addBufferNode function to handle insertion
+            CFABBNode *bufferNode =
+                addBufferNode(F, Builder, graph[BB], graph[*it]);
+            // Redirect the original block's terminator to point to the buffer
+            // block
+            Instruction *TI = BB->getTerminator();
+            for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
+              if (TI->getSuccessor(i) == *it) {
+                TI->setSuccessor(i, bufferNode->node);
+              }
             }
           }
         }
@@ -383,7 +461,6 @@ void HPSCCFAPass::addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder) {
     }
   }
 }
-
 
 CFABBNode *HPSCCFAPass::addBufferNode(Function &F, IRBuilder<> &Builder,
                                       CFABBNode *pred, CFABBNode *succ) {

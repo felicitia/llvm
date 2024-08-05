@@ -62,6 +62,9 @@ public:
                            CFABBNode *succ);
   void addBufferNodeForSelfLoop(Function &F, IRBuilder<> &Builder);
   void addBufferNodeForFanIn(Function &F, IRBuilder<> &Builder);
+  void addBufferNodeToEdge(Function &F, IRBuilder<> &Builder,
+                         std::set<BasicBlock *>::const_iterator it, BasicBlock *BB,
+                         std::map<BasicBlock *, CFABBNode *> &graph);
   void updatePhiNodes(CFABBNode *pred, CFABBNode *buff, CFABBNode *succ);
   void updateBranchInst(CFABBNode *pred, CFABBNode *buff, CFABBNode *succ);
 
